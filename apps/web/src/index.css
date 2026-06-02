@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+  --muted: 220 14% 94%;
+  --muted-foreground: 220 9% 46%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --primary: 217 91% 56%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 95%;
+  --secondary-foreground: 222 47% 11%;
+  --accent: 266 85% 60%;
+  --accent-foreground: 0 0% 100%;
+  --success: 160 84% 39%;
+  --warning: 39 92% 50%;
+  --destructive: 0 84% 60%;
+  --radius: 1rem;
+  --shadow-color: rgba(15, 23, 42, 0.06);
+}
+
+.dark {
+  --background: 222 47% 7%;
+  --foreground: 210 40% 96%;
+  --muted: 220 17% 18%;
+  --muted-foreground: 215 20% 72%;
+  --card: 222 38% 10%;
+  --card-foreground: 210 40% 96%;
+  --border: 220 18% 22%;
+  --input: 220 18% 18%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 222 26% 16%;
+  --secondary-foreground: 210 40% 96%;
+  --accent: 266 85% 66%;
+  --accent-foreground: 210 40% 98%;
+  --success: 160 84% 39%;
+  --warning: 39 92% 50%;
+  --destructive: 0 84% 60%;
+  --shadow-color: rgba(15, 23, 42, 0.28);
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-destructive: hsl(var(--destructive));
+  --radius-sm: calc(var(--radius) - 0.5rem);
+  --radius-md: calc(var(--radius) - 0.25rem);
+  --radius-lg: var(--radius);
+  --shadow-soft: 0 20px 50px var(--shadow-color);
+
+  --animate-fade-in: fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    @apply min-h-screen bg-background text-foreground antialiased transition-colors duration-200;
+  }
+
+  body {
+    @apply m-0 font-sans;
+    background-image:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.05), transparent 28%),
+      radial-gradient(circle at top right, rgba(168, 85, 247, 0.05), transparent 24%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(220 14% 95%));
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 28%),
+      radial-gradient(circle at top right, rgba(168, 85, 247, 0.18), transparent 24%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(9, 14, 26, 1));
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+/* Custom scrollbar utility */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}

@@ -1,0 +1,20 @@
+services:
+  autovis-runner:
+    image: yuikij/autovis-runner:latest
+    container_name: autovis-runner
+    restart: unless-stopped
+    shm_size: "2gb"
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: "8787"
+      DATA_DIR: "/var/lib/autovis"
+      APP_ORIGIN: "http://localhost:8787"
+      HEADLESS: "false"
+      BROWSER_BACKEND: "playwright"
+      AUTOVIS_DEVICE_TOKEN: "${AUTOVIS_DEVICE_TOKEN:-}"
+    volumes:
+      - autovis-data:/var/lib/autovis
+
+volumes:
+  autovis-data:

@@ -1,0 +1,43 @@
+# AutoVis Runner
+
+AutoVis Runner is the local execution node for AutoVis. It runs browser
+automation tasks on a user's own machine or server, stores local login state,
+and exposes the local web UI and API.
+
+## Install
+
+Linux:
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash
+```
+
+Start the runner:
+
+```shell
+autovis-runner start
+```
+
+systemd:
+
+```shell
+sudo systemctl status autovis-runner
+sudo journalctl -u autovis-runner -f
+```
+
+## Docker
+
+```shell
+docker run -d \
+  --name autovis-runner \
+  --restart unless-stopped \
+  --shm-size=2g \
+  -p 8787:8787 \
+  -v autovis-data:/var/lib/autovis \
+  yuimax/autovis-runner:latest
+```
+
+## Release
+
+This repository contains the public AutoVis Runner source. Release artifacts are
+packaged as `autovis-runner-<version>.tar.gz`.
