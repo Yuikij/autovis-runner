@@ -454,6 +454,8 @@ export interface TaskRun {
   skippedCount: number
   runIds: Identifier[]
   currentRunId?: Identifier
+  /** 当前正在执行的 AI 直接执行 Agent session id（用例无脚本时使用）。 */
+  currentAgentId?: Identifier
   logs: string[]
   startedAt: string
   finishedAt?: string

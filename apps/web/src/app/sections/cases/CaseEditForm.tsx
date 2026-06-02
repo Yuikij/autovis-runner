@@ -36,12 +36,12 @@ export function CaseEditForm(props: CaseDetailsProps) {
   const availableToAdd = dependencyCaseCandidates.filter((item) => !dependencyCaseIds.includes(item.id))
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{selectedCase ? `编辑用例 ${selectedCase.caseCode}` : "创建测试用例"}</CardTitle>
-        <CardDescription>设计测试用例与有序前置用例，并为后续脚本生成与验证提供上下文。</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <div className="space-y-6">
+      <div className="pb-4 border-b border-border/40">
+        <h3 className="text-xl font-bold tracking-tight text-foreground">{selectedCase ? `编辑用例 ${selectedCase.caseCode}` : "创建测试用例"}</h3>
+        <p className="text-sm text-muted-foreground mt-2">设计测试用例与有序前置用例，并为后续脚本生成与验证提供上下文。</p>
+      </div>
+      <div className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="用例编号">
             <input className={inputClassName} onChange={(event) => setCaseForm((current) => ({ ...current, caseCode: event.target.value }))} value={caseForm.caseCode} />
@@ -248,7 +248,7 @@ export function CaseEditForm(props: CaseDetailsProps) {
             保存用例
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

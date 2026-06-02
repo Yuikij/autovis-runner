@@ -54,6 +54,9 @@ export function AuthProfilesSection({ controller }: AuthProfilesSectionProps) {
     checkLoginStatus,
     refreshAuthProfileState,
     setAuthProfilePostLoginUrl,
+    setActiveRun,
+    setActiveTaskRunId,
+    setActiveRecorderSessionId,
     setActiveSection,
   } = controller
 
@@ -324,7 +327,12 @@ export function AuthProfilesSection({ controller }: AuthProfilesSectionProps) {
                     onOpenSandbox={(targetUrlId, targetLabel) =>
                       setSandbox({ authProfileId: selectedProfile.id, targetUrlId, targetLabel })
                     }
-                    onOpenRuns={() => setActiveSection("runs")}
+                    onOpenRuns={() => {
+                      setActiveRun(null)
+                      setActiveTaskRunId(null)
+                      setActiveRecorderSessionId(null)
+                      setActiveSection("runs")
+                    }}
                     activeRefresh={activeRefresh && activeRefresh.profileId === selectedProfile.id ? activeRefresh : null}
                     busy={busy}
                   />

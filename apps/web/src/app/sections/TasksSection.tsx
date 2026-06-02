@@ -64,6 +64,7 @@ export function TasksSection({ controller }: TasksSectionProps) {
     setScheduleTriggerEnabled,
     fireScheduleTrigger,
     setActiveTaskRunId,
+    setActiveRun,
     setActiveSection,
   } = controller
 
@@ -757,6 +758,7 @@ export function TasksSection({ controller }: TasksSectionProps) {
                           key={taskRun.id}
                           type="button"
                           onClick={() => {
+                            setActiveRun(null)
                             setActiveTaskRunId(taskRun.id)
                             setActiveSection("runs")
                           }}

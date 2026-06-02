@@ -22,6 +22,7 @@ import {
   type TaskModeConfig,
   type TaskRun,
   type TestCase,
+  type AgentSession,
 } from "@autovis/shared"
 import { analyzeImageWithLlm } from "../llm.js"
 import { TaskControlRegistry, type TaskController } from "./task-control.js"
@@ -44,6 +45,13 @@ export class RunService {
   private readonly taskRunSubscribers = new Map<string, Set<(taskRun: TaskRun) => void>>()
   private readonly liveViewportSubscribers = new Map<string, Set<(chunk: Uint8Array) => void>>()
   private readonly pendingRunHumanInputs = new Map<string, { handoffId: string; resolve: (value: string) => void; reject: (error: Error) => void }>()
+
+  /** 注入后由 AgentService 填充，用于任务中无脚本用例的 AI 直接执行路径。 */
+  public runDirectAgentForTask: ((opts: { projectId: string; testCaseId: string; targetUrlId?: string; taskRunId: string }) => Promise<AgentSession>) | null = null
+  /** 注入后由 AgentService 填充，用于取消正在运行的 agent。 */
+  public cancelAgentCallback: ((sessionId: string) => boolean) | null = null
+  /** 注入后由 AgentService 填充，用于查询 agent session 状态。 */
+  public getAgentSessionCallback: ((sessionId: string) => AgentSession | undefined) | null = null
 
   constructor(
     private readonly db: AutoVisDatabase,
@@ -502,6 +510,11 @@ export class RunService {
     if (childRun) {
       this.cancelRun(childRun)
     }
+    // also cancel any currently running direct agent
+    const childAgent = taskRun?.currentAgentId
+    if (childAgent) {
+      this.cancelAgentCallback?.(childAgent)
+    }
     return ctrl.cancel("Task run cancelled by user.")
   }
 
@@ -798,10 +811,47 @@ export class RunService {
             continue
           }
           if (!testCase.latestScriptId) {
-            taskRun.skippedCount += 1
-            taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
-            taskRun.logs.push(`跳过 ${testCase.caseCode}：缺少最新脚本。`)
-            this.persistAndNotifyTaskRun(taskRun)
+            if (this.runDirectAgentForTask) {
+              // 无脚本时走 AI 直接执行路径
+              taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
+              taskRun.runningCount = 1
+              taskRun.logs.push(`开始 AI 直接执行 ${testCase.caseCode}（无脚本）。`)
+              this.persistAndNotifyTaskRun(taskRun)
+              let agentSession: AgentSession | undefined
+              try {
+                agentSession = await this.runDirectAgentForTask({
+                  projectId: opts.projectId,
+                  testCaseId: testCase.id,
+                  targetUrlId: item.targetUrlId,
+                  taskRunId: taskRun.id,
+                })
+                taskRun.currentAgentId = agentSession.id
+                this.persistAndNotifyTaskRun(taskRun)
+                const finishedAgent = await this.waitForAgentCompletion(agentSession.id)
+                taskRun.runningCount = 0
+                taskRun.currentAgentId = undefined
+                if (finishedAgent.status === "completed") {
+                  taskRun.passedCount += 1
+                  taskRun.logs.push(`${testCase.caseCode} AI 直接执行成功。`)
+                } else if (finishedAgent.status === "cancelled") {
+                  taskRun.logs.push(`${testCase.caseCode} 已取消。`)
+                } else {
+                  taskRun.failedCount += 1
+                  taskRun.logs.push(`${testCase.caseCode} AI 直接执行失败。`)
+                }
+              } catch (agentErr) {
+                taskRun.runningCount = 0
+                taskRun.currentAgentId = undefined
+                taskRun.failedCount += 1
+                taskRun.logs.push(`${testCase.caseCode} AI 直接执行异常: ${(agentErr as Error).message}`)
+              }
+              this.persistAndNotifyTaskRun(taskRun)
+            } else {
+              taskRun.skippedCount += 1
+              taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
+              taskRun.logs.push(`跳过 ${testCase.caseCode}：缺少最新脚本。`)
+              this.persistAndNotifyTaskRun(taskRun)
+            }
             continue
           }
 
@@ -848,6 +898,7 @@ export class RunService {
       } finally {
         taskRun.finishedAt = now()
         taskRun.currentRunId = undefined
+        taskRun.currentAgentId = undefined
         taskRun.runningCount = 0
         // polling 链上的中间 attempt 不应覆盖任务的最近执行状态。
         const isPollingMidAttempt = opts.effectiveTaskMode.kind === "polling" && !!opts.parentTaskRunId
@@ -889,6 +940,19 @@ export class RunService {
       }
       if (run.status === "passed" || run.status === "failed" || run.status === "cancelled" || run.status === "interrupted") {
         return run
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+  }
+
+  public async waitForAgentCompletion(sessionId: string): Promise<AgentSession> {
+    for (;;) {
+      const session = this.getAgentSessionCallback?.(sessionId)
+      if (!session) {
+        throw new Error("Agent session not found")
+      }
+      if (session.status === "completed" || session.status === "cancelled" || session.status === "error" || session.status === "interrupted") {
+        return session
       }
       await new Promise((resolve) => setTimeout(resolve, 250))
     }

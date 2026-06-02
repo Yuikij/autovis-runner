@@ -31,7 +31,11 @@ type WorkspaceShellProps = {
 }
 
 export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceShellProps) {
-  const { activeSection, llmSession, selectedProject, error, successMessage, setActiveSection, startNewTaskDraft } = controller
+  const {
+    activeSection, llmSession, selectedProject, error, successMessage,
+    setActiveSection, setActiveRun, setActiveTaskRunId, setActiveRecorderSessionId,
+    startNewTaskDraft,
+  } = controller
   const currentSection = sectionCopy[activeSection]
 
   return (
@@ -67,7 +71,14 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
             <button
               key={item.id}
               className={item.id === activeSection ? "flex items-center gap-3 rounded-xl bg-primary/15 px-4 py-3 text-left text-sm font-medium text-primary" : "flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"}
-              onClick={() => setActiveSection(item.id)}
+              onClick={() => {
+                if (item.id === "runs") {
+                  setActiveRun(null)
+                  setActiveTaskRunId(null)
+                  setActiveRecorderSessionId(null)
+                }
+                setActiveSection(item.id)
+              }}
               type="button"
             >
               <span className="material-symbols-outlined text-base">{item.icon}</span>

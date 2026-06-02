@@ -24,6 +24,10 @@ export function useTaskActions(params: WorkspaceActionParams) {
     setSelectedTaskId,
     setTaskForm,
     setActiveTaskRunId,
+    setActiveRecorderSessionId,
+    setActiveRun,
+    setWorkbenchVerificationRunId,
+    setTaskRuns,
     loadTasks,
     loadProjectResources,
   } = params
@@ -98,11 +102,15 @@ export function useTaskActions(params: WorkspaceActionParams) {
 
     setBusy(true)
     setError(null)
+    setActiveRun(null)
+    setWorkbenchVerificationRunId(null)
+    setActiveRecorderSessionId(null)
     try {
       const result = await request<StartTaskRunResponse>(apiRoutes.tasks.run(taskId), {
         method: "POST",
         body: JSON.stringify(taskModeOverride ? { taskMode: taskModeOverride } : {}),
       })
+      setTaskRuns((current) => [result.data.taskRun, ...current.filter((item) => item.id !== result.data.taskRun.id)])
       setActiveTaskRunId(result.data.taskRun.id)
       setActiveSection("runs")
       await loadProjectResources(selectedProject.id)

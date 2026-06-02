@@ -1316,4 +1316,46 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       }
     }
   }
+
+  /**
+   * 任务编排中无脚本用例的 AI 直接执行入口。
+   * 自动从用例的 purpose/steps/expectedResult 组成 prompt，使用 runDirectAgent 执行。
+   * 返回启动的 AgentSession（可通过 getAgentSession 轮询状态）。
+   */
+  public async startDirectAgentForTask(opts: {
+    projectId: string
+    testCaseId: string
+    targetUrlId?: string
+    taskRunId: string
+  }): Promise<import("@autovis/shared").AgentSession> {
+    const testCase = this.db.getTestCase(opts.testCaseId)
+    if (!testCase) throw new Error(`用例 ${opts.testCaseId} 不存在`)
+
+    const promptParts: string[] = [`请执行以下测试任务：${testCase.purpose || testCase.caseCode}`]
+    if (testCase.steps.length > 0) {
+      promptParts.push("执行步骤：", ...testCase.steps.map((s, i) => `${i + 1}. ${s}`))
+    }
+    if (testCase.expectedResult) {
+      promptParts.push(`预期结果：${testCase.expectedResult}`)
+    }
+    const prompt = promptParts.join("\n")
+
+    const sessionId = `agent_task_${Math.random().toString(36).slice(2, 10)}`
+
+    void this.runDirectAgent({
+      sessionId,
+      projectId: opts.projectId,
+      testCaseId: opts.testCaseId,
+      prompt,
+      runTargetUrlId: opts.targetUrlId,
+    })
+
+    // 等 session 被写入 DB 后返回（runDirectAgent 开头即 persistAndNotifyAgent）
+    for (let i = 0; i < 40; i++) {
+      const session = this.db.getAgentSession(sessionId)
+      if (session) return session
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    throw new Error("等待 Agent session 初始化超时")
+  }
 }

@@ -127,6 +127,8 @@ export function RunsSection({ controller }: RunsSectionProps) {
     setActiveTaskRunId(taskRunId)
     if (run) {
       setActiveRun(run)
+    } else {
+      setActiveRun(null)
     }
     setViewMode("detail")
   }

@@ -93,12 +93,18 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
   }, [selectedCase?.id, selectedCase, setCaseForm])
 
   useEffect(() => {
-    if (!selectedCase || !activeRun || activeRun.testCaseId === selectedCase.id) {
+    if (!activeRun || activeRun.kind !== "temporary") {
+      return
+    }
+    if (activeSection !== "cases" && activeSection !== "workbench") {
+      return
+    }
+    if (selectedCase && activeRun.testCaseId === selectedCase.id) {
       return
     }
     setActiveRun(null)
     setWorkbenchVerificationRunId(null)
-  }, [selectedCase?.id, activeRun?.id, selectedCase, activeRun, setActiveRun, setWorkbenchVerificationRunId])
+  }, [activeSection, selectedCase?.id, activeRun?.id, activeRun?.kind, activeRun?.testCaseId, selectedCase, setActiveRun, setWorkbenchVerificationRunId])
 
   // Auto-adopt a rehydrated temporary run as the workbench verification run
   useEffect(() => {
@@ -113,21 +119,21 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
   }, [activeRun?.id, activeRun?.kind, activeRun?.testCaseId, selectedCase?.id, agentSession?.warmupRunId, setWorkbenchVerificationRunId])
 
   useEffect(() => {
-    if (activeRun) {
-      if (activeRun.kind === "temporary") {
-        return
-      }
-      const synced = projectRuns.find((item) => item.id === activeRun.id)
-      if (synced) {
-        setActiveRun(synced)
-      }
+    if (!activeRun) {
       return
     }
-
-    if (projectRuns[0]) {
-      setActiveRun(projectRuns[0])
+    if (activeRun.kind === "temporary") {
+      return
     }
-  }, [projectRuns, activeRun, setActiveRun])
+    if (selectedProjectId && activeRun.projectId !== selectedProjectId) {
+      setActiveRun(null)
+      return
+    }
+    const synced = projectRuns.find((item) => item.id === activeRun.id)
+    if (synced && synced !== activeRun) {
+      setActiveRun(synced)
+    }
+  }, [projectRuns, activeRun, selectedProjectId, setActiveRun])
 
   useEffect(() => {
     if (!activeRun) {
@@ -224,8 +230,12 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
           const next = current.filter((item) => item.id !== taskRun.id)
           return [taskRun, ...next]
         })
-        if (taskRun.currentRunId) {
-          const currentActiveRun = activeRunRef.current
+        const currentActiveRun = activeRunRef.current
+        if (!taskRun.currentRunId) {
+          if (currentActiveRun && currentActiveRun.taskRunId !== taskRun.id) {
+            setActiveRun(null)
+          }
+        } else {
           // If the user has explicitly selected a terminal run (passed/failed/etc.) that is NOT the currently running one,
           // do NOT auto-switch them away to the new currentRunId.
           const isUserInspectingDiffFinishedRun = currentActiveRun &&
@@ -423,6 +433,10 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
   // Synchronize React state to URL Hash (includes active task IDs)
   useEffect(() => {
     if (!initialized) return
+    const currentHash = parseHash()
+    if (!rehydratedRef.current && (currentHash.agentSessionId || currentHash.runId || currentHash.taskRunId || currentHash.recorderSessionId)) {
+      return
+    }
 
     const agentLive = agentSession?.status === "running"
       || agentSession?.status === "paused"
@@ -432,13 +446,20 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
       || activeRun?.status === "awaiting_human"
       || activeRun?.status === "cancelling"
       || activeRun?.status === "queued"
-    const taskRunLive = activeTaskRun?.status === "running"
-      || activeTaskRun?.status === "paused"
-      || activeTaskRun?.status === "cancelling"
-      || activeTaskRun?.status === "queued"
     const recorderLive = activeRecorderSession?.status === "running"
       || activeRecorderSession?.status === "paused"
       || activeRecorderSession?.status === "starting"
+    const hashRunId = activeSection === "runs"
+      ? activeRun?.id
+      : activeSection === "workbench" && runLive
+      ? activeRun?.id
+      : null
+    const hashTaskRunId = activeSection === "runs" ? activeTaskRun?.id : null
+    const hashRecorderSessionId = activeSection === "runs"
+      ? activeRecorderSession?.id
+      : recorderLive
+      ? activeRecorderSession?.id
+      : null
 
     writeHash({
       section: activeSection,
@@ -446,11 +467,11 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
       taskId: selectedTaskId,
       caseId: selectedCaseId,
       agentSessionId: agentLive ? agentSession?.id : null,
-      runId: runLive ? activeRun?.id : null,
-      taskRunId: taskRunLive ? activeTaskRun?.id : null,
-      recorderSessionId: recorderLive ? activeRecorderSession?.id : null,
+      runId: hashRunId,
+      taskRunId: hashTaskRunId,
+      recorderSessionId: hashRecorderSessionId,
     })
-  }, [activeSection, selectedProjectId, selectedTaskId, selectedCaseId, initialized, agentSession?.id, agentSession?.status, activeRun?.id, activeRun?.status, activeTaskRun?.id, activeTaskRun?.status, activeRecorderSession?.id, activeRecorderSession?.status])
+  }, [activeSection, selectedProjectId, selectedTaskId, selectedCaseId, initialized, parseHash, agentSession?.id, agentSession?.status, activeRun?.id, activeRun?.status, activeTaskRun?.id, activeTaskRun?.status, activeRecorderSession?.id, activeRecorderSession?.status])
 
   // Synchronize URL Hash change to React state.
   // Only push hash[key] into state when the target section actually owns that key —
@@ -468,13 +489,57 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
       if (sectionAllows(hashData.section, "caseId")) {
         setSelectedCaseId((curr) => (curr !== hashData.caseId ? hashData.caseId : curr))
       }
+      if (sectionAllows(hashData.section, "runId")) {
+        if (hashData.runId) {
+          const runId = hashData.runId
+          void loadRun(runId).then((run) => {
+            if (run && parseHash().runId === runId) setActiveRun(run)
+          }).catch(() => undefined)
+        } else if (hashData.section === "runs" || hashData.section === "workbench") {
+          setActiveRun(null)
+        }
+      }
+      if (sectionAllows(hashData.section, "taskRunId")) {
+        if (hashData.taskRunId) {
+          const taskRunId = hashData.taskRunId
+          request<TaskRun>(apiRoutes.taskRuns.detail(taskRunId))
+            .then((res) => {
+              if (parseHash().taskRunId !== taskRunId) return
+              setTaskRuns((current) => {
+                const next = current.filter((item) => item.id !== res.data.id)
+                return [res.data, ...next]
+              })
+              setActiveTaskRunId?.(res.data.id)
+            })
+            .catch(() => undefined)
+        } else if (hashData.section === "runs") {
+          setActiveTaskRunId?.(null)
+        }
+      }
+      if (sectionAllows(hashData.section, "recorderSessionId")) {
+        if (hashData.recorderSessionId) {
+          const recorderSessionId = hashData.recorderSessionId
+          request<RecorderSession>(apiRoutes.recorderSessions.detail(recorderSessionId))
+            .then((res) => {
+              if (parseHash().recorderSessionId !== recorderSessionId) return
+              setRecorderSessions((current) => {
+                const next = current.filter((item) => item.id !== res.data.id)
+                return [res.data, ...next]
+              })
+              setActiveRecorderSessionId?.(res.data.id)
+            })
+            .catch(() => undefined)
+        } else if (hashData.section === "runs") {
+          setActiveRecorderSessionId?.(null)
+        }
+      }
     }
 
     window.addEventListener("hashchange", handleHashChange)
     return () => {
       window.removeEventListener("hashchange", handleHashChange)
     }
-  }, [parseHash, setActiveSection, setSelectedProjectId, setSelectedTaskId, setSelectedCaseId])
+  }, [parseHash, setActiveSection, setSelectedProjectId, setSelectedTaskId, setSelectedCaseId, loadRun, setActiveRun, setTaskRuns, setActiveTaskRunId, setRecorderSessions, setActiveRecorderSessionId])
 
   // Rehydrate in-flight tasks: URL hash IDs first, then project-level active tasks
   useEffect(() => {

@@ -63,6 +63,10 @@ class PersistentStore {
   private readonly schedulerService = new SchedulerService(this.db, this.runService)
 
   constructor() {
+    // 注入 AI 直接执行回调，使任务可以在无脚本时走 agent 路径
+    this.runService.runDirectAgentForTask = (opts) => this.agentService.startDirectAgentForTask(opts)
+    this.runService.cancelAgentCallback = (sessionId) => this.agentService.cancelAgent(sessionId)
+    this.runService.getAgentSessionCallback = (sessionId) => this.agentService.getAgentSession(sessionId)
     this.reapStaleTasks()
     this.scheduleTemporaryRunCleanup()
     this.schedulerService.start()

@@ -14,6 +14,8 @@ export function useRecorderActions(params: WorkspaceActionParams) {
     setActiveSection,
     setSelectedScriptId,
     setActiveRun,
+    setActiveTaskRunId,
+    setWorkbenchVerificationRunId,
     loadScripts,
     loadProjectResources,
     loadTestCases,
@@ -69,6 +71,8 @@ export function useRecorderActions(params: WorkspaceActionParams) {
         setSelectedScriptId(result.data.script.id)
       }
       if (result.data.run) {
+        setActiveTaskRunId(null)
+        setWorkbenchVerificationRunId(result.data.run.id)
         setActiveRun(result.data.run)
       }
       if (selectedCase) {

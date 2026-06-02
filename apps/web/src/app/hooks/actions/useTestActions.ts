@@ -27,6 +27,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
     setActiveRun,
     setWorkbenchVerificationRunId,
     setActiveTaskRunId,
+    setActiveRecorderSessionId,
     setAgentSession,
     loadTestCases,
     loadAllTestCases,
@@ -217,6 +218,9 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
     setBusy(true)
     setError(null)
     setActiveTaskRunId(null)
+    setActiveRecorderSessionId(null)
+    setActiveRun(null)
+    setWorkbenchVerificationRunId(null)
     try {
       const result = await request<StartRunResponse>(apiRoutes.runs.create(), {
         method: "POST",
@@ -249,6 +253,10 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
 
     setBusy(true)
     setError(null)
+    setActiveTaskRunId(null)
+    setActiveRecorderSessionId(null)
+    setActiveRun(null)
+    setWorkbenchVerificationRunId(null)
     try {
       const result = await request<StartRunResponse>(apiRoutes.runs.create(), {
         method: "POST",

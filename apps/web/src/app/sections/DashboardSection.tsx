@@ -33,6 +33,7 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
     startCopilotDeviceFlow,
     pollCopilotDeviceFlow,
     setActiveRun,
+    setActiveTaskRunId,
     setActiveSection,
   } = controller
 
@@ -208,7 +209,14 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
             <span className="text-3xl font-bold text-foreground font-mono">{activeCount}</span>
             <span className="text-xs text-muted-foreground">个验证实例</span>
           </div>
-          <div className="mt-3 text-[11px] text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => setActiveSection("runs")}>
+          <div
+            className="mt-3 text-[11px] text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+            onClick={() => {
+              setActiveRun(null)
+              setActiveTaskRunId(null)
+              setActiveSection("runs")
+            }}
+          >
             进入运行监控 <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
           </div>
         </div>
@@ -569,6 +577,7 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
                       <tr 
                         key={run.id}
                         onClick={() => {
+                          setActiveTaskRunId(null)
                           setActiveRun(run)
                           setActiveSection("runs")
                         }}
