@@ -37,6 +37,29 @@ docker run -d \
   yuimax/autovis-runner:latest
 ```
 
+## Authentication
+
+Authentication is disabled by default. To protect a self-hosted runner, set:
+
+```shell
+AUTOVIS_AUTH_ENABLED=true
+AUTOVIS_ADMIN_USER=admin
+AUTOVIS_ADMIN_PASSWORD=<strong-password>
+```
+
+LLM account storage can be shared by every login or separated per user:
+
+```shell
+AUTOVIS_LLM_SCOPE=shared    # default
+AUTOVIS_LLM_SCOPE=per_user  # each login has its own LLM configs and secrets
+```
+
+Multiple users can be seeded with:
+
+```shell
+AUTOVIS_USERS=alice:password:admin,bob:password:user
+```
+
 ## Release
 
 This repository contains the public AutoVis Runner source. Release artifacts are

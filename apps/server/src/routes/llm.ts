@@ -41,14 +41,15 @@ import type {
   WorkspaceTreeEntry,
 } from "@autovis/shared"
 import { store } from "../store.js"
+import { getRequestLlmOwnerKey } from "../auth.js"
 
 export async function llmRoutes(app: FastifyInstance) {
-  app.get("/llm/session", async (): Promise<ApiEnvelope<LlmSessionConfig>> => ({
-    data: await store.getLlmSession(),
+  app.get("/llm/session", async (request): Promise<ApiEnvelope<LlmSessionConfig>> => ({
+    data: await store.getLlmSession(getRequestLlmOwnerKey(request)),
   }))
 
-  app.get("/llm/state", async (): Promise<ApiEnvelope<LlmState>> => ({
-    data: await store.getLlmState(),
+  app.get("/llm/state", async (request): Promise<ApiEnvelope<LlmState>> => ({
+    data: await store.getLlmState(getRequestLlmOwnerKey(request)),
   }))
 
   app.post("/llm/configs", async (request): Promise<ApiEnvelope<LlmState>> => {
@@ -62,7 +63,7 @@ export async function llmRoutes(app: FastifyInstance) {
     }).parse(request.body) as UpsertLlmConfigRequest
   
     return {
-      data: await store.saveLlmConfig(body),
+      data: await store.saveLlmConfig(body, getRequestLlmOwnerKey(request)),
     }
   })
 
@@ -77,28 +78,28 @@ export async function llmRoutes(app: FastifyInstance) {
     }).parse(request.body) as UpsertLlmConfigRequest
   
     return {
-      data: await store.testLlmConfig(body),
+      data: await store.testLlmConfig(body, getRequestLlmOwnerKey(request)),
     }
   })
 
   app.post("/llm/configs/activate", async (request): Promise<ApiEnvelope<LlmState>> => {
     const body = z.object({ configId: z.string().min(1) }).parse(request.body) as ActivateLlmConfigRequest
     return {
-      data: await store.activateLlmConfig(body.configId),
+      data: await store.activateLlmConfig(body.configId, getRequestLlmOwnerKey(request)),
     }
   })
 
   app.post("/llm/configs/activate-vision", async (request): Promise<ApiEnvelope<LlmState>> => {
     const body = z.object({ configId: z.string().min(1).nullable() }).parse(request.body) as ActivateVisionConfigRequest
     return {
-      data: await store.activateVisionConfig(body.configId),
+      data: await store.activateVisionConfig(body.configId, getRequestLlmOwnerKey(request)),
     }
   })
 
   app.delete("/llm/configs/:configId", async (request): Promise<ApiEnvelope<LlmState>> => {
     const params = z.object({ configId: z.string().min(1) }).parse(request.params)
     return {
-      data: await store.deleteLlmConfig(params.configId),
+      data: await store.deleteLlmConfig(params.configId, getRequestLlmOwnerKey(request)),
     }
   })
 
@@ -112,7 +113,7 @@ export async function llmRoutes(app: FastifyInstance) {
   
     return {
       data: {
-        session: await store.startCopilotDeviceSession(body),
+        session: await store.startCopilotDeviceSession(body, getRequestLlmOwnerKey(request)),
       },
     }
   })
@@ -127,7 +128,7 @@ export async function llmRoutes(app: FastifyInstance) {
   
     return {
       data: {
-        session: await store.pollCopilotDeviceSession(body),
+        session: await store.pollCopilotDeviceSession(body, getRequestLlmOwnerKey(request)),
       },
     }
   })
@@ -136,7 +137,7 @@ export async function llmRoutes(app: FastifyInstance) {
     const body = z.object({ configId: z.string().optional() }).default({}).parse(request.body ?? {})
     return {
       data: {
-        session: await store.disconnectCopilotSession(body.configId),
+        session: await store.disconnectCopilotSession(body.configId, getRequestLlmOwnerKey(request)),
       },
     }
   })
@@ -144,7 +145,7 @@ export async function llmRoutes(app: FastifyInstance) {
   app.get("/llm/models", async (request): Promise<ApiEnvelope<{ id: string; name: string; vendor: string }[]>> => {
     const query = z.object({ configId: z.string().optional() }).parse(request.query)
     return {
-      data: await store.fetchLlmModels(query.configId),
+      data: await store.fetchLlmModels(query.configId, getRequestLlmOwnerKey(request)),
     }
   })
 
@@ -157,7 +158,7 @@ export async function llmRoutes(app: FastifyInstance) {
       .parse(request.body)
   
     return {
-      data: await store.updateLlmModel(body.model, body.configId),
+      data: await store.updateLlmModel(body.model, body.configId, getRequestLlmOwnerKey(request)),
     }
   })
 

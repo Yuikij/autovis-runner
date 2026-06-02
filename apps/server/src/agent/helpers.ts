@@ -35,6 +35,7 @@ export async function saveAgentScreenshot(page: Page, artifactsDir: string, sess
   const dir = join(artifactsDir, sessionId)
   await mkdir(dir, { recursive: true })
   const fileName = `${Date.now()}-${sanitizeFileSegment(name)}.png`
+  await waitForPageContent(page).catch(() => undefined)
   // 只截可见视口 + 短超时 + 关动画：京东这类超长懒加载页 fullPage 截图会卡满 30s，
   // 把"其实成功了的步骤"也拖到超时触发整脚本重放。截图失败仅记日志，绝不阻断步骤。
   await page
@@ -43,6 +44,96 @@ export async function saveAgentScreenshot(page: Page, artifactsDir: string, sess
       console.warn(`[screenshot] ${name} 截图失败（已忽略）：${error instanceof Error ? error.message : String(error)}`)
     })
   return toArtifactUrl(sessionId, fileName)
+}
+
+export async function waitForPageContent(page: Page, timeout = 8000): Promise<void> {
+  await page.waitForLoadState("domcontentloaded", { timeout }).catch(() => undefined)
+  await page.waitForFunction(
+    () => {
+      const body = document.body
+      if (!body) return false
+      const text = (body.innerText || body.textContent || "").trim()
+      if (text.length > 0) return true
+
+      const root = document.querySelector("#root, #app, [data-reactroot]")
+      if (root && root.innerHTML.trim().length > 120) return true
+
+      const interactive = Array.from(document.querySelectorAll("input,button,textarea,select,a,[role='button'],[role='textbox']"))
+      if (interactive.some((node) => {
+        const el = node as HTMLElement
+        const rect = el.getBoundingClientRect()
+        const style = getComputedStyle(el)
+        return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none"
+      })) {
+        return true
+      }
+
+      return Array.from(document.querySelectorAll("canvas,svg,img")).some((node) => {
+        const rect = (node as HTMLElement).getBoundingClientRect()
+        return rect.width >= 40 && rect.height >= 40
+      })
+    },
+    undefined,
+    { timeout },
+  ).catch(() => undefined)
+}
+
+async function isVisuallyEmptyPage(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const body = document.body
+    if (!body) return true
+    const text = (body.innerText || body.textContent || "").trim()
+    if (text.length > 0) return false
+    const root = document.querySelector("#root, #app, [data-reactroot]")
+    if (root && root.innerHTML.trim().length > 80) return false
+    const visible = Array.from(document.querySelectorAll("input,button,textarea,select,a,[role='button'],[role='textbox'],canvas,svg,img"))
+      .some((node) => {
+        const el = node as HTMLElement
+        const rect = el.getBoundingClientRect()
+        const style = getComputedStyle(el)
+        return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none"
+      })
+    return !visible
+  }).catch(() => false)
+}
+
+export async function recoverBlankSpaRoute(page: Page, attemptedUrl?: string, projectBaseUrl?: string): Promise<boolean> {
+  await waitForPageContent(page, 4000).catch(() => undefined)
+  if (!(await isVisuallyEmptyPage(page))) return false
+
+  const candidates: string[] = []
+  const pushCandidate = (value: string) => {
+    if (value && !candidates.includes(value)) candidates.push(value)
+  }
+
+  for (const value of [attemptedUrl, projectBaseUrl]) {
+    if (!value || !/^https?:\/\//i.test(value)) continue
+    try {
+      const url = new URL(value)
+      const pathname = url.pathname.replace(/\/+$/, "")
+      const loginMatch = pathname.match(/^(.*)\/login$/)
+      if (loginMatch?.[1] && loginMatch[1] !== "") {
+        pushCandidate(`${url.origin}${loginMatch[1]}/#/login`)
+        continue
+      }
+      if (pathname && pathname !== "/") {
+        pushCandidate(`${url.origin}${pathname.replace(/\/?$/, "/")}#/login`)
+      }
+    } catch {
+      // Non-critical recovery.
+    }
+  }
+
+  for (const candidate of candidates) {
+    await page.goto(candidate, { waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => undefined)
+    await waitForPageContent(page, 8000).catch(() => undefined)
+    if (!(await isVisuallyEmptyPage(page))) {
+      console.log(`[agent] recovered blank SPA route: ${attemptedUrl ?? page.url()} -> ${page.url()}`)
+      return true
+    }
+  }
+
+  return false
 }
 
 export function resolveUrl(target: string, projectBaseUrl: string, currentUrl?: string): string {
@@ -75,6 +166,7 @@ export function describeLocator(args: LocatorQuery): string {
 }
 
 export async function getPageSnapshot(page: Page): Promise<string> {
+  await waitForPageContent(page).catch(() => undefined)
   const sections: string[] = []
 
   // Layer 1: Page metadata
@@ -96,7 +188,7 @@ export async function getPageSnapshot(page: Page): Promise<string> {
     // 让 LLM 别把"被拦下/登录态失效"误判成选择器问题。限频类的临时回弹不在这里特判——
     // 交给脚本自身"验证落点 + retry 退避"的通用自愈逻辑（见 system prompt）。
     const wall =
-      /\/verify|captcha|geetest|slidecode|punish|antispider|anti[_-]spider|passport\.|\/login\b|\/signin\b/.test(url) ||
+      /\/verify|captcha|geetest|slidecode|punish|antispider|anti[_-]spider|passport\./.test(url) ||
       /验证|安全验证|人机|拦截|访问异常|页面异常|滑块|未登录|请登录/.test(title)
     if (wall) {
       sections.push(

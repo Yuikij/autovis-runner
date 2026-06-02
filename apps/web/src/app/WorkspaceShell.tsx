@@ -11,6 +11,7 @@ import { RunsSection } from "./sections/RunsSection"
 import { AuthProfilesSection } from "./sections/AuthProfilesSection"
 import { TargetUrlsSection } from "./sections/TargetUrlsSection"
 import { TasksSection } from "./sections/TasksSection"
+import type { AuthSession } from "../App"
 
 const sectionCopy: Record<string, { title: string; description: string }> = {
   dashboard: { title: "总览", description: "集中查看项目健康度、模型连接状态和最近活动。" },
@@ -24,10 +25,12 @@ const sectionCopy: Record<string, { title: string; description: string }> = {
 }
 
 type WorkspaceShellProps = {
+  authSession: AuthSession
   controller: ReadyWorkspaceController
+  onLogout: () => Promise<void>
 }
 
-export function WorkspaceShell({ controller }: WorkspaceShellProps) {
+export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceShellProps) {
   const { activeSection, llmSession, selectedProject, error, successMessage, setActiveSection, startNewTaskDraft } = controller
   const currentSection = sectionCopy[activeSection]
 
@@ -103,6 +106,12 @@ export function WorkspaceShell({ controller }: WorkspaceShellProps) {
                   </span>
                 </button>
                 <Badge>{llmSession.provider}</Badge>
+                {authSession.authEnabled && authSession.user ? (
+                  <button className="ghost-button small" type="button" onClick={() => void onLogout()}>
+                    <span className="material-symbols-outlined text-sm">logout</span>
+                    {authSession.user.username}
+                  </button>
+                ) : null}
               </div>
             }
           />

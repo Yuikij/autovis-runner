@@ -10,6 +10,7 @@ import type {
   StartVerificationResponse,
 } from "@autovis/shared"
 import { store } from "../store.js"
+import { getRequestLlmOwnerKey } from "../auth.js"
 
 export async function runsRoutes(app: FastifyInstance) {
   app.post("/runs", async (request, reply): Promise<ApiEnvelope<StartRunResponse> | void> => {
@@ -28,7 +29,7 @@ export async function runsRoutes(app: FastifyInstance) {
     try {
       return {
         data: {
-          run: await store.startRun(body),
+          run: await store.startRun({ ...body, llmOwnerKey: getRequestLlmOwnerKey(request) }),
         },
       }
     } catch (err: any) {
@@ -56,7 +57,7 @@ export async function runsRoutes(app: FastifyInstance) {
   
     return {
       data: {
-        run: await store.startVerification(body),
+        run: await store.startVerification({ ...body, llmOwnerKey: getRequestLlmOwnerKey(request) }),
       },
     }
   })
@@ -163,6 +164,7 @@ export async function runsRoutes(app: FastifyInstance) {
       runTargetUrlId: run.targetUrlId,
       baseScriptId: run.scriptId,
       sessionId,
+      llmOwnerKey: getRequestLlmOwnerKey(request),
     })
 
     return {

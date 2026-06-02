@@ -44,12 +44,83 @@ import {
   type ScriptRow,
   type TestCaseRow,
 } from "../mappers.js"
-import { now, toPublicLlmState, type PersistedLlmState } from "../shared.js"
+import { buildDefaultLlmState, normalizePersistedLlmState, now, parseJson, toPublicLlmState, type PersistedLlmState } from "../shared.js"
 
 const typedRows = <TRow>(rows: Record<string, SQLOutputValue>[]): TRow[] => rows as unknown as TRow[]
 const typedRow = <TRow>(row: Record<string, SQLOutputValue> | undefined): TRow | undefined => row as TRow | undefined
 
+export const sharedLlmOwnerKey = "shared"
 
+export interface LlmStateRow {
+  owner_key: string
+  configs_json: string
+  llm_secrets_json: string | null
+  active_config_id: string | null
+  active_vision_config_id: string | null
+  updated_at: string
+}
+
+const mergeSecrets = (state: PersistedLlmState, secretsJson: string | null): PersistedLlmState => {
+  const secrets = JSON.parse(secretsJson || "{}") as Record<string, { apiKey?: string; copilot?: CopilotSecretState }>
+  return {
+    activeConfigId: state.activeConfigId,
+    activeVisionConfigId: state.activeVisionConfigId,
+    configs: state.configs.map((item) => ({
+      session: item.session,
+      secrets: secrets[item.session.id] ?? item.secrets ?? {},
+    })),
+  }
+}
+
+export const getLlmConfigStateForOwner = (db: DatabaseSync, ownerKey = sharedLlmOwnerKey): PersistedLlmState => {
+  const row = typedRow<LlmStateRow>(db.prepare("SELECT * FROM llm_states WHERE owner_key = ?").get(ownerKey))
+  if (row) {
+    return mergeSecrets(
+      normalizePersistedLlmState({
+        activeConfigId: row.active_config_id ?? undefined,
+        activeVisionConfigId: row.active_vision_config_id ?? undefined,
+        configs: parseJson(row.configs_json, buildDefaultLlmState()).configs,
+      }),
+      row.llm_secrets_json,
+    )
+  }
+
+  if (ownerKey !== sharedLlmOwnerKey) {
+    return buildDefaultLlmState()
+  }
+
+  return getLlmConfigState(db)
+}
+
+export const saveLlmConfigStateForOwner = (db: DatabaseSync, state: PersistedLlmState, ownerKey = sharedLlmOwnerKey) => {
+  const publicState = toPublicLlmState(state)
+  const configsState: PersistedLlmState = {
+    activeConfigId: state.activeConfigId,
+    activeVisionConfigId: state.activeVisionConfigId,
+    configs: state.configs.map((item) => ({
+      session: item.session,
+      secrets: {},
+    })),
+  }
+  db.prepare(`
+      INSERT OR REPLACE INTO llm_states (
+        owner_key, configs_json, llm_secrets_json, active_config_id, active_vision_config_id, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      ownerKey,
+      JSON.stringify(configsState),
+      JSON.stringify(
+        state.configs.reduce<Record<string, { apiKey?: string; copilot?: CopilotSecretState }>>((acc, item) => {
+          acc[item.session.id] = item.secrets
+          return acc
+        }, {}),
+      ),
+      publicState.activeConfigId ?? null,
+      publicState.activeVisionConfigId ?? null,
+      now(),
+    )
+}
 
 
 

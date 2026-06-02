@@ -33,6 +33,8 @@ import {
 } from "@autovis/shared"
 import { TaskControlRegistry } from "./task-control.js"
 
+type LlmOwned = { llmOwnerKey?: string }
+
 export class AgentService {
   private readonly agentSubscribers = new Map<string, Set<(session: AgentSession) => void>>()
   private readonly validationTasks = new Map<string, ValidationTask>()
@@ -182,8 +184,9 @@ export class AgentService {
     return script
   }
 
-  public async generateScript(request: GenerateScriptRequest) {
-    const { state, current } = this.llmService.getActiveLlmConfigBundle()
+  public async generateScript(request: GenerateScriptRequest & LlmOwned) {
+    const ownerKey = request.llmOwnerKey ?? "shared"
+    const { state, current } = this.llmService.getActiveLlmConfigBundle(undefined, ownerKey)
     const project = this.db.getProject(request.projectId)
     const testCase = this.db.getTestCase(request.testCaseId)
     if (!project || !testCase) {
@@ -251,7 +254,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           current.session.lastError = message
           current.session.lastSyncedAt = now()
         }
-        this.llmService.saveLlmConfigState(state)
+        this.llmService.saveLlmConfigState(state, ownerKey)
         console.warn("LLM generation failed, falling back to template:", message)
       }
     }
@@ -260,7 +263,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
     current.session.lastSyncedAt = now()
     current.session.lastError = undefined
     this.db.insertScript(nextScript)
-    this.llmService.saveLlmConfigState(state)
+    this.llmService.saveLlmConfigState(state, ownerKey)
     return nextScript
   }
 
@@ -312,9 +315,9 @@ ${promptSummary || "// Prompt summary: (empty)"}`
     }
   }
 
-  public startGenerateValidationScript(projectId: string, profileId: string, targetUrlId?: string): string {
+  public startGenerateValidationScript(projectId: string, profileId: string, targetUrlId?: string, llmOwnerKey = "shared"): string {
     const task = this.createValidationTask(profileId, "generate", targetUrlId)
-    void this.runGenerateValidationScript(task.id, projectId, profileId, targetUrlId).catch((err) => {
+    void this.runGenerateValidationScript(task.id, projectId, profileId, targetUrlId, llmOwnerKey).catch((err) => {
       const current = this.validationTasks.get(task.id)
       if (!current) return
       current.status = "error"
@@ -364,7 +367,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
     return targetUrl
   }
 
-  private async runGenerateValidationScript(taskId: string, projectId: string, profileId: string, targetUrlId?: string) {
+  private async runGenerateValidationScript(taskId: string, projectId: string, profileId: string, targetUrlId?: string, llmOwnerKey = "shared") {
     const project = this.db.getProject(projectId)
     if (!project) throw new Error("Project not found")
     const authProfile = this.db.getAuthProfile(profileId)
@@ -376,7 +379,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       throw new Error(`目标 URL「${targetUrl.label}」尚未捕获 storageState。请先在概览页对该 URL 执行『刷新登录态』。`)
     }
 
-    const { state: llmState, current } = this.llmService.getActiveLlmConfigBundle()
+    const { state: llmState, current } = this.llmService.getActiveLlmConfigBundle(undefined, llmOwnerKey)
     if (current.session.connectionStatus !== "connected") {
       throw new Error("当前 AI 配置未连接。失效校验脚本依赖 LLM 基于实际页面差异生成，无法在断连状态下安全生成。")
     }
@@ -393,7 +396,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           secrets: current.secrets,
         })
         current.session.lastError = undefined
-        this.llmService.saveLlmConfigState(llmState)
+        this.llmService.saveLlmConfigState(llmState, llmOwnerKey)
         return code
       } catch (error) {
         const message = error instanceof Error
@@ -408,7 +411,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           current.session.lastError = message
           current.session.lastSyncedAt = now()
         }
-        this.llmService.saveLlmConfigState(llmState)
+        this.llmService.saveLlmConfigState(llmState, llmOwnerKey)
         throw error
       }
     }
@@ -475,8 +478,9 @@ ${promptSummary || "// Prompt summary: (empty)"}`
     }
   }
 
-  public async runScriptAgent(request: GenerateScriptRequest & { sessionId: string }) {
-    const { state, current } = this.llmService.getActiveLlmConfigBundle()
+  public async runScriptAgent(request: GenerateScriptRequest & { sessionId: string } & LlmOwned) {
+    const ownerKey = request.llmOwnerKey ?? "shared"
+    const { state, current } = this.llmService.getActiveLlmConfigBundle(undefined, ownerKey)
     const project = this.db.getProject(request.projectId)
     const testCase = this.db.getTestCase(request.testCaseId)
     if (!project || !testCase) {
@@ -687,7 +691,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
                 this.runService.notifyRun(warmupRun)
                 return value
               },
-              analyzeImage: (analysisRequest) => this.runService.analyzeImageWithCurrentLlm(analysisRequest),
+              analyzeImage: (analysisRequest) => this.runService.analyzeImageWithCurrentLlm(analysisRequest, ownerKey),
               stepIndex,
               startedLog: `[前置用例 ${dependency.testCase.caseCode}] 开始执行。`,
               completedLog: `[前置用例 ${dependency.testCase.caseCode}] 执行完成。`,
@@ -830,7 +834,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         preconditionReport,
         initialPageState,
         hasWorkspace,
-        analyzeImage: (input) => this.runService.analyzeImageWithCurrentLlm(input),
+        analyzeImage: (input) => this.runService.analyzeImageWithCurrentLlm(input, ownerKey),
         signal: abortController.signal,
         waitIfPaused: () => taskController.waitIfPaused(),
         lastVerifiedCode: initialVerifiedCode,
@@ -861,7 +865,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
 
       current.session.lastSyncedAt = now()
       current.session.lastError = undefined
-      this.llmService.saveLlmConfigState(state)
+      this.llmService.saveLlmConfigState(state, ownerKey)
 
       session.status = "completed"
       session.verificationStatus = "passed"
@@ -906,7 +910,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         this.llmService.applyCopilotSessionError(bundle, message, { disconnect: true, clearSecrets: true })
         current.session = bundle.session
         current.secrets = { ...current.secrets, copilot: bundle.secrets }
-        this.llmService.saveLlmConfigState(state)
+        this.llmService.saveLlmConfigState(state, ownerKey)
       }
     } finally {
       this.tasks.unregister(session.id)
@@ -937,8 +941,9 @@ ${promptSummary || "// Prompt summary: (empty)"}`
     }
   }
 
-  public async runDirectAgent(request: StartDirectAgentRequest & { sessionId: string }) {
-    const { state, current } = this.llmService.getActiveLlmConfigBundle()
+  public async runDirectAgent(request: StartDirectAgentRequest & { sessionId: string } & LlmOwned) {
+    const ownerKey = request.llmOwnerKey ?? "shared"
+    const { state, current } = this.llmService.getActiveLlmConfigBundle(undefined, ownerKey)
     const project = this.db.getProject(request.projectId)
     const testCase = this.db.getTestCase(request.testCaseId)
     if (!project || !testCase) {
@@ -1144,7 +1149,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
                 this.runService.notifyRun(warmupRun)
                 return value
               },
-              analyzeImage: (analysisRequest) => this.runService.analyzeImageWithCurrentLlm(analysisRequest),
+              analyzeImage: (analysisRequest) => this.runService.analyzeImageWithCurrentLlm(analysisRequest, ownerKey),
               stepIndex,
               startedLog: `[前置用例 ${dependency.testCase.caseCode}] 开始执行。`,
               completedLog: `[前置用例 ${dependency.testCase.caseCode}] 执行完成。`,
@@ -1230,7 +1235,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         preconditionReport,
         initialPageState,
         hasWorkspace,
-        analyzeImage: (input) => this.runService.analyzeImageWithCurrentLlm(input),
+        analyzeImage: (input) => this.runService.analyzeImageWithCurrentLlm(input, ownerKey),
         signal: abortController.signal,
         waitIfPaused: () => taskController.waitIfPaused(),
         runtimeContext: {
@@ -1256,7 +1261,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
 
       current.session.lastSyncedAt = now()
       current.session.lastError = undefined
-      this.llmService.saveLlmConfigState(state)
+      this.llmService.saveLlmConfigState(state, ownerKey)
 
       session.status = "completed"
       session.verificationStatus = "passed"
@@ -1301,7 +1306,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         this.llmService.applyCopilotSessionError(bundle, message, { disconnect: true, clearSecrets: true })
         current.session = bundle.session
         current.secrets = { ...current.secrets, copilot: bundle.secrets }
-        this.llmService.saveLlmConfigState(state)
+        this.llmService.saveLlmConfigState(state, ownerKey)
       }
     } finally {
       this.tasks.unregister(session.id)

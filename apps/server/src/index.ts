@@ -11,6 +11,8 @@ import { dashboardRoutes } from "./routes/dashboard.js"
 import { authProfilesRoutes } from "./routes/authProfiles.js"
 import { authLoginSandboxRoutes } from "./routes/authLoginSandbox.js"
 import { scheduleTriggersRoutes } from "./routes/scheduleTriggers.js"
+import { authRoutes } from "./routes/auth.js"
+import { registerAuthHook } from "./auth.js"
 import websocket from "@fastify/websocket"
 import cors from "@fastify/cors"
 import multipart from "@fastify/multipart"
@@ -20,6 +22,7 @@ import { createReadStream } from "node:fs"
 import { mkdir, stat } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { store } from "./store.js"
 
 const app = Fastify({ logger: false })
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -34,6 +37,7 @@ await app.register(cors, {
 
 await app.register(websocket)
 await app.register(multipart)
+registerAuthHook(app, (token) => store.resolveUserBySessionToken(token))
 
 app.setErrorHandler((error, _, reply) => {
   const candidate = error as { statusCode?: number; message?: string }
@@ -65,6 +69,7 @@ await app.register(fastifyStatic, {
 app.get("/health", async () => ({ status: "ok" }))
 
 await app.register(async (api) => {
+  await api.register(authRoutes)
   await api.register(dashboardRoutes)
   await api.register(projectsRoutes)
   await api.register(testCasesRoutes)

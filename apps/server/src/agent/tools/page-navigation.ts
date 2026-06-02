@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test"
 import { type ToolDefinition } from "../../llm.js"
-import { getPageSnapshot, resolveUrl, sanitizeFileSegment, saveAgentScreenshot } from "../helpers.js"
+import { getPageSnapshot, recoverBlankSpaRoute, resolveUrl, sanitizeFileSegment, saveAgentScreenshot, waitForPageContent } from "../helpers.js"
 import { type ToolExecutionResult, type ToolRuntimeContext } from "../types.js"
 
 export const pageNavigationTools: ToolDefinition[] = [
@@ -53,7 +53,15 @@ export async function executeInspectPage(
   if (args.url) {
     const resolved = resolveUrl(args.url, ctx.project.testBaseUrl, page.url())
     if (!isSameOriginAndPath(resolved, page.url())) {
-      await page.goto(resolved, { waitUntil: "domcontentloaded", timeout: 20000 })
+      try {
+        await page.goto(resolved, { waitUntil: "domcontentloaded", timeout: 20000 })
+      } catch (err) {
+        if (!(err instanceof Error && err.message.includes("interrupted by another navigation"))) {
+          throw err
+        }
+        await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+      }
+      await recoverBlankSpaRoute(page, resolved, ctx.project.testBaseUrl)
       navigated = true
     }
   }
@@ -61,7 +69,7 @@ export async function executeInspectPage(
     await page.waitForSelector(args.waitForSelector, { timeout: 8000 }).catch(() => undefined)
   }
   if (navigated) {
-    await page.waitForTimeout(800)
+    await waitForPageContent(page, 8000)
   }
   const title = await page.title()
   const snapshot = await getPageSnapshot(page)
@@ -82,8 +90,16 @@ export async function executeNavigateTo(
   ctx: ToolRuntimeContext,
 ): Promise<ToolExecutionResult> {
   const url = resolveUrl(args.url, ctx.project.testBaseUrl, page.url())
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 })
-  await page.waitForTimeout(600)
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 })
+  } catch (err) {
+    if (!(err instanceof Error && err.message.includes("interrupted by another navigation"))) {
+      throw err
+    }
+    await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+  }
+  await recoverBlankSpaRoute(page, url, ctx.project.testBaseUrl)
+  await waitForPageContent(page, 8000)
   const screenshotUrl = await saveAgentScreenshot(page, ctx.artifactsDir, ctx.agentSessionId, `navigate-${sanitizeFileSegment(url)}`)
   return {
     stage: "page",

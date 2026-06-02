@@ -40,6 +40,7 @@ import type {
   WorkspaceTreeEntry,
 } from "@autovis/shared"
 import { store } from "../store.js"
+import { getRequestLlmOwnerKey } from "../auth.js"
 
 export async function agentRoutes(app: FastifyInstance) {
   app.post("/scripts/generate", async (request, reply): Promise<ApiEnvelope<GenerateScriptResponse> | void> => {
@@ -64,7 +65,7 @@ export async function agentRoutes(app: FastifyInstance) {
     }
 
     const sessionId = `agent_${Math.random().toString(36).slice(2, 10)}`
-    void store.runScriptAgent({ ...body, sessionId }).catch((err: any) => {
+    void store.runScriptAgent({ ...body, sessionId, llmOwnerKey: getRequestLlmOwnerKey(request) }).catch((err: any) => {
       if (err?.code === "TASK_CONFLICT") {
         // The case got beat by a concurrent request; nothing to do here as the conflict
         // response was already returned for the racing client.
@@ -101,7 +102,7 @@ export async function agentRoutes(app: FastifyInstance) {
     }
 
     const sessionId = `agent_${Math.random().toString(36).slice(2, 10)}`
-    void store.runDirectAgent({ ...body, sessionId }).catch((err: any) => {
+    void store.runDirectAgent({ ...body, sessionId, llmOwnerKey: getRequestLlmOwnerKey(request) }).catch((err: any) => {
       if (err?.code === "TASK_CONFLICT") {
         return
       }

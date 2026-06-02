@@ -32,6 +32,12 @@ const moduleId = (id: string) => `/modules/${enc(id)}`
 export const apiRoutes = {
   health: () => "/health",
 
+  auth: {
+    session: () => api("/auth/session"),
+    login: () => api("/auth/login"),
+    logout: () => api("/auth/logout"),
+  },
+
   dashboard: () => api("/dashboard"),
 
   projects: {

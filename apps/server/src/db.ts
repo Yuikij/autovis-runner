@@ -1,7 +1,9 @@
 import { mkdirSync } from "node:fs"
 import { join } from "node:path"
+import { randomBytes } from "node:crypto"
 import { DatabaseSync } from "node:sqlite"
 
+import { authEnabled, hashPassword, sessionExpiresAt, verifyPassword, type AuthUser } from "./auth.js"
 import type { CopilotSecretState } from "./copilot.js"
 import { bootstrapDatabase } from "./db/bootstrap.js"
 import {
@@ -74,6 +76,15 @@ import {
   updateScheduleTriggerFiredAt,
   updateScheduleTriggerNextFireAt,
   setScheduleTriggerEnabled,
+  countUsers,
+  createUserSession,
+  deleteExpiredUserSessions,
+  deleteUserSession,
+  findUserBySessionToken,
+  findUserByUsername,
+  upsertUser,
+  getLlmConfigStateForOwner,
+  saveLlmConfigStateForOwner,
 } from "./db/repositories.js"
 import type { PersistedLlmState } from "./db/shared.js"
 import { createSchema } from "./db/schema.js"
@@ -119,8 +130,40 @@ export class AutoVisDatabase {
     this.db.exec("PRAGMA foreign_keys = ON")
     createSchema(this.db)
     bootstrapDatabase(this.db, this.stateFile, appOrigin)
+    this.ensureConfiguredUsers()
     this.authProfilesRepo = new AuthProfileRepository(this.db)
     this.targetUrlsRepo = new TargetUrlRepository(this.db)
+  }
+
+  private ensureConfiguredUsers() {
+    if (!authEnabled) return
+    const nowTime = new Date().toISOString()
+    const users: Array<{ username: string; password: string; role: AuthUser["role"] }> = []
+    const adminUser = process.env.AUTOVIS_ADMIN_USER?.trim() || "admin"
+    const adminPassword = process.env.AUTOVIS_ADMIN_PASSWORD?.trim()
+    if (adminPassword) {
+      users.push({ username: adminUser, password: adminPassword, role: "admin" })
+    }
+
+    for (const entry of (process.env.AUTOVIS_USERS ?? "").split(",")) {
+      const [username, password, role] = entry.split(":").map((part) => part?.trim())
+      if (!username || !password) continue
+      users.push({ username, password, role: role === "admin" ? "admin" : "user" })
+    }
+
+    if (users.length === 0 && countUsers(this.db) === 0) {
+      throw new Error("AUTOVIS_AUTH_ENABLED=true requires AUTOVIS_ADMIN_PASSWORD or AUTOVIS_USERS")
+    }
+
+    for (const user of users) {
+      upsertUser(this.db, {
+        id: `user_${Buffer.from(user.username).toString("hex").slice(0, 24)}`,
+        username: user.username,
+        passwordHash: hashPassword(user.password),
+        role: user.role,
+        now: nowTime,
+      })
+    }
   }
 
   listProjects(): Project[] {
@@ -356,12 +399,47 @@ export class AutoVisDatabase {
     return getLlmConfigState(this.db)
   }
 
+  getLlmConfigStateForOwner(ownerKey: string): PersistedLlmState {
+    return getLlmConfigStateForOwner(this.db, ownerKey)
+  }
+
   saveLlmState(session: LlmSessionConfig, secrets: CopilotSecretState) {
     saveLlmState(this.db, session, secrets)
   }
 
   saveLlmConfigState(state: PersistedLlmState) {
     saveLlmConfigState(this.db, state)
+  }
+
+  saveLlmConfigStateForOwner(ownerKey: string, state: PersistedLlmState) {
+    saveLlmConfigStateForOwner(this.db, state, ownerKey)
+  }
+
+  resolveUserBySessionToken(token: string | undefined): AuthUser | null {
+    if (!token) return null
+    return findUserBySessionToken(this.db, token, new Date().toISOString()) ?? null
+  }
+
+  login(username: string, password: string): { user: AuthUser; token: string } | null {
+    const row = findUserByUsername(this.db, username.trim())
+    if (!row || !verifyPassword(password, row.password_hash)) return null
+    const token = randomBytes(32).toString("base64url")
+    const nowTime = new Date().toISOString()
+    createUserSession(this.db, {
+      token,
+      userId: row.id,
+      expiresAt: sessionExpiresAt(),
+      now: nowTime,
+    })
+    deleteExpiredUserSessions(this.db, nowTime)
+    return {
+      user: { id: row.id, username: row.username, role: row.role === "admin" ? "admin" : "user" },
+      token,
+    }
+  }
+
+  logoutToken(token: string | undefined) {
+    if (token) deleteUserSession(this.db, token)
   }
 
   insertScript(script: ScriptArtifact) {

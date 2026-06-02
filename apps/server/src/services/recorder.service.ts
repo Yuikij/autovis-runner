@@ -198,8 +198,8 @@ export class RecorderService {
     const session = this.createRecorderSession({ ...request, targetUrlId: resolved.id }, resolved.url)
     this.persistAndNotifyRecorder(session)
 
-    const { chromium } = await import("../browser.js")
-    const browser = await chromium.launch({ headless: process.env.HEADLESS !== "false" })
+    const { chromium, localNetworkAccessArgs } = await import("../browser.js")
+    const browser = await chromium.launch({ headless: process.env.HEADLESS !== "false", args: localNetworkAccessArgs() })
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, recordVideo: { dir: join(artifactsDir, session.id), size: { width: 1440, height: 960 } } })
     const page = await context.newPage()
     this.activeRecorderBrowsers.set(session.id, browser)

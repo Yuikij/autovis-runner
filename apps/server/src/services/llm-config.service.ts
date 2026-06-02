@@ -39,16 +39,16 @@ export class LlmConfigService {
     }
   }
 
-  public getLlmConfigState() {
-    return this.db.getLlmConfigState()
+  public getLlmConfigState(ownerKey = "shared") {
+    return this.db.getLlmConfigStateForOwner(ownerKey)
   }
 
-  public saveLlmConfigState(state: ReturnType<AutoVisDatabase["getLlmConfigState"]>) {
-    this.db.saveLlmConfigState(state)
+  public saveLlmConfigState(state: ReturnType<AutoVisDatabase["getLlmConfigState"]>, ownerKey = "shared") {
+    this.db.saveLlmConfigStateForOwner(ownerKey, state)
   }
 
-  public getActiveLlmConfigBundle(configId?: string) {
-    const state = this.getLlmConfigState()
+  public getActiveLlmConfigBundle(configId?: string, ownerKey = "shared") {
+    const state = this.getLlmConfigState(ownerKey)
     const targetId = configId ?? state.activeConfigId ?? state.configs[0]?.session.id
     const current = state.configs.find((item) => item.session.id === targetId)
     if (!current) {
@@ -57,11 +57,11 @@ export class LlmConfigService {
     return { state, current }
   }
 
-  public getActiveVisionLlmConfigBundle(configId?: string) {
+  public getActiveVisionLlmConfigBundle(configId?: string, ownerKey = "shared") {
     if (configId) {
-      return this.getActiveLlmConfigBundle(configId)
+      return this.getActiveLlmConfigBundle(configId, ownerKey)
     }
-    const state = this.getLlmConfigState()
+    const state = this.getLlmConfigState(ownerKey)
     const activeVisionId = state.activeVisionConfigId
     if (activeVisionId) {
       const current = state.configs.find((item) => item.session.id === activeVisionId)
@@ -69,7 +69,7 @@ export class LlmConfigService {
         return { state, current }
       }
     }
-    return this.getActiveLlmConfigBundle()
+    return this.getActiveLlmConfigBundle(undefined, ownerKey)
   }
 
   private createLlmConfigFromInput(input: UpsertLlmConfigRequest, current?: LlmSessionConfig): { session: LlmSessionConfig; secrets: LlmSecretState } {
@@ -139,8 +139,8 @@ export class LlmConfigService {
     return { session, secrets }
   }
 
-  public async testLlmConfig(input: UpsertLlmConfigRequest) {
-    const state = this.getLlmConfigState()
+  public async testLlmConfig(input: UpsertLlmConfigRequest, ownerKey = "shared") {
+    const state = this.getLlmConfigState(ownerKey)
     const existing = input.id ? state.configs.find((item) => item.session.id === input.id) : undefined
     const { session, secrets } = this.createLlmConfigFromInput(input)
     if (session.provider === "copilot-proxy") {
@@ -153,12 +153,12 @@ export class LlmConfigService {
     return models
   }
 
-  public async getLlmSession() {
-    return (await this.getLlmState()).session
+  public async getLlmSession(ownerKey = "shared") {
+    return (await this.getLlmState(ownerKey)).session
   }
 
-  public async getLlmState(): Promise<LlmState> {
-    const state = this.getLlmConfigState()
+  public async getLlmState(ownerKey = "shared"): Promise<LlmState> {
+    const state = this.getLlmConfigState(ownerKey)
     const active = state.configs.find((item) => item.session.id === state.activeConfigId) ?? state.configs[0]
 
     if (!active) {
@@ -171,7 +171,7 @@ export class LlmConfigService {
       active.session.apiKeyConfigured = true
     }
 
-    this.saveLlmConfigState(state)
+    this.saveLlmConfigState(state, ownerKey)
 
     return {
       activeConfigId: active.session.id,
@@ -182,8 +182,8 @@ export class LlmConfigService {
     }
   }
 
-  public async saveLlmConfig(input: UpsertLlmConfigRequest) {
-    const state = this.getLlmConfigState()
+  public async saveLlmConfig(input: UpsertLlmConfigRequest, ownerKey = "shared") {
+    const state = this.getLlmConfigState(ownerKey)
     const existing = input.id ? state.configs.find((item) => item.session.id === input.id) : undefined
     const next = this.createLlmConfigFromInput(input, existing?.session)
 
@@ -205,32 +205,32 @@ export class LlmConfigService {
       }
     }
 
-    this.saveLlmConfigState(state)
-    return await this.getLlmState()
+    this.saveLlmConfigState(state, ownerKey)
+    return await this.getLlmState(ownerKey)
   }
 
-  public async activateLlmConfig(configId: string) {
-    const state = this.getLlmConfigState()
+  public async activateLlmConfig(configId: string, ownerKey = "shared") {
+    const state = this.getLlmConfigState(ownerKey)
     if (!state.configs.some((item) => item.session.id === configId)) {
       throw new Error("未找到要启用的 AI 配置。")
     }
     state.activeConfigId = configId
-    this.saveLlmConfigState(state)
-    return await this.getLlmState()
+    this.saveLlmConfigState(state, ownerKey)
+    return await this.getLlmState(ownerKey)
   }
 
-  public async activateVisionConfig(configId: string | null) {
-    const state = this.getLlmConfigState()
+  public async activateVisionConfig(configId: string | null, ownerKey = "shared") {
+    const state = this.getLlmConfigState(ownerKey)
     if (configId !== null && !state.configs.some((item) => item.session.id === configId)) {
       throw new Error("未找到要启用的 AI 配置。")
     }
     state.activeVisionConfigId = configId ?? undefined
-    this.saveLlmConfigState(state)
-    return await this.getLlmState()
+    this.saveLlmConfigState(state, ownerKey)
+    return await this.getLlmState(ownerKey)
   }
 
-  public async deleteLlmConfig(configId: string) {
-    const state = this.getLlmConfigState()
+  public async deleteLlmConfig(configId: string, ownerKey = "shared") {
+    const state = this.getLlmConfigState(ownerKey)
     if (state.configs.length <= 1) {
       throw new Error("至少需要保留一个 AI 配置。")
     }
@@ -241,12 +241,12 @@ export class LlmConfigService {
     if (state.activeVisionConfigId === configId) {
       state.activeVisionConfigId = undefined
     }
-    this.saveLlmConfigState(state)
-    return await this.getLlmState()
+    this.saveLlmConfigState(state, ownerKey)
+    return await this.getLlmState(ownerKey)
   }
 
-  public async startCopilotDeviceSession(request: { model?: string; configId?: string }) {
-    const { state, current } = this.getActiveLlmConfigBundle(request.configId)
+  public async startCopilotDeviceSession(request: { model?: string; configId?: string }, ownerKey = "shared") {
+    const { state, current } = this.getActiveLlmConfigBundle(request.configId, ownerKey)
     if (current.session.provider !== "copilot-proxy") {
       throw new Error("当前启用的配置不是 Copilot。")
     }
@@ -258,7 +258,7 @@ export class LlmConfigService {
       const next = await startCopilotDeviceFlowForConfig(current.session)
       current.session = next.session
       current.secrets = { ...current.secrets, copilot: next.secrets }
-      this.saveLlmConfigState(state)
+      this.saveLlmConfigState(state, ownerKey)
       return next.session
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to start Copilot device flow"
@@ -266,13 +266,13 @@ export class LlmConfigService {
       this.applyCopilotSessionError(bundle, message, { clearPending: true })
       current.session = bundle.session
       current.secrets = { ...current.secrets, copilot: bundle.secrets }
-      this.saveLlmConfigState(state)
+      this.saveLlmConfigState(state, ownerKey)
       throw error
     }
   }
 
-  public async pollCopilotDeviceSession(request: { model?: string; configId?: string }) {
-    const { state, current } = this.getActiveLlmConfigBundle(request.configId)
+  public async pollCopilotDeviceSession(request: { model?: string; configId?: string }, ownerKey = "shared") {
+    const { state, current } = this.getActiveLlmConfigBundle(request.configId, ownerKey)
     if (current.session.provider !== "copilot-proxy") {
       throw new Error("当前启用的配置不是 Copilot。")
     }
@@ -291,7 +291,7 @@ export class LlmConfigService {
       })
       current.session = bundle.session
       current.secrets = { ...current.secrets, copilot: bundle.secrets }
-      this.saveLlmConfigState(state)
+      this.saveLlmConfigState(state, ownerKey)
       throw error
     }
 
@@ -299,7 +299,7 @@ export class LlmConfigService {
       const next = await pollCopilotDeviceFlowForConfig(current.session, current.secrets.copilot ?? {})
       current.session = next.session
       current.secrets = { ...current.secrets, copilot: next.secrets }
-      this.saveLlmConfigState(state)
+      this.saveLlmConfigState(state, ownerKey)
       return next.session
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to complete Copilot device flow"
@@ -312,34 +312,34 @@ export class LlmConfigService {
       })
       current.session = bundle.session
       current.secrets = { ...current.secrets, copilot: bundle.secrets }
-      this.saveLlmConfigState(state)
+      this.saveLlmConfigState(state, ownerKey)
       throw error
     }
   }
 
-  public async fetchLlmModels(configId?: string) {
-    const { state, current } = this.getActiveLlmConfigBundle(configId)
+  public async fetchLlmModels(configId?: string, ownerKey = "shared") {
+    const { state, current } = this.getActiveLlmConfigBundle(configId, ownerKey)
     const result = await fetchModelsForConfig(current.session, current.secrets)
     current.session.lastSyncedAt = now()
     current.session.lastError = undefined
-    this.saveLlmConfigState(state)
+    this.saveLlmConfigState(state, ownerKey)
     return result
   }
 
-  public async updateLlmModel(model: string, configId?: string) {
-    const { state, current } = this.getActiveLlmConfigBundle(configId)
+  public async updateLlmModel(model: string, configId?: string, ownerKey = "shared") {
+    const { state, current } = this.getActiveLlmConfigBundle(configId, ownerKey)
     current.session.model = model
     current.session.lastSyncedAt = now()
-    this.saveLlmConfigState(state)
+    this.saveLlmConfigState(state, ownerKey)
     return current.session
   }
 
-  public async disconnectCopilotSession(configId?: string) {
-    const { state, current } = this.getActiveLlmConfigBundle(configId)
+  public async disconnectCopilotSession(configId?: string, ownerKey = "shared") {
+    const { state, current } = this.getActiveLlmConfigBundle(configId, ownerKey)
     const next = disconnectLlmSession(current.session)
     current.session = next.session
     current.secrets = next.secrets
-    this.saveLlmConfigState(state)
+    this.saveLlmConfigState(state, ownerKey)
     return next.session
   }
 }

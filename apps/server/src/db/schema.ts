@@ -134,6 +134,32 @@ export const createSchema = (db: DatabaseSync) => {
       active_config_id TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS llm_states (
+      owner_key TEXT PRIMARY KEY,
+      configs_json TEXT NOT NULL,
+      llm_secrets_json TEXT,
+      active_config_id TEXT,
+      active_vision_config_id TEXT,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS modules (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -318,6 +344,8 @@ export const createSchema = (db: DatabaseSync) => {
     CREATE INDEX IF NOT EXISTS idx_schedule_triggers_project_id ON schedule_triggers(project_id);
     CREATE INDEX IF NOT EXISTS idx_schedule_triggers_task_id ON schedule_triggers(task_id);
     CREATE INDEX IF NOT EXISTS idx_task_runs_schedule_trigger_id ON task_runs(schedule_trigger_id);
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
   `)
 
   ensureColumn(db, "auth_profiles", "validation_script", "TEXT")

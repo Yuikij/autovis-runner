@@ -152,8 +152,8 @@ export class RunService {
     return resolved
   }
 
-  public async analyzeImageWithCurrentLlm(input: { dataUrl: string; mimeType: string; prompt: string }) {
-    const { state, current } = this.llmService.getActiveVisionLlmConfigBundle()
+  public async analyzeImageWithCurrentLlm(input: { dataUrl: string; mimeType: string; prompt: string }, llmOwnerKey = "shared") {
+    const { state, current } = this.llmService.getActiveVisionLlmConfigBundle(undefined, llmOwnerKey)
     if (current.session.connectionStatus !== "connected" && !current.secrets.apiKey) {
       throw new Error("当前未启用已连接的 AI 配置，无法执行图片分析。")
     }
@@ -164,7 +164,7 @@ export class RunService {
     })
     current.session.lastSyncedAt = now()
     current.session.lastError = undefined
-    this.llmService.saveLlmConfigState(state)
+    this.llmService.saveLlmConfigState(state, llmOwnerKey)
     return result.text.trim()
   }
 
@@ -191,6 +191,7 @@ export class RunService {
     preconditionPlan: ReturnType<SuiteService["buildPreconditionPlan"]>,
     taskController?: TaskController,
     scriptTimeoutMs?: number,
+    llmOwnerKey = "shared",
   ) {
     if (!project) throw new Error("Project not found")
     const onUpdate = async () => {
@@ -335,7 +336,7 @@ export class RunService {
           script: dependency.script,
           onUpdate,
           requestHumanInput: handleHumanInput,
-          analyzeImage: (analysisRequest) => this.analyzeImageWithCurrentLlm(analysisRequest),
+          analyzeImage: (analysisRequest) => this.analyzeImageWithCurrentLlm(analysisRequest, llmOwnerKey),
           stepIndex: dependencyStepIndex,
           startedLog: `[前置用例 ${dependency.testCase.caseCode}] 开始执行。`,
           completedLog: `[前置用例 ${dependency.testCase.caseCode}] 执行完成。`,
@@ -358,7 +359,7 @@ export class RunService {
         script: targetScript,
         onUpdate,
         requestHumanInput: handleHumanInput,
-        analyzeImage: (analysisRequest) => this.analyzeImageWithCurrentLlm(analysisRequest),
+        analyzeImage: (analysisRequest) => this.analyzeImageWithCurrentLlm(analysisRequest, llmOwnerKey),
         stepIndex: targetStepIndex,
         startedLog: "[目标脚本] 开始执行生成后的 Playwright 脚本。",
         completedLog: "[目标脚本] Playwright 脚本执行完成。",
@@ -504,7 +505,7 @@ export class RunService {
     return ctrl.cancel("Task run cancelled by user.")
   }
 
-  public async startRun(request: StartRunRequest & { scriptTimeoutMs?: number }) {
+  public async startRun(request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string }) {
     const project = this.db.getProject(request.projectId)
     const testCase = this.db.getTestCase(request.testCaseId)
     const script = this.db.getScript(request.scriptId)
@@ -566,12 +567,12 @@ export class RunService {
     })
 
     console.log(`[run] startRun runId=${run.id} case=${testCase.caseCode} project=${project.name} targetUrl=${target.url} preconditions=${preconditionPlan.nodes.length} scriptTimeoutMs=${request.scriptTimeoutMs ?? "(default)"} taskRunId=${request.taskRunId ?? "(standalone)"}`)
-    void this.executeRunWithPreconditions(run, project, testCase, script, preconditionPlan, taskController, request.scriptTimeoutMs)
+    void this.executeRunWithPreconditions(run, project, testCase, script, preconditionPlan, taskController, request.scriptTimeoutMs, request.llmOwnerKey)
 
     return run
   }
 
-  public async startVerification(request: StartRunRequest) {
+  public async startVerification(request: StartRunRequest & { llmOwnerKey?: string }) {
     const run = await this.startRun({ ...request, kind: "verification" })
     void (async () => {
       const finishedRun = await this.waitForRunCompletion(run.id)

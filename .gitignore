@@ -5,3 +5,7 @@ tmp/
 node_modules/
 .vite/
 *.tsbuildinfo
+data/
+*.db
+*.db-shm
+*.db-wal

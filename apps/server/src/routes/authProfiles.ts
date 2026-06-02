@@ -7,6 +7,7 @@ import type {
   UpsertAuthProfileRequest,
 } from "@autovis/shared"
 import { store } from "../store.js"
+import { getRequestLlmOwnerKey } from "../auth.js"
 import { buildStorageStateSummary, decorateAuthProfile, decorateAuthProfiles } from "../services/authProfile.utils.js"
 
 export async function authProfilesRoutes(app: FastifyInstance) {
@@ -37,7 +38,7 @@ export async function authProfilesRoutes(app: FastifyInstance) {
   app.post("/auth-profiles/:profileId/generate-validation-script", async (request, reply): Promise<ApiEnvelope<{ taskId: string }>> => {
     const { profileId } = request.params as { profileId: string }
     const { projectId, targetUrlId } = request.body as { projectId: string; targetUrlId?: string }
-    const taskId = store.startGenerateValidationScript(projectId, profileId, targetUrlId)
+    const taskId = store.startGenerateValidationScript(projectId, profileId, targetUrlId, getRequestLlmOwnerKey(request))
     reply.code(202)
     return { data: { taskId } }
   })

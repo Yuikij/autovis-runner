@@ -11,6 +11,8 @@ import { RecorderService } from "./services/recorder.service.js"
 import { AuthLoginSandboxService } from "./services/auth-login-sandbox.service.js"
 import { SchedulerService } from "./services/scheduler.service.js"
 import { taskControlRegistry } from "./services/task-control.js"
+import { getSessionToken, type AuthUser } from "./auth.js"
+import type { FastifyRequest } from "fastify"
 
 import {
   type AgentSession,
@@ -144,7 +146,7 @@ class PersistentStore {
   async getAuthProfile(profileId: string) { return this.db.getAuthProfile(profileId) }
   async saveAuthProfile(input: UpsertAuthProfileRequest) { return this.projectService.saveAuthProfile(input) }
   async deleteAuthProfile(profileId: string) { return this.db.deleteAuthProfile(profileId) }
-  startGenerateValidationScript(projectId: string, profileId: string, targetUrlId?: string) { return this.agentService.startGenerateValidationScript(projectId, profileId, targetUrlId) }
+  startGenerateValidationScript(projectId: string, profileId: string, targetUrlId?: string, llmOwnerKey = "shared") { return this.agentService.startGenerateValidationScript(projectId, profileId, targetUrlId, llmOwnerKey) }
   startCheckLoginStatus(projectId: string, profileId: string, targetUrlId: string) { return this.agentService.startCheckLoginStatus(projectId, profileId, targetUrlId) }
   /**
    * 跑该登录态的 sourceCase（按指定 targetUrl），通过现有 storageState 自动捕获逻辑写入 auth_profile_states 行。
@@ -248,24 +250,36 @@ class PersistentStore {
   async listTaskRunsForTask(taskId: string) { return this.taskService.listTaskRunsForTask(taskId) }
 
   // -- LLM Service --
-  async getLlmSession() { return this.llmService.getLlmSession() }
-  async getLlmState() { return this.llmService.getLlmState() }
-  async saveLlmConfig(input: UpsertLlmConfigRequest) { return this.llmService.saveLlmConfig(input) }
-  async activateLlmConfig(configId: string) { return this.llmService.activateLlmConfig(configId) }
-  async activateVisionConfig(configId: string | null) { return this.llmService.activateVisionConfig(configId) }
-  async deleteLlmConfig(configId: string) { return this.llmService.deleteLlmConfig(configId) }
-  async startCopilotDeviceSession(req: { model?: string; configId?: string }) { return this.llmService.startCopilotDeviceSession(req) }
-  async pollCopilotDeviceSession(req: { model?: string; configId?: string }) { return this.llmService.pollCopilotDeviceSession(req) }
-  async fetchLlmModels(configId?: string) { return this.llmService.fetchLlmModels(configId) }
-  async testLlmConfig(input: any) { return this.llmService.testLlmConfig(input) }
-  async updateLlmModel(model: string, configId?: string) { return this.llmService.updateLlmModel(model, configId) }
-  async disconnectCopilotSession(configId?: string) { return this.llmService.disconnectCopilotSession(configId) }
+  async getLlmSession(ownerKey = "shared") { return this.llmService.getLlmSession(ownerKey) }
+  async getLlmState(ownerKey = "shared") { return this.llmService.getLlmState(ownerKey) }
+  async saveLlmConfig(input: UpsertLlmConfigRequest, ownerKey = "shared") { return this.llmService.saveLlmConfig(input, ownerKey) }
+  async activateLlmConfig(configId: string, ownerKey = "shared") { return this.llmService.activateLlmConfig(configId, ownerKey) }
+  async activateVisionConfig(configId: string | null, ownerKey = "shared") { return this.llmService.activateVisionConfig(configId, ownerKey) }
+  async deleteLlmConfig(configId: string, ownerKey = "shared") { return this.llmService.deleteLlmConfig(configId, ownerKey) }
+  async startCopilotDeviceSession(req: { model?: string; configId?: string }, ownerKey = "shared") { return this.llmService.startCopilotDeviceSession(req, ownerKey) }
+  async pollCopilotDeviceSession(req: { model?: string; configId?: string }, ownerKey = "shared") { return this.llmService.pollCopilotDeviceSession(req, ownerKey) }
+  async fetchLlmModels(configId?: string, ownerKey = "shared") { return this.llmService.fetchLlmModels(configId, ownerKey) }
+  async testLlmConfig(input: any, ownerKey = "shared") { return this.llmService.testLlmConfig(input, ownerKey) }
+  async updateLlmModel(model: string, configId?: string, ownerKey = "shared") { return this.llmService.updateLlmModel(model, configId, ownerKey) }
+  async disconnectCopilotSession(configId?: string, ownerKey = "shared") { return this.llmService.disconnectCopilotSession(configId, ownerKey) }
+
+  resolveUserBySessionToken(token: string | undefined): AuthUser | null {
+    return this.db.resolveUserBySessionToken(token)
+  }
+
+  login(username: string, password: string) {
+    return this.db.login(username, password)
+  }
+
+  logout(request: FastifyRequest) {
+    this.db.logoutToken(getSessionToken(request))
+  }
 
   // -- Agent Service --
   async saveScriptVersion(testCaseId: string, input: { code: string; baseScriptId?: string; prompt?: string }) { return this.agentService.saveScriptVersion(testCaseId, input) }
-  async generateScript(request: GenerateScriptRequest) { return this.agentService.generateScript(request) }
-  async runScriptAgent(request: GenerateScriptRequest & { sessionId: string }) { return this.agentService.runScriptAgent(request) }
-  async runDirectAgent(request: StartDirectAgentRequest & { sessionId: string }) { return this.agentService.runDirectAgent(request) }
+  async generateScript(request: GenerateScriptRequest & { llmOwnerKey?: string }) { return this.agentService.generateScript(request) }
+  async runScriptAgent(request: GenerateScriptRequest & { sessionId: string; llmOwnerKey?: string }) { return this.agentService.runScriptAgent(request) }
+  async runDirectAgent(request: StartDirectAgentRequest & { sessionId: string; llmOwnerKey?: string }) { return this.agentService.runDirectAgent(request) }
   getAgentSession(sessionId: string) { return this.agentService.getAgentSession(sessionId) }
   subscribeAgent(sessionId: string, listener: (session: AgentSession) => void) { return this.agentService.subscribeAgent(sessionId, listener) }
 
@@ -284,8 +298,8 @@ class PersistentStore {
   subscribeAuthLoginSandboxLiveViewport(sessionId: string, listener: (chunk: Uint8Array) => void) { return this.authLoginSandboxService.subscribeLiveViewport(sessionId, listener) }
 
   // -- Run Service --
-  async startVerification(request: StartRunRequest) { return this.runService.startVerification(request) }
-  async startRun(request: StartRunRequest) { return this.runService.startRun(request) }
+  async startVerification(request: StartRunRequest & { llmOwnerKey?: string }) { return this.runService.startVerification(request) }
+  async startRun(request: StartRunRequest & { llmOwnerKey?: string }) { return this.runService.startRun(request) }
   async startTaskRun(request: StartTaskRunRequest) { return this.runService.startTaskRun(request) }
   subscribeTaskRun(taskRunId: string, listener: (taskRun: TaskRun) => void) { return this.runService.subscribeTaskRun(taskRunId, listener) }
   async getRun(runId: string) { return this.runService.getRun(runId) }

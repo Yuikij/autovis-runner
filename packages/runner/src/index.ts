@@ -473,6 +473,43 @@ const markRunStep = async (
   await onUpdate()
 }
 
+/**
+ * Wait until the SPA root has rendered meaningful content (text, interactive
+ * elements, or large canvas/images). Prevents blank-page screenshots and
+ * premature assertions on slow-loading hash-route SPAs.
+ */
+const waitForSpaContent = async (page: Page, timeout = 15_000): Promise<void> => {
+  await page.waitForLoadState("domcontentloaded", { timeout }).catch(() => undefined)
+  await page.waitForFunction(
+    () => {
+      const body = document.body
+      if (!body) return false
+      const text = (body.innerText || body.textContent || "").trim()
+      if (text.length > 0) return true
+      const root = document.querySelector("#root, #app, [data-reactroot]")
+      if (root && root.innerHTML.trim().length > 120) return true
+      const interactive = document.querySelectorAll(
+        "input,button,textarea,select,a,[role='button'],[role='textbox']",
+      )
+      for (const node of interactive) {
+        const el = node as HTMLElement
+        const rect = el.getBoundingClientRect()
+        const style = getComputedStyle(el)
+        if (rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none") {
+          return true
+        }
+      }
+      for (const node of document.querySelectorAll("canvas,svg,img")) {
+        const rect = (node as HTMLElement).getBoundingClientRect()
+        if (rect.width >= 40 && rect.height >= 40) return true
+      }
+      return false
+    },
+    undefined,
+    { timeout },
+  ).catch(() => undefined)
+}
+
 const SLOW_MO_MS = 50
 
 const instrumentPageActions = (
@@ -546,11 +583,20 @@ const instrumentPageActions = (
   return new Proxy(page, {
     get(target, prop, receiver) {
       if (prop === "goto") {
-        return async (...args: Parameters<Page["goto"]>) => {
+        return async (url: string, options?: Parameters<Page["goto"]>[1]) => {
           await beforeAction()
           await logAccess("page.goto")
-          await appendActionLog(`脚本动作 · goto(${String(args[0] ?? "")})`)
-          return target.goto(...args)
+          await appendActionLog(`脚本动作 · goto(${String(url ?? "")})`)
+          const opts = { waitUntil: "domcontentloaded" as const, ...options }
+          try {
+            return await target.goto(url, opts)
+          } catch (err) {
+            if (err instanceof Error && err.message.includes("interrupted by another navigation")) {
+              await target.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+              return null
+            }
+            throw err
+          }
         }
       }
       if (prop === "mouse") {
@@ -606,8 +652,16 @@ export const createRunnerSession = async ({
     ? `${initialUrl}（登录后落地页，testBaseUrl=${run.testBaseUrl}）`
     : initialUrl
   await markRunStep(run, initStepIndex, "running", onUpdate, `打开目标项目 ${initialUrlLabel}`)
-  await page.goto(initialUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
-  await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined)
+  try {
+    await page.goto(initialUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
+  } catch (err) {
+    if (!(err instanceof Error && err.message.includes("interrupted by another navigation"))) {
+      throw err
+    }
+    await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+  }
+  await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => undefined)
+  await waitForSpaContent(page, 15_000)
   const initialShot = await captureStepScreenshot(page, run.id, runDir, "01-browser-ready.png")
   await markRunStep(run, initStepIndex, "passed", onUpdate, "浏览器初始化完成。", initialShot)
 
@@ -1094,8 +1148,16 @@ export const validateAuthState = async ({
       storageState: JSON.parse(storageStateJson),
     })
     const page = await context.newPage()
-    await page.goto(testBaseUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
-    await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined)
+    try {
+      await page.goto(testBaseUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
+    } catch (err) {
+      if (!(err instanceof Error && err.message.includes("interrupted by another navigation"))) {
+        throw err
+      }
+      await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+    }
+    await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => undefined)
+    await waitForSpaContent(page, 15_000)
 
     const result = await runValidationOnPage(page, validationScriptCode, timeoutMs)
     return result.ok ? { valid: true } : { valid: false, error: result.error }

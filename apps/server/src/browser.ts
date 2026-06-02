@@ -33,6 +33,25 @@ const resolveChromium = (): BrowserType => {
 
 export const chromium = resolveChromium()
 
+/**
+ * 启动参数：放开 Chrome 的"本地网络访问"(Local Network Access / Private Network Access) 限制。
+ *
+ * 新版 Chromium（≥130）会把"非安全上下文(http) 页面请求更私有地址段(局域网/loopback)的子资源"
+ * 当作跨地址段访问拦掉，报 `net::ERR_FAILED` + "blocked by CORS policy ... more-private address space"。
+ * 被测系统多是内网 http 部署（如 http://192.168.x.x/...），而且开启 Playwright tracing(snapshots)
+ * 会让主包 umi.js/umi.css 也被判成不安全上下文从而被拦 → 页面白屏、什么都加载不出来。
+ *
+ * 这是自动化测试浏览器（受控环境），关掉该限制是安全且必要的；可用 LOCAL_NETWORK_ACCESS=0 关闭本开关。
+ */
+export const localNetworkAccessArgs = (): string[] => {
+  if ((process.env.LOCAL_NETWORK_ACCESS ?? "1").trim() === "0") {
+    return []
+  }
+  return [
+    "--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessForNavigations,PrivateNetworkAccessForWorkers",
+  ]
+}
+
 export interface StealthContextOptions {
   /** 默认 false：headless Chrome 极易被风控识别，交互式沙盒必须 headed。 */
   headless?: boolean
@@ -74,14 +93,18 @@ export const launchReplayBrowser = async (options: {
   windowSize?: { width: number; height: number }
 }): Promise<Browser> => {
   if (!options.stealth) {
-    return chromium.launch({ headless: options.headless ?? true, slowMo: options.slowMo })
+    return chromium.launch({
+      headless: options.headless ?? true,
+      slowMo: options.slowMo,
+      args: localNetworkAccessArgs(),
+    })
   }
   const channel = (process.env.BROWSER_CHANNEL ?? "chrome").trim()
   const size = options.windowSize ?? { width: 1440, height: 960 }
   const launchOptions = {
     headless: false,
     slowMo: options.slowMo,
-    args: [`--window-size=${size.width},${size.height}`],
+    args: [`--window-size=${size.width},${size.height}`, ...localNetworkAccessArgs()],
   }
   try {
     return await chromium.launch(channel ? { ...launchOptions, channel } : launchOptions)
@@ -101,7 +124,7 @@ export const launchStealthPersistentContext = async (
   const headless = options.headless ?? false
   const channel = (process.env.BROWSER_CHANNEL ?? "chrome").trim()
   const userDataDir = options.userDataDir ?? (await mkdtemp(join(tmpdir(), "autovis-sbx-")))
-  const args: string[] = []
+  const args: string[] = [...localNetworkAccessArgs()]
   if (options.windowSize) {
     args.push(`--window-size=${options.windowSize.width},${options.windowSize.height}`)
   }

@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test"
 import { type ToolDefinition } from "../../llm.js"
-import { buildLocatorTarget, saveAgentScreenshot, truncate } from "../helpers.js"
+import { buildLocatorTarget, saveAgentScreenshot, truncate, waitForPageContent } from "../helpers.js"
 import { type LocatorQuery, type ToolExecutionResult, type ToolRuntimeContext } from "../types.js"
 
 export const pageQueryTools: ToolDefinition[] = [
@@ -287,6 +287,7 @@ export async function executeAnalyzeCurrentPage(
   }
 
   const fullPage = args.fullPage ?? false
+  await waitForPageContent(page, 8000)
   const screenshotBuffer = await page.screenshot({
     type: "jpeg",
     quality: 70,

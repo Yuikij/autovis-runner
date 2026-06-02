@@ -3,7 +3,7 @@ import { launchReplayBrowser, shouldStealthReplay } from "./browser.js"
 import { type AgentStep } from "@autovis/shared"
 import { callLlmWithTools, generateTextWithLlm, type ChatMessage } from "./llm.js"
 import { buildAgentSystemPrompt, buildAgentUserPrompt, buildDirectAgentSystemPrompt, buildDirectAgentUserPrompt } from "./agent/prompts.js"
-import { appendAgentDebugLog, buildToolSummary, buildToolTitle, getPageSnapshot } from "./agent/helpers.js"
+import { appendAgentDebugLog, buildToolSummary, buildToolTitle, getPageSnapshot, recoverBlankSpaRoute, waitForPageContent } from "./agent/helpers.js"
 import { AGENT_TOOLS, executeTool } from "./agent/tools/index.js"
 import { executeStepTool } from "./agent/tools/execute-step.js"
 import { type AgentContext, type ScriptRuntimeContext, type ToolExecutionResult } from "./agent/types.js"
@@ -86,6 +86,7 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
           ownedBrowser = ctx.browser
           browserContext = browserContext ?? await ownedBrowser.newContext({
             viewport: { width: 1440, height: 960 },
+            ignoreHTTPSErrors: true,
             storageState: ctx.authStorageStateJson ? JSON.parse(ctx.authStorageStateJson) : undefined,
           })
         } else if (browserContext) {
@@ -96,12 +97,22 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
           ownedBrowser = await launchReplayBrowser({ stealth, headless: true })
           browserContext = await ownedBrowser.newContext({
             viewport: stealth ? null : { width: 1440, height: 960 },
+            ignoreHTTPSErrors: true,
             storageState: ctx.authStorageStateJson ? JSON.parse(ctx.authStorageStateJson) : undefined,
           })
         }
         page = await browserContext.newPage()
-        await page.goto(effectiveBaseUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
-        await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined)
+        try {
+          await page.goto(effectiveBaseUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
+        } catch (navErr) {
+          if (!(navErr instanceof Error && navErr.message.includes("interrupted by another navigation"))) {
+            throw navErr
+          }
+          await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+        }
+        await recoverBlankSpaRoute(page, effectiveBaseUrl, project.testBaseUrl)
+        await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => undefined)
+        await waitForPageContent(page, 15_000)
         initStep.status = "completed"
         initStep.content = `浏览器已就绪，已导航到 ${effectiveBaseUrl}`
         console.log(`[agent ${agentSessionId}] browser ready at ${effectiveBaseUrl}`)
@@ -292,8 +303,17 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
 
                     const recoveryBrowser = browserContext?.browser() ?? ownedBrowser ?? ctx.browser ?? null
                     if (!recoveryBrowser || !recoveryStorageState) {
-                      await page!.goto(recoveryUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
-                      await page!.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined)
+                      try {
+                        await page!.goto(recoveryUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
+                      } catch (navErr) {
+                        if (!(navErr instanceof Error && navErr.message.includes("interrupted by another navigation"))) {
+                          throw navErr
+                        }
+                        await page!.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+                      }
+                      await recoverBlankSpaRoute(page!, recoveryUrl, effectiveBaseUrl)
+                      await page!.waitForLoadState("load", { timeout: 8_000 }).catch(() => undefined)
+                      await waitForPageContent(page!, 15_000)
                       return page!
                     }
 
@@ -303,11 +323,21 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
                     const replayStealth = shouldStealthReplay(ctx.authStorageStateJson)
                     browserContext = await recoveryBrowser.newContext({
                       viewport: replayStealth ? null : { width: 1440, height: 960 },
+                      ignoreHTTPSErrors: true,
                       storageState: recoveryStorageState,
                     })
                     page = await browserContext.newPage()
-                    await page.goto(recoveryUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
-                    await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined)
+                    try {
+                      await page.goto(recoveryUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
+                    } catch (navErr) {
+                      if (!(navErr instanceof Error && navErr.message.includes("interrupted by another navigation"))) {
+                        throw navErr
+                      }
+                      await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+                    }
+                    await recoverBlankSpaRoute(page, recoveryUrl, effectiveBaseUrl)
+                    await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => undefined)
+                    await waitForPageContent(page, 15_000)
                     return page
                   },
                   dataGuard: { caseTextCorpus, pageDataCorpus },
