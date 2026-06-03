@@ -827,9 +827,11 @@ export class RunService {
                 })
                 taskRun.currentAgentId = agentSession.id
                 taskRun.lastAgentId = agentSession.id
+                taskRun.currentRunId = agentSession.latestRunId ?? agentSession.warmupRunId
                 this.persistAndNotifyTaskRun(taskRun)
                 const finishedAgent = await this.waitForAgentCompletion(agentSession.id)
                 taskRun.runningCount = 0
+                taskRun.currentRunId = undefined
                 taskRun.currentAgentId = undefined
                 if (finishedAgent.status === "completed") {
                   taskRun.passedCount += 1
@@ -842,6 +844,7 @@ export class RunService {
                 }
               } catch (agentErr) {
                 taskRun.runningCount = 0
+                taskRun.currentRunId = undefined
                 taskRun.currentAgentId = undefined
                 taskRun.failedCount += 1
                 taskRun.logs.push(`${testCase.caseCode} AI 直接执行异常: ${(agentErr as Error).message}`)
