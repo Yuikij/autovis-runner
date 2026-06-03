@@ -16,7 +16,7 @@ import {
   type ValidationStepEmitter,
 } from "../agent/validation.js"
 import { decorateAuthProfile } from "./authProfile.utils.js"
-import { createExecutionStep, createExecutionTemplate, createRunnerSession, executeScriptInSession, type RunnerSession } from "@autovis/runner"
+import { finalizeRunnerSession, failRunnerSession, createExecutionStep, createExecutionTemplate, createRunnerSession, executeScriptInSession, type RunnerSession } from "@autovis/runner"
 import {
   type AgentSession,
   type AgentStep,
@@ -122,11 +122,12 @@ export class AgentService {
     this.agentSubscribers.get(session.id)?.forEach((listener) => listener(session))
   }
 
-  private createAgentSession(request: { sessionId: string; projectId: string; testCaseId: string }, mode: "generate" | "direct" = "generate"): AgentSession {
+  private createAgentSession(request: { sessionId: string; projectId: string; testCaseId: string; taskRunId?: string }, mode: "generate" | "direct" = "generate"): AgentSession {
     return {
       id: request.sessionId,
       projectId: request.projectId,
       testCaseId: request.testCaseId,
+      taskRunId: request.taskRunId,
       mode,
       status: "running",
       verificationStatus: "idle",
@@ -966,7 +967,12 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       throw conflict
     }
 
-    const session = this.createAgentSession(request, "direct")
+    const session = this.createAgentSession({
+      sessionId: request.sessionId,
+      projectId: request.projectId,
+      testCaseId: request.testCaseId,
+      taskRunId: request.taskRunId,
+    }, "direct")
     this.persistAndNotifyAgent(session)
 
     const taskController = this.tasks.create({
@@ -981,9 +987,25 @@ ${promptSummary || "// Prompt summary: (empty)"}`
 
     const onStep = (step: AgentStep) => {
       this.appendOrUpdateStep(session, step)
+      if (!warmupRunForDisplay) return
+      const runLogParts = [step.title, step.content, step.detail].filter(Boolean)
+      if (runLogParts.length) {
+        warmupRunForDisplay.logs.push(`[${new Date().toLocaleTimeString()}] ${runLogParts.join(" · ")}`)
+      }
+      const runningIndex = warmupRunForDisplay.steps.findIndex((item) => item.status === "running")
+      if (runningIndex >= 0) {
+        warmupRunForDisplay.steps[runningIndex].log = step.title
+        if (step.screenshotUrl) {
+          warmupRunForDisplay.steps[runningIndex].screenshotUrl = step.screenshotUrl
+          warmupRunForDisplay.currentViewport = step.screenshotUrl
+        }
+      }
+      this.runService.saveRunSnapshot(warmupRunForDisplay)
+      this.runService.notifyRun(warmupRunForDisplay)
     }
 
     let warmupSession: RunnerSession | null = null
+    let warmupRunForDisplay: import("@autovis/shared").ExecutionRun | null = null
     let initialPageState: InitialPageState | undefined
     let preconditionReport: PreconditionReport = { status: "none", suites: [] }
     let warmupRuntimeOutputs: RuntimeOutput[] = []
@@ -1051,6 +1073,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
             testBaseUrl: resolvedRunUrl,
           })
           warmupRun.targetUrlId = resolvedRunTarget?.id
+          warmupRun.taskRunId = request.taskRunId
           warmupRun.kind = "temporary"
           warmupRun.orchestrationPhase = preconditionPlan.nodes.length > 0 ? "preconditions" : "target"
           warmupRun.preconditionSummary = [...(session.preconditionSummary ?? [])]
@@ -1062,6 +1085,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           }
           this.runService.saveRunSnapshot(warmupRun)
           this.runService.notifyRun(warmupRun)
+          warmupRunForDisplay = warmupRun
           session.warmupRunId = warmupRun.id
           this.persistAndNotifyAgent(session)
 
@@ -1188,6 +1212,11 @@ ${promptSummary || "// Prompt summary: (empty)"}`
             timestamp: now(),
             runId: warmupRun.id,
           })
+          warmupRun.status = "running"
+          warmupRun.finishedAt = undefined
+          warmupRun.logs.push(`[${new Date().toLocaleTimeString()}] 浏览器预热完成，开始 AI 直接执行。`)
+          this.runService.saveRunSnapshot(warmupRun)
+          this.runService.notifyRun(warmupRun)
         } catch (warmupError) {
           const warmupMsg = warmupError instanceof Error ? warmupError.message : String(warmupError)
           const isBrowserMissing = warmupMsg.includes("Executable doesn't exist") || warmupMsg.includes("browserType.launch")
@@ -1248,6 +1277,22 @@ ${promptSummary || "// Prompt summary: (empty)"}`
 
       session.directResult = this.buildDirectResult(session.steps)
 
+      if (warmupRunForDisplay && warmupSession) {
+        const displayRun = warmupRunForDisplay
+        displayRun.logs.push(`[${new Date().toLocaleTimeString()}] AI 直接执行完成，开始归档产物。`)
+        await finalizeRunnerSession({
+          run: displayRun,
+          session: warmupSession,
+          onUpdate: async () => {
+            this.runService.saveRunSnapshot(displayRun)
+            this.runService.notifyRun(displayRun)
+          },
+          archiveStepIndex: displayRun.steps.length - 1,
+        })
+        session.latestRunId = displayRun.id
+        warmupSession = null
+      }
+
       const doneStep: AgentStep = {
         id: createId("agent_direct_done"),
         type: "generation",
@@ -1264,8 +1309,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       this.llmService.saveLlmConfigState(state, ownerKey)
 
       session.status = "completed"
-      session.verificationStatus = "passed"
-      session.warmupRunId = undefined
+      session.verificationStatus = "idle"
       session.finishedAt = now()
       session.finalSummary = session.directResult.summary || "直接执行完成。"
       this.persistAndNotifyAgent(session)
@@ -1276,7 +1320,20 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       const wasCancelled = taskController.signal.aborted
       session.status = wasCancelled ? "cancelled" : "error"
 
-      if (session.warmupRunId) {
+      if (session.warmupRunId && warmupSession && warmupRunForDisplay) {
+        const displayRun = warmupRunForDisplay
+        await failRunnerSession(
+          displayRun,
+          warmupSession,
+          async () => {
+            this.runService.saveRunSnapshot(displayRun)
+            this.runService.notifyRun(displayRun)
+          },
+          new Error(message),
+        )
+        session.latestRunId = displayRun.id
+        warmupSession = null
+      } else if (session.warmupRunId) {
         const run = await this.runService.getRun(session.warmupRunId)
         if (run && (run.status === "running" || run.status === "paused" || run.status === "awaiting_human")) {
           run.status = wasCancelled ? "cancelled" : "failed"
@@ -1286,7 +1343,6 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         }
       }
 
-      session.warmupRunId = undefined
       session.error = message
       session.finishedAt = now()
       session.pausedAt = undefined
@@ -1348,6 +1404,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       testCaseId: opts.testCaseId,
       prompt,
       runTargetUrlId: opts.targetUrlId,
+      taskRunId: opts.taskRunId,
     })
 
     // 等 session 被写入 DB 后返回（runDirectAgent 开头即 persistAndNotifyAgent）

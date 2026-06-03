@@ -105,6 +105,8 @@ export const createSchema = (db: DatabaseSync) => {
       skipped_count INTEGER NOT NULL,
       run_ids TEXT NOT NULL,
       current_run_id TEXT,
+      current_agent_id TEXT,
+      last_agent_id TEXT,
       logs TEXT NOT NULL,
       started_at TEXT NOT NULL,
       finished_at TEXT,
@@ -210,8 +212,10 @@ export const createSchema = (db: DatabaseSync) => {
       latest_script_id TEXT,
       latest_run_id TEXT,
       warmup_run_id TEXT,
+      task_run_id TEXT,
       precondition_summary TEXT,
       final_summary TEXT,
+      direct_result TEXT,
       error TEXT,
       started_at TEXT NOT NULL,
       finished_at TEXT,
@@ -352,6 +356,10 @@ export const createSchema = (db: DatabaseSync) => {
   ensureColumn(db, "auth_profiles", "validation_script_generated_at", "TEXT")
   ensureColumn(db, "auth_profile_states", "post_login_url_auto", "TEXT")
   ensureColumn(db, "auth_profile_states", "post_login_url_override", "TEXT")
+  ensureColumn(db, "task_runs", "current_agent_id", "TEXT")
+  ensureColumn(db, "task_runs", "last_agent_id", "TEXT")
+  ensureColumn(db, "agent_sessions", "task_run_id", "TEXT")
+  ensureColumn(db, "agent_sessions", "direct_result", "TEXT")
 }
 
 export const ensureColumn = (db: DatabaseSync, tableName: string, columnName: string, definition: string) => {

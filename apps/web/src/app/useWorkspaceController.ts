@@ -68,6 +68,7 @@ export function useWorkspaceController() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [agentSession, setAgentSession] = useState<AgentSession | null>(null)
+  const [activeTaskAgentSession, setActiveTaskAgentSession] = useState<AgentSession | null>(null)
   const [terminalRunRefreshIds, setTerminalRunRefreshIds] = useState<string[]>([])
   const [terminalTaskRunRefreshIds, setTerminalTaskRunRefreshIds] = useState<string[]>([])
   const [terminalRecorderRefreshIds, setTerminalRecorderRefreshIds] = useState<string[]>([])
@@ -326,7 +327,7 @@ export function useWorkspaceController() {
     activeRun, setActiveRun, setWorkbenchVerificationRunId, projectRuns,
     agentSession, loadRun, selectedProjectId, terminalRunRefreshIds,
     setTerminalRunRefreshIds, loadProjectResources, callbackRef,
-    activeTaskRun, setTaskRuns, taskRuns, terminalTaskRunRefreshIds,
+    activeTaskRun, activeTaskAgentSession, setActiveTaskAgentSession, setTaskRuns, taskRuns, terminalTaskRunRefreshIds,
     setTerminalTaskRunRefreshIds, activeRecorderSession, setRecorderSessions,
     recorderSessions, selectedCaseId, loadScripts, terminalRecorderRefreshIds,
     setTerminalRecorderRefreshIds, setAgentSession, setBusy, llmSession,
@@ -419,6 +420,7 @@ export function useWorkspaceController() {
     activeRun,
     workbenchVerificationRunId,
     activeTaskRun,
+    activeTaskAgentSession,
     activeRecorderSession,
     agentSession,
     error,
@@ -463,6 +465,7 @@ export function useWorkspaceController() {
     setActiveRun,
     setWorkbenchVerificationRunId,
     setActiveTaskRunId,
+    setActiveTaskAgentSession,
     setActiveRecorderSessionId,
     setProjectForm,
     setWorkspaceForm,

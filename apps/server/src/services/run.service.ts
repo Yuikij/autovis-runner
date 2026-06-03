@@ -826,6 +826,7 @@ export class RunService {
                   taskRunId: taskRun.id,
                 })
                 taskRun.currentAgentId = agentSession.id
+                taskRun.lastAgentId = agentSession.id
                 this.persistAndNotifyTaskRun(taskRun)
                 const finishedAgent = await this.waitForAgentCompletion(agentSession.id)
                 taskRun.runningCount = 0

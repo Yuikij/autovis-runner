@@ -90,9 +90,9 @@ export const upsertTaskRun = (db: DatabaseSync, taskRun: TaskRun) => {
   db.prepare(`
       INSERT OR REPLACE INTO task_runs (
         id, project_id, task_id, status, test_base_url, target_url_id, total_count, queued_count, running_count, passed_count, failed_count,
-        skipped_count, run_ids, current_run_id, logs, started_at, finished_at,
+        skipped_count, run_ids, current_run_id, current_agent_id, last_agent_id, logs, started_at, finished_at,
         schedule_trigger_id, attempt_no, parent_task_run_id, effective_task_mode
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
     taskRun.id,
     taskRun.projectId,
@@ -108,6 +108,8 @@ export const upsertTaskRun = (db: DatabaseSync, taskRun: TaskRun) => {
     taskRun.skippedCount,
     JSON.stringify(taskRun.runIds),
     taskRun.currentRunId ?? null,
+    taskRun.currentAgentId ?? null,
+    taskRun.lastAgentId ?? null,
     JSON.stringify(taskRun.logs),
     taskRun.startedAt,
     taskRun.finishedAt ?? null,

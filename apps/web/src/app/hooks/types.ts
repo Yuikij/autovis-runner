@@ -56,6 +56,8 @@ export interface WorkspaceEffectsParams {
   loadProjectResources: (projectId: string) => Promise<void>
   callbackRef: MutableRefObject<WorkspaceEffectCallbacks>
   activeTaskRun: TaskRun | null
+  activeTaskAgentSession: AgentSession | null
+  setActiveTaskAgentSession: Setter<AgentSession | null>
   setTaskRuns: Setter<TaskRun[]>
   taskRuns: TaskRun[]
   terminalTaskRunRefreshIds: string[]

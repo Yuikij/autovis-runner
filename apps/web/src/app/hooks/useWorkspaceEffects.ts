@@ -14,7 +14,7 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
     activeRun, setActiveRun, setWorkbenchVerificationRunId, projectRuns,
     agentSession, loadRun, selectedProjectId, terminalRunRefreshIds,
     setTerminalRunRefreshIds, loadProjectResources, callbackRef,
-    activeTaskRun, setTaskRuns, taskRuns, terminalTaskRunRefreshIds,
+    activeTaskRun, activeTaskAgentSession, setActiveTaskAgentSession, setTaskRuns, taskRuns, terminalTaskRunRefreshIds,
     setTerminalTaskRunRefreshIds, activeRecorderSession, setRecorderSessions,
     recorderSessions, selectedCaseId, loadScripts, terminalRecorderRefreshIds,
     setTerminalRecorderRefreshIds, setAgentSession, setBusy, llmSession,
@@ -339,6 +339,95 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
   }, [activeRecorderSession?.id, selectedCaseId, selectedProjectId, terminalRecorderRefreshIds, setRecorderSessions, loadScripts, setTerminalRecorderRefreshIds, loadProjectResources, callbackRef])
 
   useEffect(() => {
+    if (!activeTaskRun?.currentAgentId && !activeTaskRun?.lastAgentId) {
+      return undefined
+    }
+
+    const agentId = activeTaskRun.currentAgentId ?? activeTaskRun.lastAgentId!
+    let cancelled = false
+    let source: EventSource | null = null
+    let retryTimer: number | null = null
+    let attempt = 0
+
+    const isTerminal = (status: AgentSession["status"]) => status === "completed" || status === "error" || status === "cancelled" || status === "interrupted"
+
+    void request<AgentSession>(apiRoutes.agent.detail(agentId))
+      .then((res) => {
+        if (!cancelled) {
+          setActiveTaskAgentSession(res.data)
+        }
+      })
+      .catch(() => undefined)
+
+    if (!activeTaskRun.currentAgentId) {
+      return () => {
+        cancelled = true
+      }
+    }
+
+    const connect = () => {
+      if (cancelled) return
+      source = new EventSource(streamUrl(apiRoutes.agent.stream(agentId)))
+      source.onopen = () => { attempt = 0 }
+      source.onmessage = (event) => {
+        const session = JSON.parse(event.data) as AgentSession
+        setActiveTaskAgentSession(session)
+        if (isTerminal(session.status) && selectedProjectId) {
+          void loadProjectResources(selectedProjectId)
+        }
+      }
+      source.onerror = () => {
+        if (cancelled) return
+        source?.close()
+        source = null
+        attempt += 1
+        const delay = Math.min(15_000, 500 * Math.pow(2, attempt))
+        retryTimer = window.setTimeout(connect, delay)
+      }
+    }
+    connect()
+
+    return () => {
+      cancelled = true
+      if (retryTimer) window.clearTimeout(retryTimer)
+      source?.close()
+    }
+  }, [activeTaskRun?.currentAgentId, activeTaskRun?.lastAgentId, selectedProjectId, setActiveTaskAgentSession, loadProjectResources])
+
+  useEffect(() => {
+    const warmupRunId = activeTaskAgentSession?.warmupRunId ?? activeTaskAgentSession?.latestRunId
+    if (!warmupRunId || !activeTaskRun?.currentAgentId) {
+      return undefined
+    }
+
+    if (activeRun?.id === warmupRunId) {
+      return undefined
+    }
+
+    const existingRun = projectRuns.find((item) => item.id === warmupRunId)
+    if (existingRun) {
+      setActiveRun(existingRun)
+      return undefined
+    }
+
+    void loadRun(warmupRunId).then((run) => {
+      if (run) setActiveRun(run)
+    }).catch(() => undefined)
+
+    return undefined
+  }, [activeTaskAgentSession?.warmupRunId, activeTaskAgentSession?.latestRunId, activeRun?.id, projectRuns, loadRun, setActiveRun])
+
+  useEffect(() => {
+    if (activeTaskRun?.currentAgentId) {
+      return
+    }
+    if (activeTaskAgentSession && activeTaskRun?.lastAgentId === activeTaskAgentSession.id) {
+      return
+    }
+    setActiveTaskAgentSession(null)
+  }, [activeTaskRun?.id, activeTaskRun?.currentAgentId, activeTaskRun?.lastAgentId, activeTaskAgentSession, setActiveTaskAgentSession])
+
+  useEffect(() => {
     if (!agentSession?.id) {
       return undefined
     }
@@ -450,7 +539,9 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
       || activeRecorderSession?.status === "paused"
       || activeRecorderSession?.status === "starting"
     const hashRunId = activeSection === "runs"
-      ? activeRun?.id
+      ? activeTaskRun?.id
+        ? null
+        : activeRun?.id
       : activeSection === "workbench" && runLive
       ? activeRun?.id
       : null
@@ -495,7 +586,7 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
           void loadRun(runId).then((run) => {
             if (run && parseHash().runId === runId) setActiveRun(run)
           }).catch(() => undefined)
-        } else if (hashData.section === "runs" || hashData.section === "workbench") {
+        } else if (hashData.section === "workbench" || (hashData.section === "runs" && !hashData.taskRunId)) {
           setActiveRun(null)
         }
       }

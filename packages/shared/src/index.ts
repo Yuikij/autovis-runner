@@ -456,6 +456,8 @@ export interface TaskRun {
   currentRunId?: Identifier
   /** 当前正在执行的 AI 直接执行 Agent session id（用例无脚本时使用）。 */
   currentAgentId?: Identifier
+  /** 最近一次 direct-agent 的 session id，用于任务历史回看。 */
+  lastAgentId?: Identifier
   logs: string[]
   startedAt: string
   finishedAt?: string
@@ -611,6 +613,7 @@ export interface AgentSession {
   latestScriptId?: Identifier
   latestRunId?: Identifier
   warmupRunId?: Identifier
+  taskRunId?: Identifier
   preconditionSummary?: string[]
   finalSummary?: string
   directResult?: DirectExecutionResult
@@ -635,6 +638,7 @@ export interface StartDirectAgentRequest {
   prompt: string
   /** 直接执行时使用的目标 URL（必须是项目下 TargetUrl 的 id）。 */
   runTargetUrlId?: Identifier
+  taskRunId?: Identifier
 }
 
 export interface CreateScriptVersionRequest {

@@ -150,6 +150,10 @@ export function WorkbenchSandbox({
       ? latestAgentStepWithImage?.screenshotUrl
       : verificationRun?.currentViewport
 
+  const displayLiveViewport = mode === "generate" && !isShowingAgent
+    ? verificationRun?.liveViewport
+    : undefined
+
   const displayTitle = mode === "record" ? "录制浏览器画面" : isShowingAgent ? "生成过程实时画面" : "验证浏览器画面"
   const displayEmptyText = mode === "record" ? "启动录制后，这里会显示远程浏览器画面。" : isShowingAgent ? "启动生成后，此窗口将实时展示智能体的操作画面。" : "执行验证后，此窗口将实时展示浏览器画面。"
 
@@ -167,6 +171,7 @@ export function WorkbenchSandbox({
           title={displayTitle}
           url={displayUrl}
           viewport={displayViewport}
+          liveViewport={displayLiveViewport}
           replayVideoUrl={!isShowingAgent && mode === "generate" ? verificationReplayVideo : undefined}
           className="w-full h-full flex flex-col bg-transparent border-0"
           contentClassName="flex-1 h-full flex items-center justify-center p-0 bg-transparent"

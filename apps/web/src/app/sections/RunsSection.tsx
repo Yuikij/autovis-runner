@@ -151,6 +151,7 @@ export function RunsSection({ controller }: RunsSectionProps) {
     return groups
   }, [executionActiveRun?.steps])
 
+
   if (viewMode === "list") {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -428,7 +429,7 @@ export function RunsSection({ controller }: RunsSectionProps) {
             <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">用例运行队列</span>
             <Badge tone="default">{currentTaskRuns.length} 个子运行</Badge>
           </div>
-          
+
           {currentTaskRuns.length === 0 ? (
             <p className="text-xs text-muted-foreground italic text-center py-4">暂无运行数据</p>
           ) : (
@@ -607,13 +608,13 @@ export function RunsSection({ controller }: RunsSectionProps) {
                     <div className="py-2 pr-2 relative">
                       {/* Vertical timeline track line */}
                       <div className="absolute left-[19px] top-6 bottom-6 w-px bg-border/80 dark:bg-white/10" />
-                      
+
                       <div className="space-y-6 relative">
                         {groupedSteps.map(({ parent, children }) => {
                           const isRunning = parent.status === "running"
                           const isPassed = parent.status === "passed"
                           const isFailed = parent.status === "failed"
-                          
+
                           let dotColor = "bg-muted border-border text-muted-foreground"
                           if (isRunning) dotColor = "bg-primary border-primary text-primary-foreground animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.5)]"
                           if (isPassed) dotColor = "bg-emerald-500 border-emerald-500 text-white"
@@ -627,7 +628,7 @@ export function RunsSection({ controller }: RunsSectionProps) {
                                   {isRunning ? "hourglass_top" : isPassed ? "check" : isFailed ? "close" : "schedule"}
                                 </span>
                               </div>
-                              
+
                               {/* Card Content Box */}
                               <div className={`rounded-xl border p-4 transition-all duration-300 ${isRunning ? "border-primary/50 bg-primary/5 shadow-[0_0_15px_rgba(var(--primary),0.03)]" : "border-border/50 bg-card group-hover:border-border"}`}>
                                 <div className="flex items-center justify-between gap-3 mb-1">
@@ -636,12 +637,12 @@ export function RunsSection({ controller }: RunsSectionProps) {
                                     {translateStatus(parent.status)}
                                   </Badge>
                                 </div>
-                                
+
                                 {parent.log && <p className="text-xs text-muted-foreground leading-relaxed font-sans mt-1">{parent.log}</p>}
-                                
+
                                 {/* Image thumbnail inside step, zoom on click */}
                                 {parent.screenshotUrl && (
-                                  <div 
+                                  <div
                                     className="mt-3 relative rounded-lg overflow-hidden border border-border/50 group max-w-[200px] aspect-[16/10] bg-black/10 cursor-zoom-in shadow-sm hover:border-primary/50 transition-colors"
                                     onClick={() => setLightboxUrl(parent.screenshotUrl!)}
                                   >
@@ -669,7 +670,7 @@ export function RunsSection({ controller }: RunsSectionProps) {
                                             <p className={`text-xs ${cIsRunning ? "text-primary font-medium" : "text-foreground"}`}>{child.title}</p>
                                             {child.log && <p className="text-[10px] text-muted-foreground mt-0.5 font-sans opacity-80">{child.log}</p>}
                                             {child.screenshotUrl && (
-                                              <div 
+                                              <div
                                                 className="mt-2 relative rounded overflow-hidden border border-border/50 group max-w-[120px] aspect-[16/10] bg-black/10 cursor-zoom-in shadow-sm hover:border-primary/50 transition-colors"
                                                 onClick={() => setLightboxUrl(child.screenshotUrl!)}
                                               >
@@ -704,9 +705,9 @@ export function RunsSection({ controller }: RunsSectionProps) {
                   <div className="flex items-center justify-between pb-2 border-b border-border/40">
                     <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">系统日志输出 (STDOUT)</span>
                   </div>
-                  <LogPanel 
-                    noCard 
-                    content={executionActiveRun?.logs.join("\n") || activeTaskRun?.logs.join("\n") || "无输出日志"} 
+                  <LogPanel
+                    noCard
+                    content={executionActiveRun?.logs.join("\n") || activeTaskRun?.logs.join("\n") || "无输出日志"}
                     title="日志输出"
                     className="h-[32rem] border border-border/80 bg-black/95 dark:bg-black/95 rounded-xl font-mono text-xs leading-relaxed text-emerald-400 p-4 shadow-inner"
                   />

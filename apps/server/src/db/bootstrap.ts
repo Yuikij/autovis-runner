@@ -50,8 +50,8 @@ export const importState = (db: DatabaseSync, state: PersistedState) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertTaskRun = db.prepare(`
-    INSERT INTO task_runs (id, project_id, task_id, status, test_base_url, total_count, queued_count, running_count, passed_count, failed_count, skipped_count, run_ids, current_run_id, logs, started_at, finished_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO task_runs (id, project_id, task_id, status, test_base_url, total_count, queued_count, running_count, passed_count, failed_count, skipped_count, run_ids, current_run_id, current_agent_id, last_agent_id, logs, started_at, finished_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertRecorderSession = db.prepare(`
     INSERT INTO recorder_sessions (id, project_id, test_case_id, status, test_base_url, current_viewport, current_url, page_title, actions, artifacts, generated_script_id, started_at, finished_at, error)
@@ -152,6 +152,8 @@ export const importState = (db: DatabaseSync, state: PersistedState) => {
         item.skippedCount,
         JSON.stringify(item.runIds),
         item.currentRunId ?? null,
+        item.currentAgentId ?? null,
+        item.lastAgentId ?? null,
         JSON.stringify(item.logs),
         item.startedAt,
         item.finishedAt ?? null,

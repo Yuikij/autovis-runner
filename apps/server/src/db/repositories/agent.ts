@@ -85,8 +85,8 @@ export const upsertAgentSession = (db: DatabaseSync, session: AgentSession) => {
   db.prepare(`
       INSERT OR REPLACE INTO agent_sessions (
         id, project_id, test_case_id, mode, status, verification_status, result_script_id, latest_script_id,
-        latest_run_id, warmup_run_id, precondition_summary, final_summary, error, started_at, finished_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        latest_run_id, warmup_run_id, task_run_id, precondition_summary, final_summary, direct_result, error, started_at, finished_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
     session.id,
     session.projectId,
@@ -98,8 +98,10 @@ export const upsertAgentSession = (db: DatabaseSync, session: AgentSession) => {
     session.latestScriptId ?? null,
     session.latestRunId ?? null,
     session.warmupRunId ?? null,
+    session.taskRunId ?? null,
     session.preconditionSummary ? JSON.stringify(session.preconditionSummary) : null,
     session.finalSummary ?? null,
+    session.directResult ? JSON.stringify(session.directResult) : null,
     session.error ?? null,
     session.startedAt,
     session.finishedAt ?? null,

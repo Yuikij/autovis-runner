@@ -214,6 +214,8 @@ export interface TaskRunRow {
   skipped_count: number
   run_ids: string
   current_run_id: string | null
+  current_agent_id: string | null
+  last_agent_id: string | null
   logs: string
   started_at: string
   finished_at: string | null
@@ -234,8 +236,10 @@ export interface AgentSessionRow {
   latest_script_id: string | null
   latest_run_id: string | null
   warmup_run_id: string | null
+  task_run_id: string | null
   precondition_summary: string | null
   final_summary: string | null
+  direct_result: string | null
   error: string | null
   started_at: string
   finished_at: string | null
@@ -509,6 +513,8 @@ export const mapTaskRun = (row: TaskRunRow): TaskRun => ({
   skippedCount: row.skipped_count,
   runIds: parseJson(row.run_ids, [] as string[]),
   currentRunId: row.current_run_id ?? undefined,
+  currentAgentId: row.current_agent_id ?? undefined,
+  lastAgentId: row.last_agent_id ?? undefined,
   logs: parseJson(row.logs, [] as string[]),
   startedAt: row.started_at,
   finishedAt: row.finished_at ?? undefined,
@@ -549,8 +555,10 @@ export const mapAgentSession = (row: AgentSessionRow, steps: AgentStep[]): Agent
   latestScriptId: row.latest_script_id ?? undefined,
   latestRunId: row.latest_run_id ?? undefined,
   warmupRunId: row.warmup_run_id ?? undefined,
+  taskRunId: row.task_run_id ?? undefined,
   preconditionSummary: parseJson(row.precondition_summary, undefined as AgentSession["preconditionSummary"]),
   finalSummary: row.final_summary ?? undefined,
+  directResult: parseJson(row.direct_result, undefined as AgentSession["directResult"]),
   error: row.error ?? undefined,
   startedAt: row.started_at,
   finishedAt: row.finished_at ?? undefined,
