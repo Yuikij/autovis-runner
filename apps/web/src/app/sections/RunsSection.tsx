@@ -386,16 +386,15 @@ export function RunsSection({ controller }: RunsSectionProps) {
         
         <div className="flex flex-wrap items-center gap-3">
           {activeTaskRun ? <Badge>{taskMap.get(activeTaskRun.taskId)?.name ?? activeTaskRun.taskId.slice(0, 8)}</Badge> : null}
-          {activeTaskRun ? (
-            <Badge tone={activeTaskRun.status === "passed" ? "success" : activeTaskRun.status === "failed" ? "danger" : "warning"}>
-              {translateStatus(activeTaskRun.status)}
-            </Badge>
-          ) : null}
-          {executionActiveRun ? (
-            <Badge tone={executionActiveRun.status === "passed" ? "success" : executionActiveRun.status === "failed" ? "danger" : "warning"}>
-              {translateStatus(executionActiveRun.status)}
-            </Badge>
-          ) : null}
+          {(() => {
+            const run = executionActiveRun ?? activeTaskRun
+            if (!run) return null
+            return (
+              <Badge tone={run.status === "passed" ? "success" : run.status === "failed" ? "danger" : "warning"}>
+                {translateStatus(run.status)}
+              </Badge>
+            )
+          })()}
           
           {activeTaskRun?.id ? (
             <TaskControlBar kind="task-run" id={activeTaskRun.id} status={activeTaskRun.status} />

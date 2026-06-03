@@ -142,7 +142,7 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
     }
 
     const recoveryUrl = ctx.initialPageState?.url || effectiveBaseUrl
-    const recoveryStorageState = browserContext
+    let recoveryStorageState = browserContext
       ? await browserContext.storageState().catch(() => undefined)
       : undefined
 
@@ -352,8 +352,11 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
                 verifiedRuntimeContext = attemptRuntimeContext
                 needsRecovery = false
                 lastExecuteStepFailed = false
-                // 执行成功（增量或全量重放）后，live 页面 == 已验证脚本末态。
                 liveStateDirty = false
+                // 刷新 storageState 快照，捕获步骤执行后可能更新的 cookie/token（sliding session）
+                if (browserContext) {
+                  recoveryStorageState = await browserContext.storageState().catch(() => recoveryStorageState)
+                }
                 callStep.status = "completed"
                 callStep.content = `步骤「${parsedArgs.title}」验证通过`
               } else {
@@ -390,7 +393,8 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
                 try {
                   const fresh = await getPageSnapshot(page)
                   if (fresh) {
-                    pageDataCorpus = pageDataCorpus.length > 40_000 ? fresh : `${pageDataCorpus}\n${fresh}`
+                    // 始终只保留最新快照，避免累积到阈值后突然全部丢弃
+                    pageDataCorpus = fresh
                   }
                 } catch {
                   // 快照失败不影响主流程
