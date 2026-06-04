@@ -1,3 +1,4 @@
+import { useCallback } from "react"
 import type { WorkspaceActionParams } from "../types"
 import { request } from "../../api"
 import { apiRoutes } from "../../apiRoutes"
@@ -233,11 +234,11 @@ export function useProjectActions(params: WorkspaceActionParams) {
     }
   }
 
-  const refreshAuthProfiles = async () => {
+  const refreshAuthProfiles = useCallback(async () => {
     if (!selectedProject) return
     const result = await request<AuthProfile[]>(apiRoutes.projects.authProfiles(selectedProject.id))
     setAuthProfiles(result.data)
-  }
+  }, [selectedProject, setAuthProfiles])
 
   /**
    * 设置 / 清除某 (profile, targetUrl) 行的"登录后 URL"覆盖。

@@ -21,7 +21,7 @@ import Fastify from "fastify"
 import { randomUUID } from "node:crypto"
 import { createReadStream } from "node:fs"
 import { mkdir, stat } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import { dirname, extname, join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { startCloudClient } from "./cloud-client.js"
 import { log } from "./log.js"
@@ -70,8 +70,44 @@ const app = Fastify({
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const webDistDir = join(currentDir, "../../web/dist")
 const artifactRoot = process.env.DATA_DIR ? join(process.env.DATA_DIR, "artifacts") : join(currentDir, "../../../data/artifacts")
+const legacyArtifactRoot = process.env.DATA_DIR ? null : join(currentDir, "../../../../data/artifacts")
+const artifactRoots = Array.from(new Set([artifactRoot, legacyArtifactRoot].filter((value): value is string => Boolean(value))))
 
 await mkdir(artifactRoot, { recursive: true })
+
+const contentTypeByExt: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".zip": "application/zip",
+  ".json": "application/json; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".log": "text/plain; charset=utf-8",
+}
+
+const resolveArtifactFile = async (relativePath: string) => {
+  const normalizedPath = relativePath.replace(/^\/+/, "")
+
+  for (const root of artifactRoots) {
+    const absoluteRoot = resolve(root)
+    const filePath = resolve(absoluteRoot, normalizedPath)
+    if (filePath !== absoluteRoot && !filePath.startsWith(`${absoluteRoot}${sep}`)) {
+      continue
+    }
+
+    const fileStat = await stat(filePath).catch(() => null)
+    if (fileStat?.isFile()) {
+      return { filePath, fileStat }
+    }
+  }
+
+  return null
+}
 
 await app.register(cors, {
   origin(origin, callback) {
@@ -117,9 +153,32 @@ app.setErrorHandler((error, request, reply) => {
   })
 })
 
-await app.register(fastifyStatic, {
-  root: artifactRoot,
-  prefix: "/artifacts/",
+app.route({
+  method: ["GET", "HEAD"],
+  url: "/artifacts/*",
+  async handler(request, reply) {
+    const relativePath = typeof request.params === "object" && request.params && "*" in request.params
+      ? String((request.params as { "*": string })["*"] ?? "")
+      : ""
+
+    const resolved = await resolveArtifactFile(relativePath)
+    if (!resolved) {
+      reply.code(404).send({ message: "Not Found" })
+      return
+    }
+
+    const contentType = contentTypeByExt[extname(resolved.filePath).toLowerCase()] ?? "application/octet-stream"
+    reply.header("cache-control", "public, max-age=60")
+    reply.header("content-length", String(resolved.fileStat.size))
+    reply.type(contentType)
+
+    if (request.method === "HEAD") {
+      reply.send()
+      return
+    }
+
+    reply.send(createReadStream(resolved.filePath))
+  },
 })
 
 await app.register(fastifyStatic, {

@@ -43,7 +43,16 @@ const state: FrontendDiagnosticsState = {
   items: [],
 }
 
+let snapshot: FrontendDiagnosticsState = state
+
 const listeners = new Set<() => void>()
+
+const syncSnapshot = () => {
+  snapshot = {
+    initialized: state.initialized,
+    items: state.items,
+  }
+}
 
 const emit = () => {
   for (const listener of listeners) {
@@ -96,6 +105,7 @@ export const recordFrontendDiagnostic = (input: RecordDiagnosticInput) => {
     ...state.items,
   ].slice(0, MAX_FRONTEND_DIAGNOSTICS)
 
+  syncSnapshot()
   emit()
 }
 
@@ -105,6 +115,7 @@ export const clearFrontendDiagnostics = () => {
   }
 
   state.items = []
+  syncSnapshot()
   emit()
 }
 
@@ -113,10 +124,7 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener)
 }
 
-const getSnapshot = () => ({
-  initialized: state.initialized,
-  items: state.items,
-})
+const getSnapshot = () => snapshot
 
 export const useFrontendDiagnostics = () => useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
@@ -162,4 +170,5 @@ export const startFrontendDiagnostics = () => {
   })
 
   state.initialized = true
+  syncSnapshot()
 }

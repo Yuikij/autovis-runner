@@ -116,22 +116,46 @@ export const extractScriptBody = (code: string) => {
   const trimmed = code.trim()
 
   const sourceFile = ts.createSourceFile("temp.ts", trimmed, ts.ScriptTarget.Latest, true)
-  let bodyNode: ts.Node | null = null
+  const unwrapExpression = (expression: ts.Expression): ts.Expression => {
+    let current = expression
+    while (
+      ts.isParenthesizedExpression(current)
+      || ts.isAsExpression(current)
+      || ts.isTypeAssertionExpression(current)
+      || ts.isSatisfiesExpression(current)
+      || ts.isNonNullExpression(current)
+    ) {
+      current = current.expression
+    }
+    return current
+  }
 
-  const visit = (node: ts.Node) => {
-    if (bodyNode) return
-    if (ts.isArrowFunction(node) || ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node)) {
-      if (node.body && ts.isBlock(node.body)) {
-        bodyNode = node.body
-        return
+  let bodyNode: ts.Block | null = null
+  if (sourceFile.statements.length === 1) {
+    const [statement] = sourceFile.statements
+    if (ts.isFunctionDeclaration(statement) && statement.body) {
+      bodyNode = statement.body
+    } else if (ts.isExpressionStatement(statement)) {
+      const expression = unwrapExpression(statement.expression)
+      if ((ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) && ts.isBlock(expression.body)) {
+        bodyNode = expression.body
+      }
+    } else if (ts.isVariableStatement(statement) && statement.declarationList.declarations.length === 1) {
+      const [declaration] = statement.declarationList.declarations
+      const initializer = declaration.initializer ? unwrapExpression(declaration.initializer) : null
+      if (initializer && (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) && ts.isBlock(initializer.body)) {
+        bodyNode = initializer.body
+      }
+    } else if (ts.isExportAssignment(statement)) {
+      const expression = unwrapExpression(statement.expression)
+      if ((ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) && ts.isBlock(expression.body)) {
+        bodyNode = expression.body
       }
     }
-    ts.forEachChild(node, visit)
   }
-  visit(sourceFile)
 
   if (bodyNode) {
-    const text = (bodyNode as ts.Node).getText(sourceFile)
+    const text = bodyNode.getText(sourceFile)
     return text.substring(1, text.length - 1).trim()
   }
 
