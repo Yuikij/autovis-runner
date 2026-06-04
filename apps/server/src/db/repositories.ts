@@ -12,3 +12,4 @@ export * from "./repositories/authProfiles.js";
 export * from "./repositories/targetUrls.js";
 export * from "./repositories/scheduleTriggers.js";
 export * from "./repositories/users.js";
+export * from "./repositories/validationTasks.js";

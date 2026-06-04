@@ -85,6 +85,10 @@ import {
   upsertUser,
   getLlmConfigStateForOwner,
   saveLlmConfigStateForOwner,
+  upsertValidationTask,
+  getValidationTask as getValidationTaskRepo,
+  listActiveValidationTasks,
+  deleteValidationTask,
 } from "./db/repositories.js"
 import type { PersistedLlmState } from "./db/shared.js"
 import { createSchema } from "./db/schema.js"
@@ -113,6 +117,7 @@ import type {
   UpsertTestCaseRequest,
   UpsertTaskRequest,
   UpsertAuthProfileRequest,
+  ValidationTask,
 } from "@autovis/shared"
 
 export class AutoVisDatabase {
@@ -133,6 +138,14 @@ export class AutoVisDatabase {
     this.ensureConfiguredUsers()
     this.authProfilesRepo = new AuthProfileRepository(this.db)
     this.targetUrlsRepo = new TargetUrlRepository(this.db)
+
+    // Clean up dangling validation tasks that were running before restart
+    const activeTasks = listActiveValidationTasks(this.db)
+    for (const task of activeTasks) {
+      task.status = "error"
+      task.error = "Validation task aborted due to server restart."
+      upsertValidationTask(this.db, task)
+    }
   }
 
   private ensureConfiguredUsers() {
@@ -221,6 +234,24 @@ export class AutoVisDatabase {
 
   deleteAuthProfile(id: string) {
     this.authProfilesRepo.delete(id)
+  }
+
+  // -- Validation Tasks --
+
+  upsertValidationTask(task: ValidationTask) {
+    upsertValidationTask(this.db, task)
+  }
+
+  getValidationTask(id: string): ValidationTask | undefined {
+    return getValidationTaskRepo(this.db, id)
+  }
+
+  listActiveValidationTasks(): ValidationTask[] {
+    return listActiveValidationTasks(this.db)
+  }
+
+  deleteValidationTask(id: string) {
+    deleteValidationTask(this.db, id)
   }
 
   // -- TargetUrl --

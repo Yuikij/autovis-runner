@@ -319,6 +319,21 @@ export const createSchema = (db: DatabaseSync) => {
       FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS validation_tasks (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      target_url_id TEXT,
+      status TEXT NOT NULL,
+      steps_json TEXT NOT NULL DEFAULT '[]',
+      error TEXT,
+      check_result_json TEXT,
+      result_profile_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(profile_id) REFERENCES auth_profiles(id) ON DELETE CASCADE
+    );
+
   `)
 
   db.exec(`

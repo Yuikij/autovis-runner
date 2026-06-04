@@ -7,6 +7,8 @@ import { LlmConfigService } from "./services/llm-config.service.js"
 import { ProjectService } from "./services/project.service.js"
 import { RunService } from "./services/run.service.js"
 import { AgentService } from "./services/agent.service.js"
+import { ValidationService } from "./services/validation.service.js"
+import { AgentWarmupService } from "./services/agent-warmup.service.js"
 import { RecorderService } from "./services/recorder.service.js"
 import { AuthLoginSandboxService } from "./services/auth-login-sandbox.service.js"
 import { SchedulerService } from "./services/scheduler.service.js"
@@ -52,7 +54,9 @@ class PersistentStore {
   private readonly llmService = new LlmConfigService(this.db)
   private readonly projectService = new ProjectService(this.db, this.workspace, this.suiteService, this.llmService)
   private readonly runService = new RunService(this.db, this.suiteService, this.llmService, this.tasks)
-  private readonly agentService = new AgentService(this.db, this.suiteService, this.llmService, this.projectService, this.runService, this.tasks)
+  private readonly agentWarmupService = new AgentWarmupService(this.db, this.suiteService, this.runService)
+  private readonly agentService = new AgentService(this.db, this.suiteService, this.llmService, this.projectService, this.runService, this.agentWarmupService, this.tasks)
+  private readonly validationService = new ValidationService(this.db, this.llmService)
   private readonly recorderService = new RecorderService(
     this.db,
     (req) => this.runService.startVerification(req),
@@ -150,8 +154,8 @@ class PersistentStore {
   async getAuthProfile(profileId: string) { return this.db.getAuthProfile(profileId) }
   async saveAuthProfile(input: UpsertAuthProfileRequest) { return this.projectService.saveAuthProfile(input) }
   async deleteAuthProfile(profileId: string) { return this.db.deleteAuthProfile(profileId) }
-  startGenerateValidationScript(projectId: string, profileId: string, targetUrlId?: string, llmOwnerKey = "shared") { return this.agentService.startGenerateValidationScript(projectId, profileId, targetUrlId, llmOwnerKey) }
-  startCheckLoginStatus(projectId: string, profileId: string, targetUrlId: string) { return this.agentService.startCheckLoginStatus(projectId, profileId, targetUrlId) }
+  startGenerateValidationScript(projectId: string, profileId: string, targetUrlId?: string, llmOwnerKey = "shared") { return this.validationService.startGenerateValidationScript(projectId, profileId, targetUrlId, llmOwnerKey) }
+  startCheckLoginStatus(projectId: string, profileId: string, targetUrlId: string) { return this.validationService.startCheckLoginStatus(projectId, profileId, targetUrlId) }
   /**
    * 跑该登录态的 sourceCase（按指定 targetUrl），通过现有 storageState 自动捕获逻辑写入 auth_profile_states 行。
    * 完全独立于用例执行流程：不要求任何测试用例显式配置 authProfileId。
@@ -212,8 +216,8 @@ class PersistentStore {
   async deleteTargetUrl(id: string) {
     return this.db.deleteTargetUrl(id)
   }
-  getValidationTask(taskId: string) { return this.agentService.getValidationTask(taskId) }
-  subscribeValidationTask(taskId: string, listener: (task: any) => void) { return this.agentService.subscribeValidationTask(taskId, listener) }
+  getValidationTask(taskId: string) { return this.validationService.getValidationTask(taskId) }
+  subscribeValidationTask(taskId: string, listener: (task: any) => void) { return this.validationService.subscribeValidationTask(taskId, listener) }
   async syncProjectFiles(projectId: string, sourcePathOrUrl: string) { return this.projectService.syncProjectFiles(projectId, sourcePathOrUrl) }
   async saveProject(input: UpsertProjectRequest) { return this.projectService.saveProject(input) }
   async saveProjectWorkspace(projectId: string, input: UpsertProjectWorkspaceRequest) { return this.projectService.saveProjectWorkspace(projectId, input) }

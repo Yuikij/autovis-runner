@@ -157,7 +157,7 @@ export function useWorkspaceController() {
       if (current && result.data.some((item) => item.id === current)) {
         return current
       }
-      return result.data[0]?.id ?? null
+      return null
     })
     return result.data
   }, [])
@@ -215,7 +215,7 @@ export function useWorkspaceController() {
       if (current && testCasesResult.data.some((item) => item.id === current)) {
         return current
       }
-      return testCasesResult.data[0]?.id ?? null
+      return null
     })
   }, [])
 

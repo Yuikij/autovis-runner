@@ -5,17 +5,12 @@ import { type LlmConfigService } from "./llm-config.service.js"
 import { type ProjectService } from "./project.service.js"
 import { type RunService } from "./run.service.js"
 import { CopilotSessionError } from "../copilot.js"
-import { generateScriptWithLlm, generateValidationScriptWithLlmV2 } from "../llm.js"
+import { generateScriptWithLlm } from "../llm.js"
 import { runAgentLoop } from "../agent.js"
+import { AgentWarmupService } from "./agent-warmup.service.js"
 import { getPageSnapshot } from "../agent/helpers.js"
 import { type InitialPageState, type PreconditionReport } from "../agent/types.js"
-import {
-  executeLoginStatusCheck,
-  executeValidationScriptGeneration,
-  type ValidationLlmCallInput,
-  type ValidationStepEmitter,
-} from "../agent/validation.js"
-import { decorateAuthProfile } from "./authProfile.utils.js"
+
 import { finalizeRunnerSession, failRunnerSession, createExecutionStep, createExecutionTemplate, createRunnerSession, executeScriptInSession, type RunnerSession } from "@autovis/runner"
 import {
   type AgentSession,
@@ -27,9 +22,6 @@ import {
   type RuntimeOutput,
   type ScriptArtifact,
   type StartDirectAgentRequest,
-  type ValidationProgressStep,
-  type ValidationTask,
-  type ValidationTaskKind,
 } from "@autovis/shared"
 import { TaskControlRegistry } from "./task-control.js"
 
@@ -37,8 +29,6 @@ type LlmOwned = { llmOwnerKey?: string }
 
 export class AgentService {
   private readonly agentSubscribers = new Map<string, Set<(session: AgentSession) => void>>()
-  private readonly validationTasks = new Map<string, ValidationTask>()
-  private readonly validationSubscribers = new Map<string, Set<(task: ValidationTask) => void>>()
 
   constructor(
     private readonly db: AutoVisDatabase,
@@ -46,6 +36,7 @@ export class AgentService {
     private readonly llmService: LlmConfigService,
     private readonly projectService: ProjectService,
     private readonly runService: RunService,
+    private readonly agentWarmupService: AgentWarmupService,
     private readonly tasks: TaskControlRegistry,
   ) {}
 
@@ -268,216 +259,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
     return nextScript
   }
 
-  public getValidationTask(taskId: string): ValidationTask | undefined {
-    return this.validationTasks.get(taskId)
-  }
 
-  public subscribeValidationTask(taskId: string, listener: (task: ValidationTask) => void): () => void {
-    if (!this.validationSubscribers.has(taskId)) {
-      this.validationSubscribers.set(taskId, new Set())
-    }
-    this.validationSubscribers.get(taskId)!.add(listener)
-    return () => { this.validationSubscribers.get(taskId)?.delete(listener) }
-  }
-
-  private notifyValidationTask(task: ValidationTask) {
-    this.validationTasks.set(task.id, { ...task })
-    const subs = this.validationSubscribers.get(task.id)
-    if (subs) {
-      const snapshot = { ...task, steps: [...task.steps] }
-      for (const listener of subs) listener(snapshot)
-    }
-  }
-
-  private createValidationTask(profileId: string, kind: ValidationTaskKind, targetUrlId?: string): ValidationTask {
-    const prefix = kind === "check" ? "vcheck" : "vtask"
-    const taskId = `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
-    const task: ValidationTask = { id: taskId, profileId, kind, targetUrlId, status: "running", steps: [] }
-    this.validationTasks.set(taskId, task)
-    return task
-  }
-
-  private makeStepEmitter(taskId: string): ValidationStepEmitter {
-    const getTask = () => this.validationTasks.get(taskId)
-    return {
-      emit: (step) => {
-        const task = getTask()
-        if (!task) return
-        task.steps = [...task.steps, { ...step }]
-        this.notifyValidationTask(task)
-      },
-      updateLast: (patch) => {
-        const task = getTask()
-        if (!task || task.steps.length === 0) return
-        const lastIndex = task.steps.length - 1
-        task.steps = [...task.steps.slice(0, lastIndex), { ...task.steps[lastIndex], ...patch }]
-        this.notifyValidationTask(task)
-      },
-    }
-  }
-
-  public startGenerateValidationScript(projectId: string, profileId: string, targetUrlId?: string, llmOwnerKey = "shared"): string {
-    const task = this.createValidationTask(profileId, "generate", targetUrlId)
-    void this.runGenerateValidationScript(task.id, projectId, profileId, targetUrlId, llmOwnerKey).catch((err) => {
-      const current = this.validationTasks.get(task.id)
-      if (!current) return
-      current.status = "error"
-      current.error = err instanceof Error ? err.message : String(err)
-      current.steps = [
-        ...current.steps,
-        {
-          kind: "result",
-          label: "任务终止",
-          status: "error",
-          detail: current.error,
-        },
-      ]
-      this.notifyValidationTask(current)
-    })
-    return task.id
-  }
-
-  public startCheckLoginStatus(projectId: string, profileId: string, targetUrlId: string): string {
-    const task = this.createValidationTask(profileId, "check", targetUrlId)
-    void this.runCheckLoginStatus(task.id, projectId, profileId, targetUrlId).catch((err) => {
-      const current = this.validationTasks.get(task.id)
-      if (!current) return
-      current.status = "error"
-      current.error = err instanceof Error ? err.message : String(err)
-      current.steps = [
-        ...current.steps,
-        {
-          kind: "result",
-          label: "重放终止",
-          status: "error",
-          detail: current.error,
-        },
-      ]
-      this.notifyValidationTask(current)
-    })
-    return task.id
-  }
-
-  private resolveTargetUrlForProfile(projectId: string, targetUrlId?: string) {
-    const resolved = this.db.resolveTargetUrl(projectId, targetUrlId)
-    if (!resolved || !resolved.id) {
-      throw new Error("无法解析目标 URL：请确认登录态对应的 URL 已加入项目网址管理。")
-    }
-    const targetUrl = this.db.getTargetUrl(resolved.id)
-    if (!targetUrl) throw new Error("无法找到目标 URL 记录")
-    return targetUrl
-  }
-
-  private async runGenerateValidationScript(taskId: string, projectId: string, profileId: string, targetUrlId?: string, llmOwnerKey = "shared") {
-    const project = this.db.getProject(projectId)
-    if (!project) throw new Error("Project not found")
-    const authProfile = this.db.getAuthProfile(profileId)
-    if (!authProfile) throw new Error("Auth profile not found")
-
-    const targetUrl = this.resolveTargetUrlForProfile(projectId, targetUrlId)
-    const state = this.db.getAuthProfileState(profileId, targetUrl.id)
-    if (!state?.storageStateJson) {
-      throw new Error(`目标 URL「${targetUrl.label}」尚未捕获 storageState。请先在概览页对该 URL 执行『刷新登录态』。`)
-    }
-
-    const { state: llmState, current } = this.llmService.getActiveLlmConfigBundle(undefined, llmOwnerKey)
-    if (current.session.connectionStatus !== "connected") {
-      throw new Error("当前 AI 配置未连接。失效校验脚本依赖 LLM 基于实际页面差异生成，无法在断连状态下安全生成。")
-    }
-
-    const emitter = this.makeStepEmitter(taskId)
-
-    const callLlm = async (input: ValidationLlmCallInput) => {
-      try {
-        const code = await generateValidationScriptWithLlmV2({
-          ...input,
-          authProfileName: input.profile.name,
-          authProfileDescription: input.profile.description,
-          session: current.session,
-          secrets: current.secrets,
-        })
-        current.session.lastError = undefined
-        this.llmService.saveLlmConfigState(llmState, llmOwnerKey)
-        return code
-      } catch (error) {
-        const message = error instanceof Error
-          ? (error.cause instanceof Error ? `${error.message} (${error.cause.message})` : error.message)
-          : "LLM generation failed"
-        if (error instanceof CopilotSessionError && error.statusCode === 401 && current.session.provider === "copilot-proxy") {
-          const bundle = { session: current.session, secrets: current.secrets.copilot ?? {} }
-          this.llmService.applyCopilotSessionError(bundle, message, { disconnect: true, clearSecrets: true })
-          current.session = bundle.session
-          current.secrets = { ...current.secrets, copilot: bundle.secrets }
-        } else {
-          current.session.lastError = message
-          current.session.lastSyncedAt = now()
-        }
-        this.llmService.saveLlmConfigState(llmState, llmOwnerKey)
-        throw error
-      }
-    }
-
-    const { code } = await executeValidationScriptGeneration({
-      taskId,
-      project,
-      authProfile,
-      targetUrl,
-      storageStateJson: state.storageStateJson,
-      emitter,
-      callLlm,
-      maxAttempts: 3,
-    })
-
-    emitter.emit({ kind: "save", label: "校验脚本通过双向回归，正在落库", status: "running" })
-    this.db.updateAuthProfileValidationScript(profileId, code)
-    const updated = this.db.getAuthProfile(profileId)
-    emitter.updateLast({ status: "done", detail: "已写入 auth_profile.validationScript" })
-    emitter.emit({
-      kind: "result",
-      label: "校验脚本生成完成",
-      status: "done",
-      detail: "校验脚本对所有目标 URL 通用；可在概览页对其他 URL 单独执行『检查登录状态』。",
-      codePreview: code,
-    })
-
-    const task = this.validationTasks.get(taskId)
-    if (task) {
-      task.status = "completed"
-      task.resultProfile = decorateAuthProfile(updated) ?? undefined
-      this.notifyValidationTask(task)
-    }
-  }
-
-  private async runCheckLoginStatus(taskId: string, projectId: string, profileId: string, targetUrlId: string) {
-    const project = this.db.getProject(projectId)
-    if (!project) throw new Error("Project not found")
-    const authProfile = this.db.getAuthProfile(profileId)
-    if (!authProfile) throw new Error("Auth profile not found")
-
-    const targetUrl = this.resolveTargetUrlForProfile(projectId, targetUrlId)
-    const state = this.db.getAuthProfileState(profileId, targetUrl.id)
-    if (!state?.storageStateJson) {
-      throw new Error(`目标 URL「${targetUrl.label}」尚未捕获 storageState。请先在概览页执行『刷新登录态』。`)
-    }
-
-    const emitter = this.makeStepEmitter(taskId)
-    const result = await executeLoginStatusCheck({
-      taskId,
-      project,
-      authProfile,
-      targetUrl,
-      storageStateJson: state.storageStateJson,
-      emitter,
-    })
-
-    const task = this.validationTasks.get(taskId)
-    if (task) {
-      task.status = "completed"
-      task.checkResult = result
-      task.error = result.valid ? undefined : result.error
-      this.notifyValidationTask(task)
-    }
-  }
 
   public async runScriptAgent(request: GenerateScriptRequest & { sessionId: string } & LlmOwned) {
     const ownerKey = request.llmOwnerKey ?? "shared"
@@ -531,24 +313,6 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         throw new Error("当前 AI 配置未连接，请先完成授权或填写 API Key。")
       }
 
-      const preconditionPlan = this.suiteService.buildPreconditionPlan(testCase)
-      session.preconditionSummary = preconditionPlan.nodes.map((entry) => `${entry.testCase.caseCode}: ${entry.testCase.purpose || entry.testCase.expectedResult}`)
-      preconditionReport = {
-        status: preconditionPlan.nodes.length > 0 ? "success" : "none",
-        suites: preconditionPlan.nodes.map((entry) => ({
-          kind: "case" as const,
-          name: `前置用例 ${entry.testCase.caseCode}`,
-          version: "",
-          cases: [{
-            caseCode: entry.testCase.caseCode,
-            purpose: entry.testCase.purpose ?? "",
-            expectedResult: entry.testCase.expectedResult ?? "",
-            scriptCode: entry.script.code ?? "",
-          }],
-        })),
-      }
-      this.persistAndNotifyAgent(session)
-
       // 业务上不再使用 project.testBaseUrl 作为生成兜底——必须从下拉中选择一个 TargetUrl。
       // resolveTargetUrl 在 targetUrlId 命中时只看 target_urls 行，不会回落到 project.testBaseUrl。
       if (!request.runTargetUrlId) {
@@ -577,220 +341,44 @@ ${promptSummary || "// Prompt summary: (empty)"}`
 
       if (resolvedRunUrl) {
         try {
-          const warmupRun = createExecutionTemplate({
-            runId: createId("warmup"),
+          const warmupResult = await this.agentWarmupService.executeWarmup({
+            sessionId: request.sessionId,
+            mode: "generate",
             project,
             testCase,
-            script: {
-              id: createId("warmup_script"),
-              testCaseId: testCase.id,
-              version: 0,
-              source: "generated",
-              provider: current.session.provider,
-              prompt: "precondition warmup",
-              code: "",
-              createdAt: now(),
-            },
-            testBaseUrl: resolvedRunUrl,
-          })
-          warmupRun.targetUrlId = resolvedRunTarget?.id
-          warmupRun.kind = "temporary"
-          warmupRun.orchestrationPhase = preconditionPlan.nodes.length > 0 ? "preconditions" : "target"
-          warmupRun.preconditionSummary = [...(session.preconditionSummary ?? [])]
-          warmupRun.liveViewport = {
-            mode: "ws-jpeg-stream",
-            url: `${appOrigin.replace(/^http/, "ws")}/api/runs/${warmupRun.id}/live`,
-            status: "connecting",
-            mimeType: "image/jpeg",
-          }
-          this.runService.saveRunSnapshot(warmupRun)
-          this.runService.notifyRun(warmupRun)
-          session.warmupRunId = warmupRun.id
-          this.persistAndNotifyAgent(session)
-
-          onStep({
-            id: createId("agent_precondition_warmup"),
-            type: "thinking",
-            stage: "page",
-            title: "执行前置依赖预热",
-            content: preconditionPlan.nodes.length > 0 ? `正在执行前置依赖项，为脚本生成准备浏览器状态。` : "当前用例没有前置依赖项，直接准备浏览器状态。",
-            status: "running",
-            timestamp: now(),
-            runId: warmupRun.id,
-          })
-
-          const onWarmupUpdate = async () => {
-            this.runService.saveRunSnapshot(warmupRun)
-            this.runService.notifyRun(warmupRun)
-          }
-
-          warmupSession = await createRunnerSession({
-            run: warmupRun,
-            artifactsDir,
-            headless: true,
-            onUpdate: onWarmupUpdate,
-            onLiveViewportEvent: async (event) => {
-              if (event.type === "started") {
-                warmupRun.liveViewport = {
-                  mode: "ws-jpeg-stream",
-                  url: `${appOrigin.replace(/^http/, "ws")}/api/runs/${warmupRun.id}/live`,
-                  status: "live",
-                  mimeType: "image/jpeg",
-                  width: event.width,
-                  height: event.height,
-                }
-                await onWarmupUpdate()
-                return
+            resolvedRunTargetId: resolvedRunTarget.id,
+            resolvedRunUrl,
+            authStorageStateJson,
+            provider: current.session.provider,
+            llmOwnerKey: ownerKey,
+            onStep,
+            updateSession: (patch) => {
+              if (patch.preconditionSummary !== undefined) {
+                session.preconditionSummary = patch.preconditionSummary
               }
-              if (event.type === "chunk" && event.chunk) {
-                this.runService.notifyLiveViewport(warmupRun.id, event.chunk)
-                return
+              if (patch.warmupRunId !== undefined) {
+                session.warmupRunId = patch.warmupRunId
               }
-              if (event.type === "ended") {
-                if (warmupRun.liveViewport) {
-                  warmupRun.liveViewport = { ...warmupRun.liveViewport, status: "ended" }
-                  await onWarmupUpdate()
-                }
-                return
-              }
-              warmupRun.liveViewport = {
-                mode: "ws-jpeg-stream",
-                url: `${appOrigin.replace(/^http/, "ws")}/api/runs/${warmupRun.id}/live`,
-                status: "unavailable",
-                mimeType: "image/jpeg",
-              }
-              await onWarmupUpdate()
-            },
-            initStepIndex: 0,
-            storageStateJson: authStorageStateJson,
-          })
-
-          for (const dependency of preconditionPlan.nodes) {
-            const stepIndex = warmupRun.steps.length - 1
-            warmupRun.steps.splice(stepIndex, 0, createExecutionStep(warmupRun.id, warmupRun.steps.length + 1, `[前置用例] ${dependency.testCase.caseCode}`, `执行前置用例 ${dependency.testCase.caseCode}`, "precondition_case"))
-            await onWarmupUpdate()
-            await executeScriptInSession({
-              run: warmupRun,
-              session: warmupSession,
-              script: dependency.script,
-              onUpdate: onWarmupUpdate,
-              requestHumanInput: async (handoffRequest: {
-                reason: HumanHandoffRequest["reason"]
-                instruction: string
-                inputLabel?: string
-                placeholder?: string
-                confirmText?: string
-                imageUrl?: string
-                scope?: HumanHandoffRequest["scope"]
-                suiteId?: string
-                testCaseId?: string
-              }) => {
-                const value = await this.runService.requestRunHumanInput(warmupRun, handoffRequest)
-                warmupRun.pendingHumanHandoff = undefined
-                warmupRun.status = "running"
-                this.runService.saveRunSnapshot(warmupRun)
-                this.runService.notifyRun(warmupRun)
-                return value
-              },
-              analyzeImage: (analysisRequest) => this.runService.analyzeImageWithCurrentLlm(analysisRequest, ownerKey),
-              stepIndex,
-              startedLog: `[前置用例 ${dependency.testCase.caseCode}] 开始执行。`,
-              completedLog: `[前置用例 ${dependency.testCase.caseCode}] 执行完成。`,
-              handoffContext: { scope: "precondition", testCaseId: dependency.testCase.id },
-              screenshotFilePrefix: `warmup-${dependency.testCase.caseCode}`,
-              runtimeProducer: { testCaseId: dependency.testCase.id, caseCode: dependency.testCase.caseCode, caseName: dependency.testCase.purpose },
-            })
-          }
-          warmupRuntimeOutputs = warmupRun.runtimeOutputs ?? []
-          preconditionReport.outputs = warmupRuntimeOutputs.map((output) => ({
-            from: output.caseName || output.caseCode || output.testCaseId || "上游用例",
-            description: output.description,
-            valuePreview: (() => {
-              try {
-                return JSON.stringify(output.value)
-              } catch {
-                return String(output.value)
-              }
-            })(),
-          }))
-
-          if (warmupSession?.page) {
-            try {
-              const url = warmupSession.page.url()
-              const snapshot = await getPageSnapshot(warmupSession.page)
-              initialPageState = { url, snapshot }
-            } catch (snapshotError) {
-              const msg = snapshotError instanceof Error ? snapshotError.message : String(snapshotError)
-              console.warn("Failed to capture initial page state after warmup:", msg)
+              this.persistAndNotifyAgent(session)
             }
-          }
-
-          warmupRun.status = "passed"
-          warmupRun.finishedAt = now()
-          this.runService.saveRunSnapshot(warmupRun)
-          this.runService.notifyRun(warmupRun)
-
-          onStep({
-            id: createId("agent_precondition_warmup"),
-            type: "thinking",
-            stage: "page",
-            title: "执行前置依赖预热",
-            content: initialPageState
-              ? `前置依赖已执行完成，当前 URL: ${initialPageState.url}`
-              : "前置依赖已执行完成，开始基于当前浏览器状态生成脚本。",
-            status: "completed",
-            timestamp: now(),
-            runId: warmupRun.id,
           })
-        } catch (warmupError) {
-          const warmupMsg = warmupError instanceof Error ? warmupError.message : String(warmupError)
-          const isBrowserMissing = warmupMsg.includes("Executable doesn't exist") || warmupMsg.includes("browserType.launch")
-
+          
+          warmupSession = warmupResult.warmupSession
+          initialPageState = warmupResult.initialPageState
+          preconditionReport = warmupResult.preconditionReport
+          warmupRuntimeOutputs = warmupResult.warmupRuntimeOutputs
+        } catch (error) {
           if (session.warmupRunId) {
             const run = await this.runService.getRun(session.warmupRunId)
             if (run) {
-              run.status = isBrowserMissing ? "cancelled" : "failed"
-              run.logs.push(`[${new Date().toLocaleTimeString()}] ${warmupMsg}`)
+              run.status = "failed"
+              run.logs.push(`[${new Date().toLocaleTimeString()}] ${error instanceof Error ? error.message : String(error)}`)
               run.finishedAt = now()
               this.runService.saveRunSnapshot(run)
               this.runService.notifyRun(run)
             }
           }
-
-          if (isBrowserMissing) {
-            console.warn("Warmup session failed (browser missing), continuing without browser:", warmupMsg)
-            warmupSession = null
-            session.warmupRunId = undefined
-            onStep({
-              id: createId("agent_warmup_skip"),
-              type: "thinking",
-              stage: "page",
-              title: "浏览器未安装，跳过页面预热",
-              content: "Playwright 浏览器未安装，将跳过前置依赖预热与页面探索，直接基于代码与用例描述生成脚本。（可运行 npx playwright install chromium 安装）",
-              status: "completed",
-              timestamp: now(),
-            })
-            this.persistAndNotifyAgent(session)
-          } else {
-            // 前置依赖失败：立即中止 agent，不再静默继续浪费 token。
-            if (warmupSession) {
-              await warmupSession.context.close().catch(() => undefined)
-              await warmupSession.browser.close().catch(() => undefined)
-              warmupSession = null
-            }
-            session.warmupRunId = undefined
-            onStep({
-              id: createId("agent_warmup_failed"),
-              type: "error",
-              stage: "page",
-              title: "前置依赖执行失败",
-              content: `前置依赖未通过，已中止脚本生成。请先修复前置依赖节点，再重试。\n失败原因: ${warmupMsg}`,
-              status: "error",
-              timestamp: now(),
-            })
-            this.persistAndNotifyAgent(session)
-            throw new Error(`前置依赖执行失败，已中止 Agent 运行。${warmupMsg}`)
-          }
+          throw error
         }
       }
 
@@ -880,16 +468,6 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         : "Agent 执行失败"
       const wasCancelled = taskController.signal.aborted
       session.status = wasCancelled ? "cancelled" : "error"
-
-      if (session.warmupRunId) {
-        const run = await this.runService.getRun(session.warmupRunId)
-        if (run && (run.status === "running" || run.status === "paused" || run.status === "awaiting_human")) {
-          run.status = wasCancelled ? "cancelled" : "failed"
-          run.finishedAt = now()
-          this.runService.saveRunSnapshot(run)
-          this.runService.notifyRun(run)
-        }
-      }
       
       session.warmupRunId = undefined
       session.error = message
@@ -1015,24 +593,6 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         throw new Error("当前 AI 配置未连接，请先完成授权或填写 API Key。")
       }
 
-      const preconditionPlan = this.suiteService.buildPreconditionPlan(testCase)
-      session.preconditionSummary = preconditionPlan.nodes.map((entry) => `${entry.testCase.caseCode}: ${entry.testCase.purpose || entry.testCase.expectedResult}`)
-      preconditionReport = {
-        status: preconditionPlan.nodes.length > 0 ? "success" : "none",
-        suites: preconditionPlan.nodes.map((entry) => ({
-          kind: "case" as const,
-          name: `前置用例 ${entry.testCase.caseCode}`,
-          version: "",
-          cases: [{
-            caseCode: entry.testCase.caseCode,
-            purpose: entry.testCase.purpose ?? "",
-            expectedResult: entry.testCase.expectedResult ?? "",
-            scriptCode: entry.script.code ?? "",
-          }],
-        })),
-      }
-      this.persistAndNotifyAgent(session)
-
       if (!request.runTargetUrlId) {
         throw new Error("直接执行需要先选择一个目标 URL。")
       }
@@ -1056,189 +616,46 @@ ${promptSummary || "// Prompt summary: (empty)"}`
 
       if (resolvedRunUrl) {
         try {
-          const warmupRun = createExecutionTemplate({
-            runId: createId("warmup"),
+          const warmupResult = await this.agentWarmupService.executeWarmup({
+            sessionId: request.sessionId,
+            mode: "direct",
+            taskRunId: request.taskRunId,
             project,
             testCase,
-            script: {
-              id: createId("warmup_script"),
-              testCaseId: testCase.id,
-              version: 0,
-              source: "generated",
-              provider: current.session.provider,
-              prompt: "direct execution warmup",
-              code: "",
-              createdAt: now(),
-            },
-            testBaseUrl: resolvedRunUrl,
-          })
-          warmupRun.targetUrlId = resolvedRunTarget?.id
-          warmupRun.taskRunId = request.taskRunId
-          warmupRun.kind = "temporary"
-          warmupRun.orchestrationPhase = preconditionPlan.nodes.length > 0 ? "preconditions" : "target"
-          warmupRun.preconditionSummary = [...(session.preconditionSummary ?? [])]
-          warmupRun.liveViewport = {
-            mode: "ws-jpeg-stream",
-            url: `${appOrigin.replace(/^http/, "ws")}/api/runs/${warmupRun.id}/live`,
-            status: "connecting",
-            mimeType: "image/jpeg",
-          }
-          this.runService.saveRunSnapshot(warmupRun)
-          this.runService.notifyRun(warmupRun)
-          warmupRunForDisplay = warmupRun
-          session.warmupRunId = warmupRun.id
-          this.persistAndNotifyAgent(session)
-
-          onStep({
-            id: createId("agent_precondition_warmup"),
-            type: "thinking",
-            stage: "page",
-            title: "执行前置依赖预热",
-            content: preconditionPlan.nodes.length > 0 ? `正在执行前置依赖项，为直接执行准备浏览器状态。` : "当前用例没有前置依赖项，直接准备浏览器状态。",
-            status: "running",
-            timestamp: now(),
-            runId: warmupRun.id,
-          })
-
-          const onWarmupUpdate = async () => {
-            this.runService.saveRunSnapshot(warmupRun)
-            this.runService.notifyRun(warmupRun)
-          }
-
-          warmupSession = await createRunnerSession({
-            run: warmupRun,
-            artifactsDir,
-            headless: true,
-            onUpdate: onWarmupUpdate,
-            onLiveViewportEvent: async (event) => {
-              if (event.type === "started") {
-                warmupRun.liveViewport = {
-                  mode: "ws-jpeg-stream",
-                  url: `${appOrigin.replace(/^http/, "ws")}/api/runs/${warmupRun.id}/live`,
-                  status: "live",
-                  mimeType: "image/jpeg",
-                  width: event.width,
-                  height: event.height,
-                }
-                await onWarmupUpdate()
-                return
+            resolvedRunTargetId: resolvedRunTarget.id,
+            resolvedRunUrl,
+            authStorageStateJson,
+            provider: current.session.provider,
+            llmOwnerKey: ownerKey,
+            onStep,
+            updateSession: (patch) => {
+              if (patch.preconditionSummary !== undefined) {
+                session.preconditionSummary = patch.preconditionSummary
               }
-              if (event.type === "chunk" && event.chunk) {
-                this.runService.notifyLiveViewport(warmupRun.id, event.chunk)
-                return
+              if (patch.warmupRunId !== undefined) {
+                session.warmupRunId = patch.warmupRunId
               }
-              if (event.type === "ended") {
-                if (warmupRun.liveViewport) {
-                  warmupRun.liveViewport = { ...warmupRun.liveViewport, status: "ended" }
-                  await onWarmupUpdate()
-                }
-                return
-              }
-              warmupRun.liveViewport = {
-                mode: "ws-jpeg-stream",
-                url: `${appOrigin.replace(/^http/, "ws")}/api/runs/${warmupRun.id}/live`,
-                status: "unavailable",
-                mimeType: "image/jpeg",
-              }
-              await onWarmupUpdate()
-            },
-            initStepIndex: 0,
-            storageStateJson: authStorageStateJson,
-          })
-
-          for (const dependency of preconditionPlan.nodes) {
-            const stepIndex = warmupRun.steps.length - 1
-            warmupRun.steps.splice(stepIndex, 0, createExecutionStep(warmupRun.id, warmupRun.steps.length + 1, `[前置用例] ${dependency.testCase.caseCode}`, `执行前置用例 ${dependency.testCase.caseCode}`, "precondition_case"))
-            await onWarmupUpdate()
-            await executeScriptInSession({
-              run: warmupRun,
-              session: warmupSession,
-              script: dependency.script,
-              onUpdate: onWarmupUpdate,
-              requestHumanInput: async (handoffRequest: {
-                reason: HumanHandoffRequest["reason"]
-                instruction: string
-                inputLabel?: string
-                placeholder?: string
-                confirmText?: string
-                imageUrl?: string
-                scope?: HumanHandoffRequest["scope"]
-                suiteId?: string
-                testCaseId?: string
-              }) => {
-                const value = await this.runService.requestRunHumanInput(warmupRun, handoffRequest)
-                warmupRun.pendingHumanHandoff = undefined
-                warmupRun.status = "running"
-                this.runService.saveRunSnapshot(warmupRun)
-                this.runService.notifyRun(warmupRun)
-                return value
-              },
-              analyzeImage: (analysisRequest) => this.runService.analyzeImageWithCurrentLlm(analysisRequest, ownerKey),
-              stepIndex,
-              startedLog: `[前置用例 ${dependency.testCase.caseCode}] 开始执行。`,
-              completedLog: `[前置用例 ${dependency.testCase.caseCode}] 执行完成。`,
-              handoffContext: { scope: "precondition", testCaseId: dependency.testCase.id },
-              screenshotFilePrefix: `warmup-${dependency.testCase.caseCode}`,
-              runtimeProducer: { testCaseId: dependency.testCase.id, caseCode: dependency.testCase.caseCode, caseName: dependency.testCase.purpose },
-            })
-          }
-          warmupRuntimeOutputs = warmupRun.runtimeOutputs ?? []
-
-          if (warmupSession?.page) {
-            try {
-              const url = warmupSession.page.url()
-              const snapshot = await getPageSnapshot(warmupSession.page)
-              initialPageState = { url, snapshot }
-            } catch (snapshotError) {
-              const msg = snapshotError instanceof Error ? snapshotError.message : String(snapshotError)
-              console.warn("Failed to capture initial page state after warmup:", msg)
+              this.persistAndNotifyAgent(session)
             }
-          }
-
-          warmupRun.status = "passed"
-          warmupRun.finishedAt = now()
-          this.runService.saveRunSnapshot(warmupRun)
-          this.runService.notifyRun(warmupRun)
-
-          onStep({
-            id: createId("agent_precondition_warmup"),
-            type: "thinking",
-            stage: "page",
-            title: "前置预热完成",
-            content: initialPageState
-              ? `前置依赖已执行完成，当前 URL: ${initialPageState.url}`
-              : "前置依赖已执行完成，开始直接执行任务。",
-            status: "completed",
-            timestamp: now(),
-            runId: warmupRun.id,
           })
-          warmupRun.status = "running"
-          warmupRun.finishedAt = undefined
-          warmupRun.logs.push(`[${new Date().toLocaleTimeString()}] 浏览器预热完成，开始 AI 直接执行。`)
-          this.runService.saveRunSnapshot(warmupRun)
-          this.runService.notifyRun(warmupRun)
-        } catch (warmupError) {
-          const warmupMsg = warmupError instanceof Error ? warmupError.message : String(warmupError)
-          const isBrowserMissing = warmupMsg.includes("Executable doesn't exist") || warmupMsg.includes("browserType.launch")
-
+          
+          warmupSession = warmupResult.warmupSession
+          warmupRunForDisplay = warmupResult.warmupRunForDisplay
+          initialPageState = warmupResult.initialPageState
+          preconditionReport = warmupResult.preconditionReport
+          warmupRuntimeOutputs = warmupResult.warmupRuntimeOutputs
+        } catch (error) {
           if (session.warmupRunId) {
             const run = await this.runService.getRun(session.warmupRunId)
             if (run) {
-              run.status = isBrowserMissing ? "cancelled" : "failed"
-              run.logs.push(`[${new Date().toLocaleTimeString()}] ${warmupMsg}`)
+              run.status = "failed"
+              run.logs.push(`[${new Date().toLocaleTimeString()}] ${error instanceof Error ? error.message : String(error)}`)
               run.finishedAt = now()
               this.runService.saveRunSnapshot(run)
               this.runService.notifyRun(run)
             }
           }
-
-          if (warmupSession) {
-            await warmupSession.context.close().catch(() => undefined)
-            await warmupSession.browser.close().catch(() => undefined)
-            warmupSession = null
-          }
-          session.warmupRunId = undefined
-          throw new Error(`浏览器初始化失败，无法进行直接执行。${warmupMsg}`)
+          throw error
         }
       }
 
@@ -1333,14 +750,6 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         )
         session.latestRunId = displayRun.id
         warmupSession = null
-      } else if (session.warmupRunId) {
-        const run = await this.runService.getRun(session.warmupRunId)
-        if (run && (run.status === "running" || run.status === "paused" || run.status === "awaiting_human")) {
-          run.status = wasCancelled ? "cancelled" : "failed"
-          run.finishedAt = now()
-          this.runService.saveRunSnapshot(run)
-          this.runService.notifyRun(run)
-        }
       }
 
       session.error = message
