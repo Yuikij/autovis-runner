@@ -369,13 +369,13 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           warmupRuntimeOutputs = warmupResult.warmupRuntimeOutputs
         } catch (error) {
           if (session.warmupRunId) {
-            const run = await this.runService.getRun(session.warmupRunId)
+            const run = await this.runService.getRunStateService().getRun(session.warmupRunId)
             if (run) {
               run.status = "failed"
               run.logs.push(`[${new Date().toLocaleTimeString()}] ${error instanceof Error ? error.message : String(error)}`)
               run.finishedAt = now()
-              this.runService.saveRunSnapshot(run)
-              this.runService.notifyRun(run)
+              this.runService.getRunStateService().saveRunSnapshot(run)
+              this.runService.getRunStateService().notifyRun(run)
             }
           }
           throw error
@@ -578,8 +578,8 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           warmupRunForDisplay.currentViewport = step.screenshotUrl
         }
       }
-      this.runService.saveRunSnapshot(warmupRunForDisplay)
-      this.runService.notifyRun(warmupRunForDisplay)
+      this.runService.getRunStateService().saveRunSnapshot(warmupRunForDisplay)
+      this.runService.getRunStateService().notifyRun(warmupRunForDisplay)
     }
 
     let warmupSession: RunnerSession | null = null
@@ -646,13 +646,13 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           warmupRuntimeOutputs = warmupResult.warmupRuntimeOutputs
         } catch (error) {
           if (session.warmupRunId) {
-            const run = await this.runService.getRun(session.warmupRunId)
+            const run = await this.runService.getRunStateService().getRun(session.warmupRunId)
             if (run) {
               run.status = "failed"
               run.logs.push(`[${new Date().toLocaleTimeString()}] ${error instanceof Error ? error.message : String(error)}`)
               run.finishedAt = now()
-              this.runService.saveRunSnapshot(run)
-              this.runService.notifyRun(run)
+              this.runService.getRunStateService().saveRunSnapshot(run)
+              this.runService.getRunStateService().notifyRun(run)
             }
           }
           throw error
@@ -701,8 +701,8 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           run: displayRun,
           session: warmupSession,
           onUpdate: async () => {
-            this.runService.saveRunSnapshot(displayRun)
-            this.runService.notifyRun(displayRun)
+            this.runService.getRunStateService().saveRunSnapshot(displayRun)
+            this.runService.getRunStateService().notifyRun(displayRun)
           },
           archiveStepIndex: displayRun.steps.length - 1,
         })
@@ -743,8 +743,8 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           displayRun,
           warmupSession,
           async () => {
-            this.runService.saveRunSnapshot(displayRun)
-            this.runService.notifyRun(displayRun)
+            this.runService.getRunStateService().saveRunSnapshot(displayRun)
+            this.runService.getRunStateService().notifyRun(displayRun)
           },
           new Error(message),
         )

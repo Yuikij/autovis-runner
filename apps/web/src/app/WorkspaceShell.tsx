@@ -11,6 +11,7 @@ import { RunsSection } from "./sections/RunsSection"
 import { AuthProfilesSection } from "./sections/auth-profiles"
 import { TargetUrlsSection } from "./sections/TargetUrlsSection"
 import { TasksSection } from "./sections/TasksSection"
+import { LlmConnectionsSection } from "./sections/LlmConnectionsSection"
 import type { AuthSession } from "../App"
 
 const sectionCopy: Record<string, { title: string; description: string }> = {
@@ -22,6 +23,7 @@ const sectionCopy: Record<string, { title: string; description: string }> = {
   authProfiles: { title: "登录状态管理", description: "管理需要在用例中注入的持久化身份鉴权状态。" },
   workbench: { title: "AI 工作台", description: "生成脚本、手动录制、查看历史脚本并在工作台内直接验证。" },
   runs: { title: "执行记录", description: "查看任务执行历史、实时浏览器回放与执行产物。" },
+  llmConnections: { title: "大模型中心", description: "管理 AI 模型配置、API Keys 与 Copilot 授权状态。" },
 }
 
 type WorkspaceShellProps = {
@@ -156,6 +158,7 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
             {activeSection === "authProfiles" ? <AuthProfilesSection controller={controller} /> : null}
             {activeSection === "workbench" ? <WorkbenchSection controller={controller} /> : null}
             {activeSection === "runs" ? <RunsSection controller={controller} /> : null}
+            {activeSection === "llmConnections" ? <LlmConnectionsSection controller={controller} /> : null}
           </div>
         </main>
       </div>

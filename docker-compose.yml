@@ -9,6 +9,7 @@ services:
     environment:
       PORT: "8787"
       DATA_DIR: "/var/lib/autovis"
+      AUTOVIS_CONFIG_DIR: "/var/lib/autovis/config"
       APP_ORIGIN: "http://localhost:8787"
       HEADLESS: "false"
       BROWSER_BACKEND: "playwright"
@@ -16,6 +17,7 @@ services:
       AUTOVIS_LLM_SCOPE: "${AUTOVIS_LLM_SCOPE:-shared}"
       AUTOVIS_ADMIN_USER: "${AUTOVIS_ADMIN_USER:-admin}"
       AUTOVIS_ADMIN_PASSWORD: "${AUTOVIS_ADMIN_PASSWORD:-}"
+      AUTOVIS_CLOUD_URL: "${AUTOVIS_CLOUD_URL:-}"
       AUTOVIS_DEVICE_TOKEN: "${AUTOVIS_DEVICE_TOKEN:-}"
     volumes:
       - autovis-data:/var/lib/autovis

@@ -1,4 +1,4 @@
-export type WorkspaceSection = "dashboard" | "projects" | "cases" | "tasks" | "targetUrls" | "authProfiles" | "workbench" | "runs"
+export type WorkspaceSection = "dashboard" | "projects" | "cases" | "tasks" | "targetUrls" | "authProfiles" | "workbench" | "runs" | "llmConnections"
 
 const runtimeApiBase = typeof window === "undefined"
   ? undefined
@@ -13,11 +13,12 @@ export const defaultRecorderUrl = ""
 
 export const navItems: Array<{ id: WorkspaceSection; label: string; icon: string }> = [
   { id: "dashboard", label: "仪表盘", icon: "dashboard" },
+  { id: "llmConnections", label: "大模型中心", icon: "smart_toy" },
   { id: "projects", label: "项目", icon: "folder" },
   { id: "cases", label: "测试用例", icon: "assignment" },
   { id: "tasks", label: "任务", icon: "checklist" },
   { id: "targetUrls", label: "目标网址", icon: "language" },
   { id: "authProfiles", label: "登录状态", icon: "key" },
-  { id: "workbench", label: "AI 工作台", icon: "smart_toy" },
+  { id: "workbench", label: "AI 工作台", icon: "terminal" },
   { id: "runs", label: "执行记录", icon: "play_circle" },
 ]

@@ -604,93 +604,125 @@ export function RunsSection({ controller }: RunsSectionProps) {
                   </div>
 
                   {groupedSteps.length > 0 ? (
-                    <div className="py-2 pr-2 relative">
-                      {/* Vertical timeline track line */}
-                      <div className="absolute left-[19px] top-6 bottom-6 w-px bg-border/80 dark:bg-white/10" />
+                    <div className="space-y-4 pl-2 pr-1 pb-4 relative">
+                      {groupedSteps.map(({ parent, children }, idx) => {
+                        const isRunning = parent.status === "running"
+                        const isPassed = parent.status === "passed"
+                        const isFailed = parent.status === "failed"
 
-                      <div className="space-y-6 relative">
-                        {groupedSteps.map(({ parent, children }) => {
-                          const isRunning = parent.status === "running"
-                          const isPassed = parent.status === "passed"
-                          const isFailed = parent.status === "failed"
+                        let visuals = {
+                          icon: <span className="material-symbols-outlined text-slate-400 text-xs">radio_button_checked</span>,
+                          bg: "bg-secondary/20 border-border/40",
+                          textClass: "text-foreground",
+                          lineClass: "bg-border/40",
+                          dotClass: "bg-slate-400"
+                        }
 
-                          let dotColor = "bg-muted border-border text-muted-foreground"
-                          if (isRunning) dotColor = "bg-primary border-primary text-primary-foreground animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.5)]"
-                          if (isPassed) dotColor = "bg-emerald-500 border-emerald-500 text-white"
-                          if (isFailed) dotColor = "bg-rose-500 border-rose-500 text-white"
+                        if (isFailed) {
+                          visuals = {
+                            icon: <span className="material-symbols-outlined text-rose-500 text-sm drop-shadow-[0_0_8px_rgba(244,63,94,0.8)]">cancel</span>,
+                            bg: "bg-rose-500/10 border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.1)]",
+                            textClass: "text-rose-500 font-semibold",
+                            lineClass: "bg-rose-500/40",
+                            dotClass: "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]"
+                          }
+                        } else if (isRunning) {
+                          visuals = {
+                            icon: <span className="material-symbols-outlined text-indigo-400 text-sm animate-pulse drop-shadow-[0_0_8px_rgba(99,102,241,0.8)]">hourglass_top</span>,
+                            bg: "bg-indigo-500/10 border-indigo-500/40 shadow-[0_0_20px_rgba(99,102,241,0.15)]",
+                            textClass: "text-indigo-400 font-semibold",
+                            lineClass: "bg-indigo-500/50 animate-pulse",
+                            dotClass: "bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)] animate-ping"
+                          }
+                        } else if (isPassed) {
+                          visuals = {
+                            icon: <span className="material-symbols-outlined text-emerald-500 text-sm drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]">check_circle</span>,
+                            bg: "bg-emerald-500/5 border-emerald-500/20",
+                            textClass: "text-emerald-500 font-medium",
+                            lineClass: "bg-emerald-500/30",
+                            dotClass: "bg-emerald-500"
+                          }
+                        }
 
-                          return (
-                            <div key={parent.id} className="relative pl-10 group">
-                              {/* Step Dot */}
-                              <div className={`absolute left-0 top-1.5 flex h-10 w-10 items-center justify-center rounded-full border-4 border-background z-10 transition-colors ${dotColor}`}>
-                                <span className="material-symbols-outlined text-[16px]">
-                                  {isRunning ? "hourglass_top" : isPassed ? "check" : isFailed ? "close" : "schedule"}
-                                </span>
-                              </div>
-
-                              {/* Card Content Box */}
-                              <div className={`rounded-xl border p-4 transition-all duration-300 ${isRunning ? "border-primary/50 bg-primary/5 shadow-[0_0_15px_rgba(var(--primary),0.03)]" : "border-border/50 bg-card group-hover:border-border"}`}>
-                                <div className="flex items-center justify-between gap-3 mb-1">
-                                  <strong className={`text-xs ${isRunning ? "text-primary font-bold" : "text-foreground"}`}>{parent.title}</strong>
-                                  <Badge tone={parent.status === "passed" ? "success" : parent.status === "failed" ? "danger" : "warning"} className="scale-90 origin-top-right">
-                                    {translateStatus(parent.status)}
-                                  </Badge>
-                                </div>
-
-                                {parent.log && <p className="text-xs text-muted-foreground leading-relaxed font-sans mt-1">{parent.log}</p>}
-
-                                {/* Image thumbnail inside step, zoom on click */}
-                                {parent.screenshotUrl && (
-                                  <div
-                                    className="mt-3 relative rounded-lg overflow-hidden border border-border/50 group max-w-[200px] aspect-[16/10] bg-black/10 cursor-zoom-in shadow-sm hover:border-primary/50 transition-colors"
-                                    onClick={() => setLightboxUrl(parent.screenshotUrl!)}
-                                  >
-                                    <img
-                                      src={resolveUrl(parent.screenshotUrl)}
-                                      alt={parent.title}
-                                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-sm">
-                                      <span className="material-symbols-outlined text-white text-base">zoom_in</span>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {children.length > 0 && (
-                                  <div className="mt-3 pl-3 border-l-2 border-border/50 space-y-3">
-                                    {children.map(child => {
-                                      const cIsRunning = child.status === "running"
-                                      const cIsPassed = child.status === "passed"
-                                      const cIsFailed = child.status === "failed"
-                                      return (
-                                        <div key={child.id} className="relative flex items-start gap-2.5 p-1.5 -ml-1.5 rounded-lg transition-colors hover:bg-secondary/40">
-                                          <div className={`mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${cIsRunning ? "bg-primary animate-ping" : cIsPassed ? "bg-emerald-500" : cIsFailed ? "bg-rose-500" : "bg-muted-foreground/30"}`} />
-                                          <div className="flex-1 min-w-0">
-                                            <p className={`text-xs ${cIsRunning ? "text-primary font-medium" : "text-foreground"}`}>{child.title}</p>
-                                            {child.log && <p className="text-[10px] text-muted-foreground mt-0.5 font-sans opacity-80">{child.log}</p>}
-                                            {child.screenshotUrl && (
-                                              <div
-                                                className="mt-2 relative rounded overflow-hidden border border-border/50 group max-w-[120px] aspect-[16/10] bg-black/10 cursor-zoom-in shadow-sm hover:border-primary/50 transition-colors"
-                                                onClick={() => setLightboxUrl(child.screenshotUrl!)}
-                                              >
-                                                <img
-                                                  src={resolveUrl(child.screenshotUrl)}
-                                                  alt={child.title}
-                                                  className="w-full h-full object-cover"
-                                                />
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                )}
+                        return (
+                          <div key={parent.id} className="relative flex gap-4 group animate-in slide-in-from-bottom-2 fade-in duration-300">
+                            {/* Timeline Line */}
+                            {idx < groupedSteps.length - 1 && (
+                              <div className={`absolute left-[11px] top-6 bottom-[-16px] w-[2px] rounded-full ${visuals.lineClass}`} />
+                            )}
+                            
+                            {/* Timeline Dot */}
+                            <div className="relative z-10 flex flex-col items-center mt-1">
+                              <div className={`flex items-center justify-center size-6 rounded-full bg-background border-2 ${isRunning ? "border-indigo-500" : "border-border"}`}>
+                                <div className={`size-2.5 rounded-full ${visuals.dotClass}`} />
                               </div>
                             </div>
-                          )
-                        })}
-                      </div>
+
+                            {/* Card Content Box */}
+                            <div className={`flex-1 rounded-2xl border p-4 transition-all duration-300 ${visuals.bg} backdrop-blur-md`}>
+                              <div className="flex items-center justify-between gap-3 mb-1">
+                                <div className="flex items-center gap-2">
+                                  {visuals.icon}
+                                  <span className={`text-sm tracking-wide ${visuals.textClass}`}>{parent.title}</span>
+                                </div>
+                                <Badge tone={parent.status === "passed" ? "success" : parent.status === "failed" ? "danger" : "warning"} className="scale-90 origin-top-right shadow-sm">
+                                  {translateStatus(parent.status, true)}
+                                </Badge>
+                              </div>
+
+                              {parent.log && <p className="text-xs text-muted-foreground leading-relaxed font-sans mt-1">{parent.log}</p>}
+
+                              {/* Image thumbnail inside step, zoom on click */}
+                              {parent.screenshotUrl && (
+                                <div
+                                  className="mt-3 relative rounded-lg overflow-hidden border border-border/50 group max-w-[200px] aspect-[16/10] bg-black/10 cursor-zoom-in shadow-sm hover:border-primary/50 transition-colors"
+                                  onClick={() => setLightboxUrl(parent.screenshotUrl!)}
+                                >
+                                  <img
+                                    src={resolveUrl(parent.screenshotUrl)}
+                                    alt={parent.title}
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-sm">
+                                    <span className="material-symbols-outlined text-white text-base">zoom_in</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {children.length > 0 && (
+                                <div className="mt-3 pl-3 border-l-2 border-border/50 space-y-3">
+                                  {children.map(child => {
+                                    const cIsRunning = child.status === "running"
+                                    const cIsPassed = child.status === "passed"
+                                    const cIsFailed = child.status === "failed"
+                                    return (
+                                      <div key={child.id} className="relative flex items-start gap-2.5 p-1.5 -ml-1.5 rounded-lg transition-colors hover:bg-secondary/40">
+                                        <div className={`mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${cIsRunning ? "bg-primary animate-ping" : cIsPassed ? "bg-emerald-500" : cIsFailed ? "bg-rose-500" : "bg-muted-foreground/30"}`} />
+                                        <div className="flex-1 min-w-0">
+                                          <p className={`text-xs ${cIsRunning ? "text-primary font-medium" : "text-foreground"}`}>{child.title}</p>
+                                          {child.log && <p className="text-[10px] text-muted-foreground mt-0.5 font-sans opacity-80">{child.log}</p>}
+                                          {child.screenshotUrl && (
+                                            <div
+                                              className="mt-2 relative rounded overflow-hidden border border-border/50 group max-w-[120px] aspect-[16/10] bg-black/10 cursor-zoom-in shadow-sm hover:border-primary/50 transition-colors"
+                                              onClick={() => setLightboxUrl(child.screenshotUrl!)}
+                                            >
+                                              <img
+                                                src={resolveUrl(child.screenshotUrl)}
+                                                alt={child.title}
+                                                className="w-full h-full object-cover"
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   ) : (
                     <EmptyState description="开始执行后，这里会显示当前子运行的层级步骤和状态变化。" title="无步骤数据" />

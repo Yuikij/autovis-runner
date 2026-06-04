@@ -34,7 +34,21 @@ docker run -d \
   --shm-size=2g \
   -p 8787:8787 \
   -v autovis-data:/var/lib/autovis \
-  yuimax/autovis-runner:latest
+  -e AUTOVIS_CONFIG_DIR=/var/lib/autovis/config \
+  -e AUTOVIS_CLOUD_URL=https://your-autovis-cloud.example.com \
+  -e AUTOVIS_DEVICE_TOKEN=<device-token> \
+  yuikij/autovis-runner:latest
+```
+
+For Docker, passing `AUTOVIS_CLOUD_URL` and `AUTOVIS_DEVICE_TOKEN` as
+environment variables is the recommended registration flow. If you prefer the
+CLI helper, call it by absolute path inside the container:
+
+```shell
+docker exec -it autovis-runner /opt/autovis-runner/bin/autovis-runner register \
+  --token <device-token> \
+  --cloud-url https://your-autovis-cloud.example.com
+docker restart autovis-runner
 ```
 
 ## Authentication

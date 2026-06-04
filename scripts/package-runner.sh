@@ -59,10 +59,15 @@ case "${1:-start}" in
   register)
     shift || true
     token=""
+    cloud_url=""
     while [ "$#" -gt 0 ]; do
       case "$1" in
         --token)
           token="${2:-}"
+          shift 2
+          ;;
+        --cloud-url)
+          cloud_url="${2:-}"
           shift 2
           ;;
         *)
@@ -77,6 +82,9 @@ case "${1:-start}" in
     mkdir -p "${AUTOVIS_CONFIG_DIR:-$HOME/.autovis}"
     {
       printf 'AUTOVIS_DEVICE_TOKEN=%s\n' "$token"
+      if [ -n "$cloud_url" ]; then
+        printf 'AUTOVIS_CLOUD_URL=%s\n' "$cloud_url"
+      fi
     } > "${AUTOVIS_CONFIG_DIR:-$HOME/.autovis}/runner.env"
     echo "AutoVis Runner device token saved."
     ;;

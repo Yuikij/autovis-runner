@@ -6,6 +6,8 @@ import { TaskService } from "./services/task.service.js"
 import { LlmConfigService } from "./services/llm-config.service.js"
 import { ProjectService } from "./services/project.service.js"
 import { RunService } from "./services/run.service.js"
+import { RunStateService } from "./services/run-state.service.js"
+import { TaskRunService } from "./services/task-run.service.js"
 import { AgentService } from "./services/agent.service.js"
 import { ValidationService } from "./services/validation.service.js"
 import { AgentWarmupService } from "./services/agent-warmup.service.js"
@@ -53,7 +55,9 @@ class PersistentStore {
   private readonly taskService = new TaskService(this.db)
   private readonly llmService = new LlmConfigService(this.db)
   private readonly projectService = new ProjectService(this.db, this.workspace, this.suiteService, this.llmService)
-  private readonly runService = new RunService(this.db, this.suiteService, this.llmService, this.tasks)
+  private readonly runStateService = new RunStateService(this.db)
+  private readonly runService = new RunService(this.db, this.suiteService, this.llmService, this.tasks, this.runStateService)
+  private readonly taskRunService = new TaskRunService(this.db, this.tasks, this.runService)
   private readonly agentWarmupService = new AgentWarmupService(this.db, this.suiteService, this.runService)
   private readonly agentService = new AgentService(this.db, this.suiteService, this.llmService, this.projectService, this.runService, this.agentWarmupService, this.tasks)
   private readonly validationService = new ValidationService(this.db, this.llmService)
@@ -64,13 +68,13 @@ class PersistentStore {
     this.tasks,
   )
   private readonly authLoginSandboxService = new AuthLoginSandboxService(this.db)
-  private readonly schedulerService = new SchedulerService(this.db, this.runService)
+  private readonly schedulerService = new SchedulerService(this.db, this.runService, this.taskRunService)
 
   constructor() {
     // 注入 AI 直接执行回调，使任务可以在无脚本时走 agent 路径
-    this.runService.runDirectAgentForTask = (opts) => this.agentService.startDirectAgentForTask(opts)
-    this.runService.cancelAgentCallback = (sessionId) => this.agentService.cancelAgent(sessionId)
-    this.runService.getAgentSessionCallback = (sessionId) => this.agentService.getAgentSession(sessionId)
+    this.taskRunService.runDirectAgentForTask = (opts) => this.agentService.startDirectAgentForTask(opts)
+    this.taskRunService.cancelAgentCallback = (sessionId) => this.agentService.cancelAgent(sessionId)
+    this.taskRunService.getAgentSessionCallback = (sessionId) => this.agentService.getAgentSession(sessionId)
     this.reapStaleTasks()
     this.scheduleTemporaryRunCleanup()
     this.schedulerService.start()
@@ -308,19 +312,19 @@ class PersistentStore {
   // -- Run Service --
   async startVerification(request: StartRunRequest & { llmOwnerKey?: string }) { return this.runService.startVerification(request) }
   async startRun(request: StartRunRequest & { llmOwnerKey?: string }) { return this.runService.startRun(request) }
-  async startTaskRun(request: StartTaskRunRequest) { return this.runService.startTaskRun(request) }
-  subscribeTaskRun(taskRunId: string, listener: (taskRun: TaskRun) => void) { return this.runService.subscribeTaskRun(taskRunId, listener) }
-  async getRun(runId: string) { return this.runService.getRun(runId) }
+  async startTaskRun(request: StartTaskRunRequest) { return this.taskRunService.startTaskRun(request) }
+  subscribeTaskRun(taskRunId: string, listener: (taskRun: TaskRun) => void) { return this.taskRunService.subscribeTaskRun(taskRunId, listener) }
+  async getRun(runId: string) { return this.runStateService.getRun(runId) }
   buildRepairPrompt(testCase: TestCase, run: ExecutionRun, originalPrompt: string) { return this.runService.buildRepairPrompt(testCase, run, originalPrompt) }
-  async submitRunHumanInput(runId: string, handoffId: string, value: string) { return this.runService.submitRunHumanInput(runId, handoffId, value) }
-  subscribe(runId: string, listener: (run: ExecutionRun) => void) { return this.runService.subscribe(runId, listener) }
-  subscribeLiveViewport(runId: string, listener: (chunk: Uint8Array) => void) { return this.runService.subscribeLiveViewport(runId, listener) }
+  async submitRunHumanInput(runId: string, handoffId: string, value: string) { return this.runStateService.submitRunHumanInput(runId, handoffId, value) }
+  subscribe(runId: string, listener: (run: ExecutionRun) => void) { return this.runStateService.subscribe(runId, listener) }
+  subscribeLiveViewport(runId: string, listener: (chunk: Uint8Array) => void) { return this.runStateService.subscribeLiveViewport(runId, listener) }
   pauseRun(runId: string) { return this.runService.pauseRun(runId) }
   resumeRun(runId: string) { return this.runService.resumeRun(runId) }
   cancelRun(runId: string) { return this.runService.cancelRun(runId) }
-  pauseTaskRun(taskRunId: string) { return this.runService.pauseTaskRun(taskRunId) }
-  resumeTaskRun(taskRunId: string) { return this.runService.resumeTaskRun(taskRunId) }
-  cancelTaskRun(taskRunId: string) { return this.runService.cancelTaskRun(taskRunId) }
+  pauseTaskRun(taskRunId: string) { return this.taskRunService.pauseTaskRun(taskRunId) }
+  resumeTaskRun(taskRunId: string) { return this.taskRunService.resumeTaskRun(taskRunId) }
+  cancelTaskRun(taskRunId: string) { return this.taskRunService.cancelTaskRun(taskRunId) }
 
   // -- Agent control --
   pauseAgent(sessionId: string) { return this.agentService.pauseAgent(sessionId) }

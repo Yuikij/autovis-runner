@@ -22,6 +22,7 @@ import { createReadStream } from "node:fs"
 import { mkdir, stat } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { startCloudClient } from "./cloud-client.js"
 import { store } from "./store.js"
 
 const app = Fastify({ logger: false })
@@ -112,9 +113,18 @@ process.on("unhandledRejection", (reason, promise) => {
 })
 
 const port = Number(process.env.PORT ?? 8787)
+const appOrigin = process.env.APP_ORIGIN ?? `http://localhost:${port}`
 
 app.listen({ port, host: "0.0.0.0" })
   .then((address) => {
+    if (process.env.AUTOVIS_CLOUD_URL && process.env.AUTOVIS_DEVICE_TOKEN) {
+      startCloudClient({
+        cloudUrl: process.env.AUTOVIS_CLOUD_URL,
+        deviceToken: process.env.AUTOVIS_DEVICE_TOKEN,
+        localOrigin: appOrigin,
+        runnerVersion: process.env.AUTOVIS_RUNNER_VERSION,
+      })
+    }
     console.log(`🚀 [AutoVis] Server successfully started and listening at ${address}`)
   })
   .catch((error) => {

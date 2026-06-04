@@ -118,7 +118,7 @@ export const executePlaywrightRun = async ({
       run,
       session,
       onUpdate,
-      archiveStepIndex: run.steps.length - 1,
+      archiveStepIndex: run.steps.findIndex(s => s.kind === "archive"),
     })
   } catch (error) {
     if (session) {

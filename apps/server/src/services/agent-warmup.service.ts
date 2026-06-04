@@ -104,8 +104,8 @@ export class AgentWarmupService {
         status: "connecting",
         mimeType: "image/jpeg",
       }
-      this.runService.saveRunSnapshot(warmupRun)
-      this.runService.notifyRun(warmupRun)
+      this.runService.getRunStateService().saveRunSnapshot(warmupRun)
+      this.runService.getRunStateService().notifyRun(warmupRun)
       
       currentWarmupRunId = warmupRun.id
       updateSession({ warmupRunId: currentWarmupRunId })
@@ -124,8 +124,8 @@ export class AgentWarmupService {
       })
 
       const onWarmupUpdate = async () => {
-        this.runService.saveRunSnapshot(warmupRun)
-        this.runService.notifyRun(warmupRun)
+        this.runService.getRunStateService().saveRunSnapshot(warmupRun)
+        this.runService.getRunStateService().notifyRun(warmupRun)
       }
 
       warmupSession = await createRunnerSession({
@@ -147,7 +147,7 @@ export class AgentWarmupService {
             return
           }
           if (event.type === "chunk" && event.chunk) {
-            this.runService.notifyLiveViewport(warmupRun.id, event.chunk)
+            this.runService.getRunStateService().notifyLiveViewport(warmupRun.id, event.chunk)
             return
           }
           if (event.type === "ended") {
@@ -189,11 +189,11 @@ export class AgentWarmupService {
             suiteId?: string
             testCaseId?: string
           }) => {
-            const value = await this.runService.requestRunHumanInput(warmupRun, handoffRequest)
+            const value = await this.runService.getRunStateService().requestRunHumanInput(warmupRun, handoffRequest)
             warmupRun.pendingHumanHandoff = undefined
             warmupRun.status = "running"
-            this.runService.saveRunSnapshot(warmupRun)
-            this.runService.notifyRun(warmupRun)
+            this.runService.getRunStateService().saveRunSnapshot(warmupRun)
+            this.runService.getRunStateService().notifyRun(warmupRun)
             return value
           },
           analyzeImage: (analysisRequest) => this.runService.analyzeImageWithCurrentLlm(analysisRequest, llmOwnerKey),
@@ -233,8 +233,8 @@ export class AgentWarmupService {
 
       warmupRun.status = "passed"
       warmupRun.finishedAt = now()
-      this.runService.saveRunSnapshot(warmupRun)
-      this.runService.notifyRun(warmupRun)
+      this.runService.getRunStateService().saveRunSnapshot(warmupRun)
+      this.runService.getRunStateService().notifyRun(warmupRun)
 
       onStep({
         id: createId("agent_precondition_warmup"),
@@ -253,8 +253,8 @@ export class AgentWarmupService {
         warmupRun.status = "running"
         warmupRun.finishedAt = undefined
         warmupRun.logs.push(`[${new Date().toLocaleTimeString()}] 前置依赖预热完成，由于是直接执行模式，复用当前运行状态作为显示。`)
-        this.runService.saveRunSnapshot(warmupRun)
-        this.runService.notifyRun(warmupRun)
+        this.runService.getRunStateService().saveRunSnapshot(warmupRun)
+        this.runService.getRunStateService().notifyRun(warmupRun)
         // Only assign warmupRunForDisplay if it succeeds, to prevent mixed state
         warmupRunForDisplay = warmupRun
       }
@@ -276,13 +276,13 @@ export class AgentWarmupService {
 
       // Self-contained failed state logic
       if (currentWarmupRunId) {
-        const run = await this.runService.getRun(currentWarmupRunId)
+        const run = await this.runService.getRunStateService().getRun(currentWarmupRunId)
         if (run) {
           run.status = isBrowserMissing ? "cancelled" : "failed"
           run.logs.push(`[${new Date().toLocaleTimeString()}] ${finalErrorMsg}`)
           run.finishedAt = now()
-          this.runService.saveRunSnapshot(run)
-          this.runService.notifyRun(run)
+          this.runService.getRunStateService().saveRunSnapshot(run)
+          this.runService.getRunStateService().notifyRun(run)
         }
       }
 

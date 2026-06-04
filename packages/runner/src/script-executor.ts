@@ -383,20 +383,25 @@ export const executeScriptInSession = async ({
 
   const step: StepRuntime = async (title, purpose, fn) => {
     run.logs.push(`[${new Date().toLocaleTimeString()}] 业务步骤 · ${title} · ${purpose}`)
-    const businessStepIndex = run.steps.length
     const { createExecutionStep } = await import("./utils.js")
-    run.steps.push(createExecutionStep(run.id, businessStepIndex + 1, title, purpose, "business_step"))
-    run.steps[businessStepIndex].status = "running"
+    
+    const archiveIndex = run.steps.findIndex(s => s.kind === "archive")
+    const insertIndex = archiveIndex !== -1 ? archiveIndex : run.steps.length
+
+    const businessStep = createExecutionStep(run.id, insertIndex + 1, title, purpose, "business_step")
+    run.steps.splice(insertIndex, 0, businessStep)
+    
+    run.steps[insertIndex].status = "running"
     await onUpdate()
     
     try {
       const result = await fn()
-      const businessShot = await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-step-${businessStepIndex}-${Date.now()}.png`).catch(() => undefined)
-      await markRunStep(run, businessStepIndex, "passed", onUpdate, `步骤完成：${purpose}`, businessShot)
+      const businessShot = await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-step-${insertIndex}-${Date.now()}.png`).catch(() => undefined)
+      await markRunStep(run, insertIndex, "passed", onUpdate, `步骤完成：${purpose}`, businessShot)
       return result
     } catch (err) {
-      const failShot = await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-step-fail-${businessStepIndex}-${Date.now()}.png`).catch(() => undefined)
-      await markRunStep(run, businessStepIndex, "failed", onUpdate, `步骤失败：${err instanceof Error ? err.message : String(err)}`, failShot)
+      const failShot = await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-step-fail-${insertIndex}-${Date.now()}.png`).catch(() => undefined)
+      await markRunStep(run, insertIndex, "failed", onUpdate, `步骤失败：${err instanceof Error ? err.message : String(err)}`, failShot)
       throw err
     }
   }

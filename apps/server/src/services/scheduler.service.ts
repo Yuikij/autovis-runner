@@ -3,6 +3,7 @@ import type { ScheduleTrigger, UpsertScheduleTriggerRequest } from "@autovis/sha
 import type { AutoVisDatabase } from "../db.js"
 import { createId, now } from "./common.js"
 import type { RunService } from "./run.service.js"
+import type { TaskRunService } from "./task-run.service.js"
 
 /**
  * 简单的 5 字段 cron 解析（分 时 日 月 周）。
@@ -108,6 +109,7 @@ export class SchedulerService {
   constructor(
     private readonly db: AutoVisDatabase,
     private readonly runService: RunService,
+    private readonly taskRunService: TaskRunService,
   ) {}
 
   /**
@@ -170,7 +172,9 @@ export class SchedulerService {
   async fireNow(id: string) {
     const trigger = this.db.getScheduleTrigger(id)
     if (!trigger) throw new Error("ScheduleTrigger not found")
-    return await this.runService.startTaskRun({
+    const task = this.db.getTask(trigger.taskId)
+    if (!task) throw new Error("Task not found")
+    return await this.taskRunService.startTaskRun({
       projectId: trigger.projectId,
       taskId: trigger.taskId,
       scheduleTriggerId: trigger.id,
@@ -222,15 +226,20 @@ export class SchedulerService {
       console.log(`[scheduler] fireTrigger skipped, trigger ${id} disabled or missing at fire time ${fireAt.toISOString()}`)
       return
     }
+    const task = this.db.getTask(trigger.taskId)
+    if (!task) {
+      console.warn(`[scheduler] fireTrigger skipped, task ${trigger.taskId} for trigger ${id} not found`)
+      return
+    }
     const nowIso = now()
     console.log(`[scheduler] FIRE trigger ${id} (${trigger.name}, kind=${trigger.kind}) task=${trigger.taskId} project=${trigger.projectId} fireAt=${fireAt.toISOString()}`)
     try {
-      const result = await this.runService.startTaskRun({
+      const taskRun = await this.taskRunService.startTaskRun({
         projectId: trigger.projectId,
         taskId: trigger.taskId,
         scheduleTriggerId: trigger.id,
       })
-      console.log(`[scheduler] startTaskRun ok for trigger ${id} → taskRunId=${result?.id ?? "(unknown)"} status=${result?.status ?? "(unknown)"}`)
+      console.log(`[scheduler] startTaskRun ok for trigger ${id} → taskRunId=${taskRun?.id ?? "(unknown)"} status=${taskRun?.status ?? "(unknown)"}`)
     } catch (err) {
       console.warn(`[scheduler] startTaskRun failed for trigger ${id}:`, err instanceof Error ? err.stack || err.message : err)
     }

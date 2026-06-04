@@ -67,7 +67,10 @@ export const splitCommaValues = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean)
 
-export const translateStatus = (status: string) => {
+export const translateStatus = (status: string, isStep?: boolean) => {
+  if (isStep && status === "queued") {
+    return "等待中"
+  }
   const map: Record<string, string> = {
     idle: "空闲",
     queued: "排队中",

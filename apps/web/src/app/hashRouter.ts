@@ -38,6 +38,7 @@ export interface HashState {
  */
 export const sectionUrlPolicy: Record<WorkspaceSection, ReadonlyArray<HashKey>> = {
   dashboard: [],
+  llmConnections: [],
   projects: [],
   cases: ["projectId", "caseId"],
   tasks: ["projectId", "taskId"],
