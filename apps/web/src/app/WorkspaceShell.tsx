@@ -1,4 +1,5 @@
 import { appName, appVersion, navItems } from "./constants"
+import { FrontendErrorBoundary } from "./FrontendErrorBoundary"
 import { Badge } from "./components/ui/badge"
 import { Button } from "./components/ui/button"
 import { PageHeader } from "./components/page-header"
@@ -150,15 +151,17 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
                 </button>
               </div>
             ) : null}
-            {activeSection === "dashboard" ? <DashboardSection controller={controller} /> : null}
-            {activeSection === "projects" ? <ProjectsSection controller={controller} /> : null}
-            {activeSection === "cases" ? <CasesSection controller={controller} /> : null}
-            {activeSection === "tasks" ? <TasksSection controller={controller} /> : null}
-            {activeSection === "targetUrls" ? <TargetUrlsSection controller={controller} /> : null}
-            {activeSection === "authProfiles" ? <AuthProfilesSection controller={controller} /> : null}
-            {activeSection === "workbench" ? <WorkbenchSection controller={controller} /> : null}
-            {activeSection === "runs" ? <RunsSection controller={controller} /> : null}
-            {activeSection === "llmConnections" ? <LlmConnectionsSection controller={controller} /> : null}
+            <FrontendErrorBoundary section={activeSection} onGoDashboard={() => setActiveSection("dashboard")}>
+              {activeSection === "dashboard" ? <DashboardSection controller={controller} /> : null}
+              {activeSection === "projects" ? <ProjectsSection controller={controller} /> : null}
+              {activeSection === "cases" ? <CasesSection controller={controller} /> : null}
+              {activeSection === "tasks" ? <TasksSection controller={controller} /> : null}
+              {activeSection === "targetUrls" ? <TargetUrlsSection controller={controller} /> : null}
+              {activeSection === "authProfiles" ? <AuthProfilesSection controller={controller} /> : null}
+              {activeSection === "workbench" ? <WorkbenchSection controller={controller} /> : null}
+              {activeSection === "runs" ? <RunsSection controller={controller} /> : null}
+              {activeSection === "llmConnections" ? <LlmConnectionsSection controller={controller} /> : null}
+            </FrontendErrorBoundary>
           </div>
         </main>
       </div>

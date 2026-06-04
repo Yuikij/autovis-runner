@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react"
-import { request } from "../api"
-import { apiRoutes } from "../apiRoutes"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
 import { formatDateTime, formatDuration, translateStatus } from "../utils"
+import { clearFrontendDiagnostics, type FrontendDiagnosticEntry, useFrontendDiagnostics } from "../frontendDiagnostics"
 
 type DashboardSectionProps = {
   controller: ReadyWorkspaceController
@@ -36,6 +34,8 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
     setActiveTaskRunId,
     setActiveSection,
   } = controller
+  const frontendDiagnostics = useFrontendDiagnostics()
+  const latestDiagnostic = frontendDiagnostics.items[0] ?? null
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -131,6 +131,71 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
 
       {/* Main Details Grid */}
       <div className="grid grid-cols-1 gap-6">
+        <div className="rounded-2xl border border-border/80 bg-card/50 p-5 shadow-sm backdrop-blur-md">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-lg">diagnosis</span>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">前端运行诊断</h3>
+                <p className="text-[11px] text-muted-foreground">
+                  收集浏览器未捕获异常、Promise 拒绝、React 渲染错误，以及已处理的 API 请求失败。
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-border/60 bg-secondary px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
+                最近 {frontendDiagnostics.items.length} 条
+              </span>
+              <button
+                type="button"
+                onClick={() => clearFrontendDiagnostics()}
+                disabled={frontendDiagnostics.items.length === 0}
+                className="rounded-lg border border-border/60 bg-background px-3 py-1.5 text-[11px] text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                清空诊断
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              <DiagnosticStatCard
+                label="未捕获异常"
+                value={countDiagnostics(frontendDiagnostics.items, ["window-error", "unhandled-rejection", "react-error-boundary"])}
+                tone="danger"
+              />
+              <DiagnosticStatCard
+                label="API 失败"
+                value={countDiagnostics(frontendDiagnostics.items, ["api-request"])}
+                tone="warning"
+              />
+              <DiagnosticStatCard
+                label="最近路径"
+                value={latestDiagnostic?.path ?? "-"}
+                tone="default"
+              />
+            </div>
+
+            <div className="min-h-[15rem] rounded-2xl border border-border/60 bg-background/40 p-3">
+              {frontendDiagnostics.items.length === 0 ? (
+                <div className="flex h-full min-h-[13rem] flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                  <span className="material-symbols-outlined text-3xl text-emerald-500">verified</span>
+                  <p className="text-sm font-medium text-foreground">当前未记录到前端异常</p>
+                  <p className="max-w-lg text-[11px] leading-relaxed">
+                    当页面出现未捕获异常、Promise 拒绝、React 渲染错误，或 API 请求返回失败状态时，这里会自动留下诊断记录。
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {frontendDiagnostics.items.map((item) => (
+                    <DiagnosticEntryCard key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Recent runs */}
         <div className="rounded-2xl border border-border/80 bg-card/50 backdrop-blur-md p-5 flex flex-col shadow-sm">
           <div className="flex items-center justify-between pb-3 border-b border-border/40 mb-4">
@@ -207,4 +272,93 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
       </div>
     </div>
   )
+}
+
+function DiagnosticStatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number | string
+  tone: "default" | "warning" | "danger"
+}) {
+  const toneClass = tone === "danger"
+    ? "border-rose-500/30 bg-rose-500/5"
+    : tone === "warning"
+      ? "border-amber-500/30 bg-amber-500/5"
+      : "border-border/60 bg-card/40"
+
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className="mt-2 break-all font-mono text-lg font-semibold text-foreground">{value}</p>
+    </div>
+  )
+}
+
+function DiagnosticEntryCard({ item }: { item: FrontendDiagnosticEntry }) {
+  const toneClass = item.level === "error"
+    ? "border-rose-500/30 bg-rose-500/5"
+    : "border-amber-500/30 bg-amber-500/5"
+
+  return (
+    <details className={`rounded-2xl border p-3 ${toneClass}`}>
+      <summary className="cursor-pointer list-none">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+                {item.source}
+              </span>
+              <span className="text-[10px] text-muted-foreground">{formatDateTime(item.timestamp)}</span>
+            </div>
+            <p className="text-sm font-semibold text-foreground">{item.title}</p>
+            <p className="break-all text-[11px] leading-relaxed text-muted-foreground">{item.message}</p>
+          </div>
+          <span className="material-symbols-outlined text-muted-foreground">expand_more</span>
+        </div>
+      </summary>
+
+      <div className="mt-3 space-y-3 border-t border-border/40 pt-3 text-[11px]">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">路径</p>
+            <p className="mt-1 break-all font-mono text-foreground">{item.path}</p>
+          </div>
+          {item.meta ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">上下文</p>
+              <pre className="mt-1 whitespace-pre-wrap break-all rounded-xl border border-border/40 bg-background/60 p-2 font-mono text-foreground/90">
+                {JSON.stringify(item.meta, null, 2)}
+              </pre>
+            </div>
+          ) : null}
+        </div>
+        {item.componentStack ? (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">组件栈</p>
+            <pre className="mt-1 whitespace-pre-wrap break-all rounded-xl border border-border/40 bg-background/60 p-2 font-mono text-foreground/90">
+              {item.componentStack}
+            </pre>
+          </div>
+        ) : null}
+        {item.stack ? (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">错误堆栈</p>
+            <pre className="mt-1 whitespace-pre-wrap break-all rounded-xl border border-border/40 bg-background/60 p-2 font-mono text-foreground/90">
+              {item.stack}
+            </pre>
+          </div>
+        ) : null}
+      </div>
+    </details>
+  )
+}
+
+function countDiagnostics(
+  items: FrontendDiagnosticEntry[],
+  sources: FrontendDiagnosticEntry["source"][],
+) {
+  return items.filter((item) => sources.includes(item.source)).length
 }

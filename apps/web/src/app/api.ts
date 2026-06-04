@@ -1,4 +1,5 @@
 import { apiBase } from "./constants"
+import { recordFrontendDiagnostic } from "./frontendDiagnostics"
 
 export interface RequestError<TData = unknown> extends Error {
   status: number
@@ -7,14 +8,32 @@ export interface RequestError<TData = unknown> extends Error {
 
 export const request = async <T,>(path: string, init?: RequestInit) => {
   const headers = new Headers(init?.headers)
+  const method = init?.method ?? "GET"
   if (init?.body != null && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json")
   }
 
-  const response = await fetch(`${apiBase}${path}`, {
-    ...init,
-    headers,
-  })
+  let response: Response
+  try {
+    response = await fetch(`${apiBase}${path}`, {
+      ...init,
+      headers,
+    })
+  } catch (error) {
+    recordFrontendDiagnostic({
+      source: "api-request",
+      level: "error",
+      title: "API 请求网络失败",
+      message: error instanceof Error ? error.message : "请求未能发送到服务端",
+      stack: error instanceof Error ? error.stack : undefined,
+      meta: {
+        method,
+        path,
+        phase: "network",
+      },
+    })
+    throw error
+  }
 
   if (!response.ok) {
     let message = `Request failed: ${response.status}`
@@ -28,6 +47,20 @@ export const request = async <T,>(path: string, init?: RequestInit) => {
     const error = new Error(message) as RequestError
     error.status = response.status
     error.data = payload?.data
+
+    recordFrontendDiagnostic({
+      source: "api-request",
+      level: response.status >= 500 ? "error" : "warning",
+      title: "API 返回非成功状态",
+      message,
+      stack: error.stack,
+      meta: {
+        method,
+        path,
+        status: response.status,
+      },
+    })
+
     throw error
   }
 
