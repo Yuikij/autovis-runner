@@ -80,6 +80,18 @@ export type RecorderActionType = "navigate" | "click" | "dblclick" | "input" | "
 export type RecorderInteractionType = RecorderActionType
 export type TaskKind = "agent" | "run" | "task-run" | "recorder"
 export type TaskControlAction = "pause" | "resume" | "cancel"
+export type TaskControlCommandStatus = "requested" | "applied" | "rejected" | "orphaned"
+
+export interface PersistedTaskControlCommand {
+  id: Identifier
+  taskKind: TaskKind
+  taskId: Identifier
+  action: TaskControlAction
+  status: TaskControlCommandStatus
+  requestedAt: string
+  resolvedAt?: string
+  note?: string
+}
 
 export interface ProjectSummary {
   totalCases: number

@@ -334,6 +334,17 @@ export const createSchema = (db: DatabaseSync) => {
       FOREIGN KEY(profile_id) REFERENCES auth_profiles(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS task_control_commands (
+      id TEXT PRIMARY KEY,
+      task_kind TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      status TEXT NOT NULL,
+      requested_at TEXT NOT NULL,
+      resolved_at TEXT,
+      note TEXT
+    );
+
   `)
 
   db.exec(`
@@ -365,6 +376,8 @@ export const createSchema = (db: DatabaseSync) => {
     CREATE INDEX IF NOT EXISTS idx_task_runs_schedule_trigger_id ON task_runs(schedule_trigger_id);
     CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_task_control_commands_task ON task_control_commands(task_kind, task_id, requested_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_task_control_commands_status ON task_control_commands(status, requested_at DESC);
   `)
 
   ensureColumn(db, "auth_profiles", "validation_script", "TEXT")

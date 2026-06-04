@@ -41,6 +41,9 @@ import type {
 } from "@autovis/shared"
 import { store } from "../store.js"
 import { getRequestLlmOwnerKey } from "../auth.js"
+import { createSseStream } from "../sse.js"
+
+const AGENT_TERMINAL_STATUSES = new Set(["completed", "error", "cancelled", "interrupted"])
 
 export async function agentRoutes(app: FastifyInstance) {
   app.post("/scripts/generate", async (request, reply): Promise<ApiEnvelope<GenerateScriptResponse> | void> => {
@@ -128,27 +131,15 @@ export async function agentRoutes(app: FastifyInstance) {
 
   app.get("/agent/:sessionId/stream", async (request, reply) => {
     const params = z.object({ sessionId: z.string() }).parse(request.params)
-  
-    reply.raw.setHeader("Content-Type", "text/event-stream")
-    reply.raw.setHeader("Cache-Control", "no-cache")
-    reply.raw.setHeader("Connection", "keep-alive")
-    reply.raw.flushHeaders()
-  
     const session = store.getAgentSession(params.sessionId)
-    if (session) {
-      reply.raw.write(`data: ${JSON.stringify(session)}\n\n`)
-    }
-  
-    const unsubscribe = store.subscribeAgent(params.sessionId, (agentSession) => {
-      reply.raw.write(`data: ${JSON.stringify(agentSession)}\n\n`)
+
+    return createSseStream({
+      request,
+      reply,
+      initialData: session,
+      subscribe: (listener) => store.subscribeAgent(params.sessionId, listener),
+      isDone: (agentSession) => AGENT_TERMINAL_STATUSES.has(agentSession.status),
     })
-  
-    request.raw.on("close", () => {
-      unsubscribe()
-      reply.raw.end()
-    })
-  
-    return reply
   })
 
   app.post("/agent/:sessionId/pause", async (request, reply) => {

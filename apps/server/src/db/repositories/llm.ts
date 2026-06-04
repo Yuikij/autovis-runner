@@ -44,6 +44,7 @@ import {
   type ScriptRow,
   type TestCaseRow,
 } from "../mappers.js"
+import { decryptStoredText, encryptStoredText } from "../secrets.js"
 import { buildDefaultLlmState, normalizePersistedLlmState, now, parseJson, toPublicLlmState, type PersistedLlmState } from "../shared.js"
 
 const typedRows = <TRow>(rows: Record<string, SQLOutputValue>[]): TRow[] => rows as unknown as TRow[]
@@ -60,8 +61,23 @@ export interface LlmStateRow {
   updated_at: string
 }
 
+const buildSecretMap = (state: PersistedLlmState) =>
+  state.configs.reduce<Record<string, { apiKey?: string; copilot?: CopilotSecretState }>>((acc, item) => {
+    acc[item.session.id] = item.secrets
+    return acc
+  }, {})
+
+const stripLlmSecrets = (state: PersistedLlmState): PersistedLlmState => ({
+  activeConfigId: state.activeConfigId,
+  activeVisionConfigId: state.activeVisionConfigId,
+  configs: state.configs.map((item) => ({
+    session: item.session,
+    secrets: {},
+  })),
+})
+
 const mergeSecrets = (state: PersistedLlmState, secretsJson: string | null): PersistedLlmState => {
-  const secrets = JSON.parse(secretsJson || "{}") as Record<string, { apiKey?: string; copilot?: CopilotSecretState }>
+  const secrets = JSON.parse(decryptStoredText(secretsJson) || "{}") as Record<string, { apiKey?: string; copilot?: CopilotSecretState }>
   return {
     activeConfigId: state.activeConfigId,
     activeVisionConfigId: state.activeVisionConfigId,
@@ -94,14 +110,7 @@ export const getLlmConfigStateForOwner = (db: DatabaseSync, ownerKey = sharedLlm
 
 export const saveLlmConfigStateForOwner = (db: DatabaseSync, state: PersistedLlmState, ownerKey = sharedLlmOwnerKey) => {
   const publicState = toPublicLlmState(state)
-  const configsState: PersistedLlmState = {
-    activeConfigId: state.activeConfigId,
-    activeVisionConfigId: state.activeVisionConfigId,
-    configs: state.configs.map((item) => ({
-      session: item.session,
-      secrets: {},
-    })),
-  }
+  const configsState = stripLlmSecrets(state)
   db.prepare(`
       INSERT OR REPLACE INTO llm_states (
         owner_key, configs_json, llm_secrets_json, active_config_id, active_vision_config_id, updated_at
@@ -110,12 +119,7 @@ export const saveLlmConfigStateForOwner = (db: DatabaseSync, state: PersistedLlm
     .run(
       ownerKey,
       JSON.stringify(configsState),
-      JSON.stringify(
-        state.configs.reduce<Record<string, { apiKey?: string; copilot?: CopilotSecretState }>>((acc, item) => {
-          acc[item.session.id] = item.secrets
-          return acc
-        }, {}),
-      ),
+      encryptStoredText(JSON.stringify(buildSecretMap(state))),
       publicState.activeConfigId ?? null,
       publicState.activeVisionConfigId ?? null,
       now(),
@@ -140,6 +144,7 @@ export const saveLlmConfigState = (db: DatabaseSync, state: PersistedLlmState) =
   const publicState = toPublicLlmState(state)
   const active = state.configs.find((item) => item.session.id === publicState.activeConfigId) ?? state.configs[0]
   const activeSession = publicState.session
+  const configsState = stripLlmSecrets(state)
   db.prepare(`
       INSERT OR REPLACE INTO llm_session (
         singleton_id, provider, proxy_endpoint, model, signed_in, connection_status, base_url, login_mode,
@@ -159,14 +164,9 @@ export const saveLlmConfigState = (db: DatabaseSync, state: PersistedLlmState) =
       activeSession.lastError ?? null,
       activeSession.pendingDeviceAuth ? JSON.stringify(activeSession.pendingDeviceAuth) : null,
       JSON.stringify(activeSession.featureFlags),
-      JSON.stringify(active?.secrets.copilot ?? {}),
-      JSON.stringify(state),
-      JSON.stringify(
-        state.configs.reduce<Record<string, { apiKey?: string; copilot?: CopilotSecretState }>>((acc, item) => {
-          acc[item.session.id] = item.secrets
-          return acc
-        }, {}),
-      ),
+      encryptStoredText(JSON.stringify(active?.secrets.copilot ?? {})) ?? JSON.stringify({}),
+      JSON.stringify(configsState),
+      encryptStoredText(JSON.stringify(buildSecretMap(state))),
       publicState.activeConfigId ?? null,
     )
 }

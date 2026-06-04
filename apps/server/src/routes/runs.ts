@@ -4,15 +4,35 @@ import type {
   ApiEnvelope,
   ExecutionRun,
   GenerateScriptResponse,
+  PersistedTaskControlCommand,
   StartRunRequest,
   StartRunResponse,
   StartVerificationRequest,
   StartVerificationResponse,
+  TaskRun,
 } from "@autovis/shared"
 import { store } from "../store.js"
 import { getRequestLlmOwnerKey } from "../auth.js"
+import { createSseStream } from "../sse.js"
+
+const RUN_TERMINAL_STATUSES = new Set<ExecutionRun["status"]>(["passed", "failed", "cancelled", "interrupted"])
+const TASK_RUN_TERMINAL_STATUSES = new Set<TaskRun["status"]>(["passed", "failed", "cancelled", "interrupted"])
 
 export async function runsRoutes(app: FastifyInstance) {
+  app.get("/task-control-commands", async (request): Promise<ApiEnvelope<PersistedTaskControlCommand[]>> => {
+    const query = z.object({
+      projectId: z.string().optional(),
+      taskKind: z.enum(["agent", "run", "task-run", "recorder"]).optional(),
+      taskId: z.string().optional(),
+      status: z.enum(["requested", "applied", "rejected", "orphaned"]).optional(),
+      limit: z.coerce.number().int().min(1).max(200).optional(),
+    }).parse(request.query)
+
+    return {
+      data: store.listTaskControlCommands(query),
+    }
+  })
+
   app.post("/runs", async (request, reply): Promise<ApiEnvelope<StartRunResponse> | void> => {
     const body = z
       .object({
@@ -97,22 +117,13 @@ export async function runsRoutes(app: FastifyInstance) {
       }
     }
   
-    reply.raw.setHeader("Content-Type", "text/event-stream")
-    reply.raw.setHeader("Cache-Control", "no-cache")
-    reply.raw.setHeader("Connection", "keep-alive")
-    reply.raw.flushHeaders()
-  
-    reply.raw.write(`data: ${JSON.stringify(run)}\n\n`)
-    const unsubscribe = store.subscribe(run.id, (nextRun) => {
-      reply.raw.write(`data: ${JSON.stringify(nextRun)}\n\n`)
+    return createSseStream({
+      request,
+      reply,
+      initialData: run,
+      subscribe: (listener) => store.subscribe(run.id, listener),
+      isDone: (nextRun) => RUN_TERMINAL_STATUSES.has(nextRun.status),
     })
-  
-    request.raw.on("close", () => {
-      unsubscribe()
-      reply.raw.end()
-    })
-  
-    return reply
   })
 
   app.get("/runs/:runId/live", { websocket: true }, (socket, request) => {
@@ -192,22 +203,13 @@ export async function runsRoutes(app: FastifyInstance) {
       return { message: "Task run not found" }
     }
   
-    reply.raw.setHeader("Content-Type", "text/event-stream")
-    reply.raw.setHeader("Cache-Control", "no-cache")
-    reply.raw.setHeader("Connection", "keep-alive")
-    reply.raw.flushHeaders()
-  
-    reply.raw.write(`data: ${JSON.stringify(taskRun)}\n\n`)
-    const unsubscribe = store.subscribeTaskRun(params.taskRunId, (nextTaskRun) => {
-      reply.raw.write(`data: ${JSON.stringify(nextTaskRun)}\n\n`)
+    return createSseStream({
+      request,
+      reply,
+      initialData: taskRun,
+      subscribe: (listener) => store.subscribeTaskRun(params.taskRunId, listener),
+      isDone: (nextTaskRun) => TASK_RUN_TERMINAL_STATUSES.has(nextTaskRun.status),
     })
-  
-    request.raw.on("close", () => {
-      unsubscribe()
-      reply.raw.end()
-    })
-  
-    return reply
   })
 
   app.post("/runs/:runId/pause", async (request, reply) => {

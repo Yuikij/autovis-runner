@@ -29,6 +29,23 @@ import {
   toPublicLlmState,
   type PersistedLlmState,
 } from "./shared.js"
+import { decryptStoredText } from "./secrets.js"
+
+const mergeLlmSecrets = (state: PersistedLlmState, secretsJson: string | null): PersistedLlmState => {
+  const secrets = parseJson<Record<string, { apiKey?: string; copilot?: CopilotSecretState }>>(
+    decryptStoredText(secretsJson) ?? null,
+    {},
+  )
+
+  return {
+    activeConfigId: state.activeConfigId,
+    activeVisionConfigId: state.activeVisionConfigId,
+    configs: state.configs.map((item) => ({
+      session: item.session,
+      secrets: secrets[item.session.id] ?? item.secrets ?? {},
+    })),
+  }
+}
 
 export interface ProjectRow {
   id: string
@@ -335,7 +352,7 @@ export const mapTargetUrl = (row: TargetUrlRow): TargetUrl => ({
 export const mapAuthProfileState = (row: AuthProfileStateRow): AuthProfileState => ({
   authProfileId: row.auth_profile_id,
   targetUrlId: row.target_url_id,
-  storageStateJson: row.storage_state_json ?? undefined,
+  storageStateJson: decryptStoredText(row.storage_state_json) ?? undefined,
   lastRefreshedAt: row.last_refreshed_at ?? undefined,
   updatedAt: row.updated_at,
   postLoginUrlAuto: row.post_login_url_auto ?? undefined,
@@ -378,7 +395,7 @@ export const mapGitAuthProfile = (row: GitAuthProfileRow): GitAuthProfile => ({
   kind: row.kind,
   hostPattern: row.host_pattern,
   username: row.username ?? undefined,
-  secret: row.secret ?? undefined,
+  secret: decryptStoredText(row.secret) ?? undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 })
@@ -570,7 +587,10 @@ export const mapPersistedLlmState = (row: LlmSessionRow | undefined): PersistedL
   }
 
   if (row.configs_json) {
-    return normalizePersistedLlmState(parseJson(row.configs_json, buildDefaultLlmState()))
+    return mergeLlmSecrets(
+      normalizePersistedLlmState(parseJson(row.configs_json, buildDefaultLlmState())),
+      row.llm_secrets_json ?? null,
+    )
   }
 
   const legacySession: LlmSessionConfig = {
@@ -590,7 +610,10 @@ export const mapPersistedLlmState = (row: LlmSessionRow | undefined): PersistedL
     apiKeyConfigured: false,
   }
 
-  return buildLegacyLlmState(legacySession, parseJson(row.copilot_secrets, {} as CopilotSecretState))
+  return buildLegacyLlmState(
+    legacySession,
+    parseJson(decryptStoredText(row.copilot_secrets) ?? null, {} as CopilotSecretState),
+  )
 }
 
 export const mapLlmState = (row: LlmSessionRow | undefined): { session: LlmSessionConfig; secrets: CopilotSecretState } => {

@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite"
 import { type Identifier, type AuthProfile, type AuthProfileState } from "@autovis/shared"
 import { mapAuthProfile, mapAuthProfileState, type AuthProfileRow, type AuthProfileStateRow } from "../mappers.js"
+import { encryptStoredText } from "../secrets.js"
 
 export class AuthProfileRepository {
   constructor(private db: DatabaseSync) {}
@@ -97,6 +98,7 @@ export class AuthProfileRepository {
     postLoginUrlAuto: string | null = null,
   ): AuthProfileState {
     const now = new Date().toISOString()
+    const encryptedStorageStateJson = encryptStoredText(storageStateJson)
     this.db.prepare(`
       INSERT INTO auth_profile_states (
         auth_profile_id, target_url_id, storage_state_json, last_refreshed_at, updated_at, post_login_url_auto
@@ -109,7 +111,7 @@ export class AuthProfileRepository {
     `).run(
       authProfileId,
       targetUrlId,
-      storageStateJson,
+      encryptedStorageStateJson,
       storageStateJson ? now : null,
       now,
       postLoginUrlAuto,

@@ -40,6 +40,9 @@ import type {
   WorkspaceTreeEntry,
 } from "@autovis/shared"
 import { store } from "../store.js"
+import { createSseStream } from "../sse.js"
+
+const RECORDER_TERMINAL_STATUSES = new Set(["completed", "error", "cancelled", "interrupted"])
 
 export async function recorderRoutes(app: FastifyInstance) {
   app.post("/recorder-sessions", async (request): Promise<ApiEnvelope<RecorderSession>> => {
@@ -106,22 +109,13 @@ export async function recorderRoutes(app: FastifyInstance) {
       return { message: "Recorder session not found" }
     }
   
-    reply.raw.setHeader("Content-Type", "text/event-stream")
-    reply.raw.setHeader("Cache-Control", "no-cache")
-    reply.raw.setHeader("Connection", "keep-alive")
-    reply.raw.flushHeaders()
-  
-    reply.raw.write(`data: ${JSON.stringify(session)}\n\n`)
-    const unsubscribe = store.subscribeRecorder(params.sessionId, (nextSession) => {
-      reply.raw.write(`data: ${JSON.stringify(nextSession)}\n\n`)
+    return createSseStream({
+      request,
+      reply,
+      initialData: session,
+      subscribe: (listener) => store.subscribeRecorder(params.sessionId, listener),
+      isDone: (nextSession) => RECORDER_TERMINAL_STATUSES.has(nextSession.status),
     })
-  
-    request.raw.on("close", () => {
-      unsubscribe()
-      reply.raw.end()
-    })
-  
-    return reply
   })
 
   app.post("/recorder-sessions/:sessionId/pause", async (request, reply) => {

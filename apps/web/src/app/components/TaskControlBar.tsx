@@ -9,6 +9,7 @@ interface TaskControlBarProps {
   id: string
   status: string
   onChange?: (nextStatus: string) => void
+  onSettled?: () => void
   className?: string
   size?: "default" | "sm"
 }
@@ -34,7 +35,7 @@ const CANCELLABLE: Record<TaskKind, ReadonlyArray<string>> = {
   "recorder": ["running", "paused", "starting"],
 }
 
-export function TaskControlBar({ kind, id, status, onChange, className, size = "sm" }: TaskControlBarProps) {
+export function TaskControlBar({ kind, id, status, onChange, onSettled, className, size = "sm" }: TaskControlBarProps) {
   const [busy, setBusy] = useState<null | "pause" | "resume" | "cancel">(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,6 +52,7 @@ export function TaskControlBar({ kind, id, status, onChange, className, size = "
       setError((err as Error).message)
     } finally {
       setBusy(null)
+      onSettled?.()
     }
   }
 

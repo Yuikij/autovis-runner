@@ -9,6 +9,7 @@ import type {
 import { store } from "../store.js"
 import { getRequestLlmOwnerKey } from "../auth.js"
 import { buildStorageStateSummary, decorateAuthProfile, decorateAuthProfiles } from "../services/authProfile.utils.js"
+import { createSseStream } from "../sse.js"
 
 export async function authProfilesRoutes(app: FastifyInstance) {
   app.get("/projects/:projectId/auth-profiles", async (request): Promise<ApiEnvelope<AuthProfile[]>> => {
@@ -47,34 +48,15 @@ export async function authProfilesRoutes(app: FastifyInstance) {
   app.get("/validation-tasks/:taskId/stream", async (request, reply) => {
     const { taskId } = request.params as { taskId: string }
 
-    reply.raw.setHeader("Content-Type", "text/event-stream")
-    reply.raw.setHeader("Cache-Control", "no-cache")
-    reply.raw.setHeader("Connection", "keep-alive")
-    reply.raw.flushHeaders()
-
     const task = store.getValidationTask(taskId)
-    if (task) {
-      reply.raw.write(`data: ${JSON.stringify(task)}\n\n`)
-      if (task.status !== "running") {
-        reply.raw.end()
-        return reply
-      }
-    }
 
-    const unsubscribe = store.subscribeValidationTask(taskId, (t) => {
-      reply.raw.write(`data: ${JSON.stringify(t)}\n\n`)
-      if (t.status !== "running") {
-        unsubscribe()
-        reply.raw.end()
-      }
+    return createSseStream({
+      request,
+      reply,
+      initialData: task,
+      subscribe: (listener) => store.subscribeValidationTask(taskId, listener),
+      isDone: (nextTask) => nextTask.status !== "running",
     })
-
-    request.raw.on("close", () => {
-      unsubscribe()
-      reply.raw.end()
-    })
-
-    return reply
   })
 
   // 登录状态重放检查（异步流式）：返回 taskId，前端订阅同一个 /validation-tasks/:id/stream

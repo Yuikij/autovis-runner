@@ -28,6 +28,8 @@ export class TaskRunService {
 
   /** 注入后由 AgentService 填充，用于任务中无脚本用例的 AI 直接执行路径。 */
   public runDirectAgentForTask: ((opts: { projectId: string; testCaseId: string; targetUrlId?: string; taskRunId: string }) => Promise<AgentSession>) | null = null
+  /** 注入后由 Store 填充，用于把子 run 的取消也记入 command log。 */
+  public cancelRunCallback: ((runId: string) => boolean) | null = null
   /** 注入后由 AgentService 填充，用于取消正在运行的 agent。 */
   public cancelAgentCallback: ((sessionId: string) => boolean) | null = null
   /** 注入后由 AgentService 填充，用于查询 agent session 状态。 */
@@ -126,7 +128,7 @@ export class TaskRunService {
     }
     const childRun = taskRun?.currentRunId
     if (childRun) {
-      this.runService.cancelRun(childRun)
+      this.cancelRunCallback?.(childRun) ?? this.runService.cancelRun(childRun)
     }
     const childAgent = taskRun?.currentAgentId
     if (childAgent) {

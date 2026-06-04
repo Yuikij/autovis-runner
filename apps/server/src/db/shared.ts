@@ -1,6 +1,8 @@
-import type { Identifier, LlmSessionConfig, LlmState } from "@autovis/shared"
+import type { Identifier, LlmSessionConfig, LlmState, PersistedTaskControlCommand, TaskControlAction, TaskControlCommandStatus, TaskKind } from "@autovis/shared"
 import type { LegacyProjectState, PersistedState } from "./types.js"
 import type { CopilotSecretState } from "../copilot.js"
+
+export type { PersistedTaskControlCommand, TaskControlCommandStatus } from "@autovis/shared"
 
 export const now = () => new Date().toISOString()
 

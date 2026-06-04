@@ -1,6 +1,6 @@
 import { AutoVisDatabase } from "./db.js"
 import { WorkspaceService } from "./workspace.js"
-import { appOrigin, dataDir, now } from "./services/common.js"
+import { appOrigin, createId, dataDir, now } from "./services/common.js"
 import { SuiteService } from "./services/suite.service.js"
 import { TaskService } from "./services/task.service.js"
 import { LlmConfigService } from "./services/llm-config.service.js"
@@ -22,6 +22,7 @@ import {
   type AgentSession,
   type ExecutionRun,
   type GenerateScriptRequest,
+  type PersistedTaskControlCommand,
   type StartAuthLoginSandboxRequest,
   type StartDirectAgentRequest,
   type ImportLocalWorkspaceRequest,
@@ -44,6 +45,8 @@ import {
   type UpsertTaskRequest,
   type UpsertAuthProfileRequest,
   type TestCase,
+  type TaskControlAction,
+  type TaskKind,
 } from "@autovis/shared"
 
 class PersistentStore {
@@ -73,7 +76,8 @@ class PersistentStore {
   constructor() {
     // 注入 AI 直接执行回调，使任务可以在无脚本时走 agent 路径
     this.taskRunService.runDirectAgentForTask = (opts) => this.agentService.startDirectAgentForTask(opts)
-    this.taskRunService.cancelAgentCallback = (sessionId) => this.agentService.cancelAgent(sessionId)
+    this.taskRunService.cancelRunCallback = (runId) => this.cancelRun(runId)
+    this.taskRunService.cancelAgentCallback = (sessionId) => this.cancelAgent(sessionId)
     this.taskRunService.getAgentSessionCallback = (sessionId) => this.agentService.getAgentSession(sessionId)
     this.reapStaleTasks()
     this.scheduleTemporaryRunCleanup()
@@ -144,6 +148,64 @@ class PersistentStore {
         recorder.error = recorder.error || reason
         this.db.upsertRecorderSession(recorder)
       }
+    }
+  }
+
+  private recordTaskControlCommand(kind: TaskKind, taskId: string, action: TaskControlAction, execute: () => boolean) {
+    const commandId = createId("task_ctrl")
+    this.db.createTaskControlCommand({
+      id: commandId,
+      taskKind: kind,
+      taskId,
+      action,
+      status: "requested",
+      requestedAt: now(),
+    })
+
+    try {
+      const ok = execute()
+      this.db.resolveTaskControlCommand(
+        commandId,
+        ok ? "applied" : "rejected",
+        ok ? undefined : "Task controller unavailable or state transition rejected.",
+      )
+      return ok
+    } catch (error) {
+      this.db.resolveTaskControlCommand(
+        commandId,
+        "rejected",
+        error instanceof Error ? error.message : String(error),
+      )
+      throw error
+    }
+  }
+
+  private async recordTaskControlCommandAsync(kind: TaskKind, taskId: string, action: TaskControlAction, execute: () => Promise<boolean>) {
+    const commandId = createId("task_ctrl")
+    this.db.createTaskControlCommand({
+      id: commandId,
+      taskKind: kind,
+      taskId,
+      action,
+      status: "requested",
+      requestedAt: now(),
+    })
+
+    try {
+      const ok = await execute()
+      this.db.resolveTaskControlCommand(
+        commandId,
+        ok ? "applied" : "rejected",
+        ok ? undefined : "Task controller unavailable or state transition rejected.",
+      )
+      return ok
+    } catch (error) {
+      this.db.resolveTaskControlCommand(
+        commandId,
+        "rejected",
+        error instanceof Error ? error.message : String(error),
+      )
+      throw error
     }
   }
 
@@ -319,22 +381,25 @@ class PersistentStore {
   async submitRunHumanInput(runId: string, handoffId: string, value: string) { return this.runStateService.submitRunHumanInput(runId, handoffId, value) }
   subscribe(runId: string, listener: (run: ExecutionRun) => void) { return this.runStateService.subscribe(runId, listener) }
   subscribeLiveViewport(runId: string, listener: (chunk: Uint8Array) => void) { return this.runStateService.subscribeLiveViewport(runId, listener) }
-  pauseRun(runId: string) { return this.runService.pauseRun(runId) }
-  resumeRun(runId: string) { return this.runService.resumeRun(runId) }
-  cancelRun(runId: string) { return this.runService.cancelRun(runId) }
-  pauseTaskRun(taskRunId: string) { return this.taskRunService.pauseTaskRun(taskRunId) }
-  resumeTaskRun(taskRunId: string) { return this.taskRunService.resumeTaskRun(taskRunId) }
-  cancelTaskRun(taskRunId: string) { return this.taskRunService.cancelTaskRun(taskRunId) }
+  pauseRun(runId: string) { return this.recordTaskControlCommand("run", runId, "pause", () => this.runService.pauseRun(runId)) }
+  resumeRun(runId: string) { return this.recordTaskControlCommand("run", runId, "resume", () => this.runService.resumeRun(runId)) }
+  cancelRun(runId: string) { return this.recordTaskControlCommand("run", runId, "cancel", () => this.runService.cancelRun(runId)) }
+  pauseTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "pause", () => this.taskRunService.pauseTaskRun(taskRunId)) }
+  resumeTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "resume", () => this.taskRunService.resumeTaskRun(taskRunId)) }
+  cancelTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "cancel", () => this.taskRunService.cancelTaskRun(taskRunId)) }
 
   // -- Agent control --
-  pauseAgent(sessionId: string) { return this.agentService.pauseAgent(sessionId) }
-  resumeAgent(sessionId: string) { return this.agentService.resumeAgent(sessionId) }
-  cancelAgent(sessionId: string) { return this.agentService.cancelAgent(sessionId) }
+  pauseAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "pause", () => this.agentService.pauseAgent(sessionId)) }
+  resumeAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "resume", () => this.agentService.resumeAgent(sessionId)) }
+  cancelAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "cancel", () => this.agentService.cancelAgent(sessionId)) }
 
   // -- Recorder control --
-  pauseRecorder(sessionId: string) { return this.recorderService.pauseRecorder(sessionId) }
-  resumeRecorder(sessionId: string) { return this.recorderService.resumeRecorder(sessionId) }
-  async cancelRecorder(sessionId: string) { return this.recorderService.cancelRecorder(sessionId) }
+  pauseRecorder(sessionId: string) { return this.recordTaskControlCommand("recorder", sessionId, "pause", () => this.recorderService.pauseRecorder(sessionId)) }
+  resumeRecorder(sessionId: string) { return this.recordTaskControlCommand("recorder", sessionId, "resume", () => this.recorderService.resumeRecorder(sessionId)) }
+  async cancelRecorder(sessionId: string) { return this.recordTaskControlCommandAsync("recorder", sessionId, "cancel", () => this.recorderService.cancelRecorder(sessionId)) }
+  listTaskControlCommands(input: { projectId?: string; taskKind?: TaskKind; taskId?: string; status?: PersistedTaskControlCommand["status"]; limit?: number }) {
+    return this.db.listTaskControlCommands(input)
+  }
 
   // -- Active tasks aggregation --
   getActiveTasksForProject(projectId: string) {

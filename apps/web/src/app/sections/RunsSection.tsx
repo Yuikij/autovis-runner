@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
-import type { ExecutionStep, ExecutionRun } from "@autovis/shared"
+import type { ExecutionStep, ExecutionRun, PersistedTaskControlCommand, TaskKind } from "@autovis/shared"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
+import { request } from "../api"
+import { apiRoutes } from "../apiRoutes"
 import { BrowserFrame } from "../components/browser-frame"
 import { LogPanel } from "../components/log-panel"
 import { PageHeader } from "../components/page-header"
@@ -45,8 +47,14 @@ export function RunsSection({ controller }: RunsSectionProps) {
   
   // Custom view states for RunsSection
   const [statusFilter, setStatusFilter] = useState<"all" | "running" | "passed" | "failed">("all")
-  const [detailTab, setDetailTab] = useState<"steps" | "logs" | "meta">("steps")
+  const [detailTab, setDetailTab] = useState<"steps" | "logs" | "meta" | "control">("steps")
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [controlCommands, setControlCommands] = useState<PersistedTaskControlCommand[]>([])
+  const [controlCommandsLoading, setControlCommandsLoading] = useState(false)
+  const [controlCommandsError, setControlCommandsError] = useState<string | null>(null)
+  const [projectControlCommands, setProjectControlCommands] = useState<PersistedTaskControlCommand[]>([])
+  const [projectControlCommandsLoading, setProjectControlCommandsLoading] = useState(false)
+  const [projectControlCommandsError, setProjectControlCommandsError] = useState<string | null>(null)
 
   const runCaseMap = useMemo(() => new Map(allCases.map((item) => [item.id, item])), [allCases])
   const taskMap = useMemo(() => new Map(tasks.map((item) => [item.id, item])), [tasks])
@@ -98,6 +106,15 @@ export function RunsSection({ controller }: RunsSectionProps) {
   )
   const awaitingHumanRun = useMemo(() => executionActiveRun?.status === "awaiting_human" ? executionActiveRun : null, [executionActiveRun])
   const currentCase = executionActiveRun ? runCaseMap.get(executionActiveRun.testCaseId) : null
+  const activeControlTarget = useMemo<{ kind: TaskKind; id: string } | null>(() => {
+    if (activeTaskRun?.id) {
+      return { kind: "task-run", id: activeTaskRun.id }
+    }
+    if (executionActiveRun?.id) {
+      return { kind: "run", id: executionActiveRun.id }
+    }
+    return null
+  }, [activeTaskRun?.id, executionActiveRun?.id])
 
   const [lastActiveRunId, setLastActiveRunId] = useState<string | null>(null)
   const [lastActiveTaskRunId, setLastActiveTaskRunId] = useState<string | null>(null)
@@ -122,6 +139,70 @@ export function RunsSection({ controller }: RunsSectionProps) {
   useEffect(() => {
     setHumanInputValue("")
   }, [awaitingHumanRun?.id, awaitingHumanRun?.pendingHumanHandoff?.id])
+
+  const refreshControlCommands = useCallback(async () => {
+    if (!activeControlTarget) {
+      setControlCommands([])
+      setControlCommandsError(null)
+      setControlCommandsLoading(false)
+      return
+    }
+
+    setControlCommandsLoading(true)
+    setControlCommandsError(null)
+    try {
+      const response = await request<PersistedTaskControlCommand[]>(
+        apiRoutes.taskControlCommands.list({
+          taskKind: activeControlTarget.kind,
+          taskId: activeControlTarget.id,
+          limit: 20,
+        }),
+      )
+      setControlCommands(response.data)
+    } catch (error) {
+      setControlCommandsError((error as Error).message)
+    } finally {
+      setControlCommandsLoading(false)
+    }
+  }, [activeControlTarget])
+
+  useEffect(() => {
+    void refreshControlCommands()
+  }, [refreshControlCommands])
+
+  const refreshProjectControlCommands = useCallback(async () => {
+    if (!selectedProject?.id) {
+      setProjectControlCommands([])
+      setProjectControlCommandsError(null)
+      setProjectControlCommandsLoading(false)
+      return
+    }
+
+    setProjectControlCommandsLoading(true)
+    setProjectControlCommandsError(null)
+    try {
+      const response = await request<PersistedTaskControlCommand[]>(
+        apiRoutes.taskControlCommands.list({
+          projectId: selectedProject.id,
+          limit: 12,
+        }),
+      )
+      setProjectControlCommands(response.data)
+    } catch (error) {
+      setProjectControlCommandsError((error as Error).message)
+    } finally {
+      setProjectControlCommandsLoading(false)
+    }
+  }, [selectedProject?.id])
+
+  useEffect(() => {
+    void refreshProjectControlCommands()
+  }, [refreshProjectControlCommands])
+
+  const handleControlSettled = useCallback(() => {
+    void refreshControlCommands()
+    void refreshProjectControlCommands()
+  }, [refreshControlCommands, refreshProjectControlCommands])
 
   const handleOpenTask = (taskRunId: string, run?: ExecutionRun | null) => {
     setActiveTaskRunId(taskRunId)
@@ -215,6 +296,49 @@ export function RunsSection({ controller }: RunsSectionProps) {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="border-border bg-card/20 backdrop-blur-md shadow-sm overflow-hidden rounded-2xl">
+          <CardHeader className="border-b border-border bg-secondary/15 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base font-bold text-foreground">最近控制命令</CardTitle>
+              <CardDescription className="text-xs">展示当前项目最近的暂停、继续、停止请求及其处理结果。</CardDescription>
+            </div>
+            <Badge tone="default">最近 {projectControlCommands.length} 条</Badge>
+          </CardHeader>
+          <CardContent className="p-6">
+            {projectControlCommandsLoading ? (
+              <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-5 text-sm text-muted-foreground">正在加载控制命令…</div>
+            ) : projectControlCommandsError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-5 text-sm text-destructive">{projectControlCommandsError}</div>
+            ) : projectControlCommands.length === 0 ? (
+              <EmptyState description="项目内还没有任何暂停、继续或停止操作记录。" title="暂无控制命令" />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {projectControlCommands.map((command) => {
+                  const statusTone = command.status === "applied" ? "success" : command.status === "rejected" ? "danger" : command.status === "orphaned" ? "warning" : "default"
+                  return (
+                    <div key={command.id} className="rounded-xl border border-border/70 bg-card/70 px-4 py-3 shadow-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs text-foreground">#{command.id.slice(0, 8)}</span>
+                        <Badge tone={statusTone}>{command.status}</Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge tone="default">{command.taskKind}</Badge>
+                        <Badge tone={statusTone}>{command.action}</Badge>
+                      </div>
+                      <div className="mt-3 text-[11px] text-muted-foreground font-mono space-y-1">
+                        <div>对象 {command.taskId.slice(0, 8)}</div>
+                        <div>{formatDateTime(command.requestedAt)}</div>
+                        <div>{command.resolvedAt ? `完成 ${formatDateTime(command.resolvedAt)}` : "等待处理"}</div>
+                      </div>
+                      {command.note ? <p className="mt-3 text-xs text-muted-foreground leading-relaxed line-clamp-3">{command.note}</p> : null}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Task List Workspace */}
         <Card className="border-border bg-card/20 backdrop-blur-md shadow-sm overflow-hidden rounded-2xl">
@@ -397,9 +521,9 @@ export function RunsSection({ controller }: RunsSectionProps) {
           })()}
           
           {activeTaskRun?.id ? (
-            <TaskControlBar kind="task-run" id={activeTaskRun.id} status={activeTaskRun.status} />
+            <TaskControlBar kind="task-run" id={activeTaskRun.id} status={activeTaskRun.status} onSettled={handleControlSettled} />
           ) : executionActiveRun?.id ? (
-            <TaskControlBar kind="run" id={executionActiveRun.id} status={executionActiveRun.status} />
+            <TaskControlBar kind="run" id={executionActiveRun.id} status={executionActiveRun.status} onSettled={handleControlSettled} />
           ) : null}
           
           <Button onClick={() => setViewMode("list")} variant="ghost" className="h-8 rounded-lg text-xs flex items-center gap-1 cursor-pointer">
@@ -517,6 +641,13 @@ export function RunsSection({ controller }: RunsSectionProps) {
                 type="button"
               >
                 产物与诊断
+              </button>
+              <button
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "control" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => setDetailTab("control")}
+                type="button"
+              >
+                控制命令
               </button>
             </div>
           </div>
@@ -832,6 +963,48 @@ export function RunsSection({ controller }: RunsSectionProps) {
                       <EmptyState description="执行完成后，这里会显示 trace、video、截图等产物。" title="未产生任何产物" />
                     )}
                   </div>
+                </div>
+              )}
+
+              {detailTab === "control" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                    <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">控制命令历史</span>
+                    {activeControlTarget ? <Badge tone="default">{activeControlTarget.kind} · {activeControlTarget.id.slice(0, 8)}</Badge> : null}
+                  </div>
+
+                  {!activeControlTarget ? (
+                    <EmptyState description="当前没有可控制的运行对象。" title="暂无命令历史" />
+                  ) : controlCommandsLoading ? (
+                    <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-5 text-sm text-muted-foreground">正在加载命令历史…</div>
+                  ) : controlCommandsError ? (
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-5 text-sm text-destructive">{controlCommandsError}</div>
+                  ) : controlCommands.length === 0 ? (
+                    <EmptyState description="在这里可以看到暂停、继续、停止等控制操作的请求与结果。" title="尚无控制命令" />
+                  ) : (
+                    <div className="space-y-3">
+                      {controlCommands.map((command) => {
+                        const statusTone = command.status === "applied" ? "success" : command.status === "rejected" ? "danger" : command.status === "orphaned" ? "warning" : "default"
+
+                        return (
+                          <div key={command.id} className="rounded-xl border border-border/70 bg-card/70 px-4 py-3 shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-xs text-foreground">#{command.id.slice(0, 8)}</span>
+                                <Badge tone={statusTone}>{command.action}</Badge>
+                                <Badge tone={statusTone}>{command.status}</Badge>
+                              </div>
+                              <div className="text-[11px] text-muted-foreground font-mono text-right">
+                                <div>{formatDateTime(command.requestedAt)}</div>
+                                <div>{command.resolvedAt ? `完成 ${formatDateTime(command.resolvedAt)}` : "等待处理"}</div>
+                              </div>
+                            </div>
+                            {command.note ? <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{command.note}</p> : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

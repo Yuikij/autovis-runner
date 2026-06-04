@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import type { DatabaseSync } from "node:sqlite"
 
+import { encryptStoredText } from "./secrets.js"
 import { createSeedState } from "./seed.js"
 import { buildLegacyLlmState, now } from "./shared.js"
 import type { PersistedState } from "./types.js"
@@ -178,6 +179,14 @@ export const importState = (db: DatabaseSync, state: PersistedState) => {
       ),
     )
     const llmState = state.llmState ?? buildLegacyLlmState(state.llmSession, state.llmSecrets?.copilot ?? {})
+    const publicLlmState = {
+      activeConfigId: llmState.activeConfigId,
+      activeVisionConfigId: llmState.activeVisionConfigId,
+      configs: llmState.configs.map((item) => ({
+        session: item.session,
+        secrets: {},
+      })),
+    }
     replaceSession.run(
       state.llmSession.provider,
       state.llmSession.proxyEndpoint,
@@ -190,14 +199,14 @@ export const importState = (db: DatabaseSync, state: PersistedState) => {
       state.llmSession.lastError ?? null,
       state.llmSession.pendingDeviceAuth ? JSON.stringify(state.llmSession.pendingDeviceAuth) : null,
       JSON.stringify(state.llmSession.featureFlags),
-      JSON.stringify(state.llmSecrets?.copilot ?? {}),
-      JSON.stringify(llmState),
-      JSON.stringify(
+      encryptStoredText(JSON.stringify(state.llmSecrets?.copilot ?? {})) ?? JSON.stringify({}),
+      JSON.stringify(publicLlmState),
+      encryptStoredText(JSON.stringify(
         llmState.configs.reduce<Record<string, unknown>>((acc, item) => {
           acc[item.session.id] = item.secrets
           return acc
         }, {}),
-      ),
+      )),
       llmState.activeConfigId ?? state.llmSession.id,
     )
     db.exec("COMMIT")

@@ -68,6 +68,22 @@ AUTOVIS_LLM_SCOPE=shared    # default
 AUTOVIS_LLM_SCOPE=per_user  # each login has its own LLM configs and secrets
 ```
 
+To encrypt stored API keys, Git credentials, and browser login state at rest,
+set a stable server-side key before first write:
+
+```shell
+AUTOVIS_SECRET_KEY=<strong-random-secret>
+```
+
+Keep the same key across restarts. Existing plaintext rows stay readable, but
+encrypted rows require the same key to decrypt.
+
+This key is optional. If you do not configure it, the runner still starts and
+new sensitive values continue to be stored in plaintext for backward
+compatibility. If encrypted rows already exist but the key is missing or wrong,
+the runner keeps running and those sensitive values are treated as temporarily
+unavailable until the correct key is restored.
+
 Multiple users can be seeded with:
 
 ```shell

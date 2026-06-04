@@ -89,8 +89,13 @@ import {
   getValidationTask as getValidationTaskRepo,
   listActiveValidationTasks,
   deleteValidationTask,
+  insertTaskControlCommand,
+  listTaskControlCommands,
+  listPendingTaskControlCommands,
+  orphanPendingTaskControlCommands,
+  resolveTaskControlCommand,
 } from "./db/repositories.js"
-import type { PersistedLlmState } from "./db/shared.js"
+import type { PersistedLlmState, PersistedTaskControlCommand, TaskControlCommandStatus } from "./db/shared.js"
 import { createSchema } from "./db/schema.js"
 import type {
   AgentSession,
@@ -145,6 +150,10 @@ export class AutoVisDatabase {
       task.status = "error"
       task.error = "Validation task aborted due to server restart."
       upsertValidationTask(this.db, task)
+    }
+
+    if (listPendingTaskControlCommands(this.db).length > 0) {
+      orphanPendingTaskControlCommands(this.db, "Server restarted before task control command was resolved.")
     }
   }
 
@@ -252,6 +261,24 @@ export class AutoVisDatabase {
 
   deleteValidationTask(id: string) {
     deleteValidationTask(this.db, id)
+  }
+
+  createTaskControlCommand(command: PersistedTaskControlCommand) {
+    insertTaskControlCommand(this.db, command)
+  }
+
+  resolveTaskControlCommand(id: string, status: Exclude<TaskControlCommandStatus, "requested">, note?: string) {
+    resolveTaskControlCommand(this.db, { id, status, note })
+  }
+
+  listTaskControlCommands(input: {
+    projectId?: string
+    taskKind?: PersistedTaskControlCommand["taskKind"]
+    taskId?: string
+    status?: TaskControlCommandStatus
+    limit?: number
+  }) {
+    return listTaskControlCommands(this.db, input)
   }
 
   // -- TargetUrl --

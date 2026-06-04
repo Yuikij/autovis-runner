@@ -113,6 +113,16 @@ export const apiRoutes = {
     cancel: (taskRunId: string) => api(`${taskRun(taskRunId)}/cancel`),
   },
 
+  taskControlCommands: {
+    list: (params?: {
+      projectId?: string
+      taskKind?: "agent" | "run" | "task-run" | "recorder"
+      taskId?: string
+      status?: "requested" | "applied" | "rejected" | "orphaned"
+      limit?: number
+    }) => api(`/task-control-commands${qs(params)}`),
+  },
+
   verifications: {
     create: () => api("/verifications"),
   },

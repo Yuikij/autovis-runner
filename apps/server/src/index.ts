@@ -25,6 +25,10 @@ import { fileURLToPath } from "node:url"
 import { startCloudClient } from "./cloud-client.js"
 import { store } from "./store.js"
 
+const port = Number(process.env.PORT ?? 8787)
+const appOrigin = process.env.APP_ORIGIN ?? `http://localhost:${port}`
+const allowAnyCorsOrigin = process.env.NODE_ENV !== "production"
+
 const app = Fastify({ logger: false })
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const webDistDir = join(currentDir, "../../web/dist")
@@ -33,7 +37,14 @@ const artifactRoot = process.env.DATA_DIR ? join(process.env.DATA_DIR, "artifact
 await mkdir(artifactRoot, { recursive: true })
 
 await app.register(cors, {
-  origin: true,
+  origin(origin, callback) {
+    if (!origin || allowAnyCorsOrigin) {
+      callback(null, true)
+      return
+    }
+    callback(null, origin === appOrigin)
+  },
+  credentials: true,
 })
 
 await app.register(websocket)
@@ -111,9 +122,6 @@ process.on("uncaughtException", (error) => {
 process.on("unhandledRejection", (reason, promise) => {
   console.error("🔥 [AutoVis] Unhandled Promise Rejection caught, preventing server crash:", reason)
 })
-
-const port = Number(process.env.PORT ?? 8787)
-const appOrigin = process.env.APP_ORIGIN ?? `http://localhost:${port}`
 
 app.listen({ port, host: "0.0.0.0" })
   .then((address) => {

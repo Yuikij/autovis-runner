@@ -13,3 +13,4 @@ export * from "./repositories/targetUrls.js";
 export * from "./repositories/scheduleTriggers.js";
 export * from "./repositories/users.js";
 export * from "./repositories/validationTasks.js";
+export * from "./repositories/taskControl.js";

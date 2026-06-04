@@ -44,6 +44,7 @@ import {
   type ScriptRow,
   type TestCaseRow,
 } from "../mappers.js"
+import { encryptStoredText } from "../secrets.js"
 import { now, toPublicLlmState, type PersistedLlmState } from "../shared.js"
 
 const typedRows = <TRow>(rows: Record<string, SQLOutputValue>[]): TRow[] => rows as unknown as TRow[]
@@ -68,13 +69,14 @@ export const getGitAuthProfile = (db: DatabaseSync, profileId: string): GitAuthP
 export const upsertGitAuthProfile = (db: DatabaseSync, input: UpsertGitAuthProfileRequest & { id: string }) => {
   const existing = getGitAuthProfile(db, input.id)
   const timestamp = now()
+  const encryptedSecret = encryptStoredText(input.secret ?? null)
 
   if (existing) {
     db.prepare("UPDATE git_auth_profiles SET name = ?, kind = ?, host_pattern = ?, username = ?, secret = ?, updated_at = ? WHERE id = ?")
-      .run(input.name, input.kind, input.hostPattern, input.username ?? null, input.secret ?? null, timestamp, input.id)
+      .run(input.name, input.kind, input.hostPattern, input.username ?? null, encryptedSecret, timestamp, input.id)
   } else {
     db.prepare("INSERT INTO git_auth_profiles (id, name, kind, host_pattern, username, secret, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(input.id, input.name, input.kind, input.hostPattern, input.username ?? null, input.secret ?? null, timestamp, timestamp)
+      .run(input.id, input.name, input.kind, input.hostPattern, input.username ?? null, encryptedSecret, timestamp, timestamp)
   }
 
   return getGitAuthProfile(db, input.id)
