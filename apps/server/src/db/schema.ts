@@ -1,6 +1,8 @@
 import { DatabaseSync } from "node:sqlite"
 
-export const createSchema = (db: DatabaseSync) => {
+// This file defines the current schema snapshot for new databases only.
+// Incremental schema changes must be added in db/migrations.ts.
+export const createBaseSchema = (db: DatabaseSync) => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
@@ -345,6 +347,26 @@ export const createSchema = (db: DatabaseSync) => {
       note TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS task_leases (
+      task_kind TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      recovery_policy TEXT NOT NULL,
+      lease_owner TEXT,
+      lease_acquired_at TEXT,
+      lease_heartbeat_at TEXT,
+      lease_expires_at TEXT,
+      checkpoint_json TEXT,
+      request_json TEXT,
+      recovery_attempts INTEGER NOT NULL DEFAULT 0,
+      last_recovery_started_at TEXT,
+      last_recovered_at TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY(task_kind, task_id)
+    );
+
   `)
 
   db.exec(`
@@ -378,34 +400,8 @@ export const createSchema = (db: DatabaseSync) => {
     CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_task_control_commands_task ON task_control_commands(task_kind, task_id, requested_at DESC);
     CREATE INDEX IF NOT EXISTS idx_task_control_commands_status ON task_control_commands(status, requested_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_task_leases_status_expires ON task_leases(status, lease_expires_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_task_leases_owner_status ON task_leases(lease_owner, status);
   `)
 
-  ensureColumn(db, "auth_profiles", "validation_script", "TEXT")
-  ensureColumn(db, "auth_profiles", "validation_script_generated_at", "TEXT")
-  ensureColumn(db, "auth_profile_states", "post_login_url_auto", "TEXT")
-  ensureColumn(db, "auth_profile_states", "post_login_url_override", "TEXT")
-  ensureColumn(db, "task_runs", "current_agent_id", "TEXT")
-  ensureColumn(db, "task_runs", "last_agent_id", "TEXT")
-  ensureColumn(db, "agent_sessions", "task_run_id", "TEXT")
-  ensureColumn(db, "agent_sessions", "direct_result", "TEXT")
-}
-
-export const ensureColumn = (db: DatabaseSync, tableName: string, columnName: string, definition: string) => {
-  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>
-  if (columns.some((column) => column.name === columnName)) {
-    return
-  }
-
-  db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
-}
-
-export const removeColumn = (db: DatabaseSync, tableName: string, columnName: string) => {
-  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>
-  if (columns.some((column) => column.name === columnName)) {
-    try {
-      db.exec(`ALTER TABLE ${tableName} DROP COLUMN ${columnName}`)
-    } catch (e) {
-      console.warn(`Failed to drop column ${columnName} from table ${tableName}:`, e)
-    }
-  }
 }

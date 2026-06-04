@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs"
+import { existsSync, mkdirSync } from "node:fs"
 import { join } from "node:path"
 import { randomBytes } from "node:crypto"
 import { DatabaseSync } from "node:sqlite"
@@ -91,12 +91,20 @@ import {
   deleteValidationTask,
   insertTaskControlCommand,
   listTaskControlCommands,
+  listTaskLeases,
+  listExpiredActiveTaskLeases,
   listPendingTaskControlCommands,
+  listRequestedTaskControlCommandsForTask,
   orphanPendingTaskControlCommands,
   resolveTaskControlCommand,
+  getTaskLease,
+  acquireTaskLease,
+  renewTaskLease,
+  finalizeTaskLease,
+  markTaskLeaseRecovering,
 } from "./db/repositories.js"
-import type { PersistedLlmState, PersistedTaskControlCommand, TaskControlCommandStatus } from "./db/shared.js"
-import { createSchema } from "./db/schema.js"
+import type { PersistedLlmState, PersistedTaskControlCommand, PersistedTaskLease, TaskControlCommandStatus, TaskLeaseStatus, TaskRecoveryPolicy } from "./db/shared.js"
+import { runMigrations } from "./db/migrations.js"
 import type {
   AgentSession,
   AuthProfile,
@@ -135,10 +143,12 @@ export class AutoVisDatabase {
   constructor(private readonly dataDir: string, appOrigin: string) {
     mkdirSync(dataDir, { recursive: true })
     this.stateFile = join(dataDir, "state.json")
-    this.db = new DatabaseSync(join(dataDir, "autovis.db"))
+    const databaseFile = join(dataDir, "autovis.db")
+    const databaseExisted = existsSync(databaseFile)
+    this.db = new DatabaseSync(databaseFile)
     this.db.exec("PRAGMA journal_mode = WAL")
     this.db.exec("PRAGMA foreign_keys = ON")
-    createSchema(this.db)
+    runMigrations(this.db, { databaseFile, databaseExisted })
     bootstrapDatabase(this.db, this.stateFile, appOrigin)
     this.ensureConfiguredUsers()
     this.authProfilesRepo = new AuthProfileRepository(this.db)
@@ -152,9 +162,6 @@ export class AutoVisDatabase {
       upsertValidationTask(this.db, task)
     }
 
-    if (listPendingTaskControlCommands(this.db).length > 0) {
-      orphanPendingTaskControlCommands(this.db, "Server restarted before task control command was resolved.")
-    }
   }
 
   private ensureConfiguredUsers() {
@@ -279,6 +286,69 @@ export class AutoVisDatabase {
     limit?: number
   }) {
     return listTaskControlCommands(this.db, input)
+  }
+
+  listRequestedTaskControlCommandsForTask(taskKind: PersistedTaskControlCommand["taskKind"], taskId: string) {
+    return listRequestedTaskControlCommandsForTask(this.db, taskKind, taskId)
+  }
+
+  getTaskLease(taskKind: PersistedTaskLease["taskKind"], taskId: string) {
+    return getTaskLease(this.db, taskKind, taskId)
+  }
+
+  listTaskLeases(status?: TaskLeaseStatus) {
+    return listTaskLeases(this.db, status)
+  }
+
+  listExpiredActiveTaskLeases(nowAt?: string) {
+    return listExpiredActiveTaskLeases(this.db, nowAt)
+  }
+
+  acquireTaskLease(input: {
+    taskKind: PersistedTaskLease["taskKind"]
+    taskId: string
+    recoveryPolicy: TaskRecoveryPolicy
+    leaseOwner: string
+    leaseDurationMs: number
+    checkpoint?: Record<string, unknown>
+    request?: Record<string, unknown>
+    nowAt?: string
+    lastError?: string
+  }) {
+    return acquireTaskLease(this.db, input)
+  }
+
+  renewTaskLease(input: {
+    taskKind: PersistedTaskLease["taskKind"]
+    taskId: string
+    leaseOwner: string
+    leaseDurationMs: number
+    checkpoint?: Record<string, unknown>
+    nowAt?: string
+  }) {
+    return renewTaskLease(this.db, input)
+  }
+
+  markTaskLeaseRecovering(input: {
+    taskKind: PersistedTaskLease["taskKind"]
+    taskId: string
+    leaseOwner: string
+    leaseDurationMs: number
+    nowAt?: string
+  }) {
+    return markTaskLeaseRecovering(this.db, input)
+  }
+
+  finalizeTaskLease(input: {
+    taskKind: PersistedTaskLease["taskKind"]
+    taskId: string
+    leaseOwner?: string
+    status: Exclude<TaskLeaseStatus, "active">
+    checkpoint?: Record<string, unknown>
+    nowAt?: string
+    lastError?: string
+  }) {
+    return finalizeTaskLease(this.db, input)
   }
 
   // -- TargetUrl --

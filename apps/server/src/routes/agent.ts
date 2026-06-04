@@ -134,6 +134,7 @@ export async function agentRoutes(app: FastifyInstance) {
     const session = store.getAgentSession(params.sessionId)
 
     return createSseStream({
+      streamName: "agent",
       request,
       reply,
       initialData: session,

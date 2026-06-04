@@ -4,6 +4,28 @@ import type { CopilotSecretState } from "../copilot.js"
 
 export type { PersistedTaskControlCommand, TaskControlCommandStatus } from "@autovis/shared"
 
+export type TaskLeaseStatus = "active" | "released" | "expired" | "recovering" | "terminated"
+export type TaskRecoveryPolicy = "resume" | "restart" | "terminate"
+
+export interface PersistedTaskLease {
+  taskKind: TaskKind
+  taskId: Identifier
+  status: TaskLeaseStatus
+  recoveryPolicy: TaskRecoveryPolicy
+  leaseOwner?: string
+  leaseAcquiredAt?: string
+  leaseHeartbeatAt?: string
+  leaseExpiresAt?: string
+  checkpoint?: Record<string, unknown>
+  request?: Record<string, unknown>
+  recoveryAttempts: number
+  lastRecoveryStartedAt?: string
+  lastRecoveredAt?: string
+  lastError?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export const now = () => new Date().toISOString()
 
 export const parseJson = <T,>(value: string | null | undefined, fallback: T): T => {

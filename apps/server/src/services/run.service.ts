@@ -19,6 +19,7 @@ import {
   type TestCase,
 } from "@autovis/shared"
 import { analyzeImageWithLlm } from "../llm.js"
+import { log } from "../log.js"
 import { TaskControlRegistry, type TaskController } from "./task-control.js"
 import type { RunStateService } from "./run-state.service.js"
 
@@ -96,6 +97,156 @@ export class RunService {
       `最近日志:\n${failureLogs}`,
       "请直接返回修复后的完整 Playwright TypeScript 代码。",
     ].join("\n")
+  }
+
+  private markRunInterrupted(runId: string, reason: string) {
+    const run = this.db.getRun(runId)
+    if (!run) return
+    if (run.status === "passed" || run.status === "failed" || run.status === "cancelled" || run.status === "interrupted") {
+      return
+    }
+    run.status = "interrupted"
+    run.finishedAt = run.finishedAt || now()
+    run.pendingHumanHandoff = undefined
+    run.logs.push(`[${new Date().toLocaleTimeString()}] ${reason}`)
+    this.runStateService.saveRunSnapshot(run)
+    this.runStateService.notifyRun(run)
+    this.runStateService.rejectPendingHumanInput(run.id, reason)
+  }
+
+  private createManagedRunController(
+    run: ExecutionRun,
+    request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string },
+  ) {
+    return this.tasks.create({
+      kind: "run",
+      id: run.id,
+      projectId: run.projectId,
+      testCaseId: run.testCaseId,
+      recoveryPolicy: "restart",
+      request: {
+        ...request,
+        scriptTimeoutMs: request.scriptTimeoutMs,
+        llmOwnerKey: request.llmOwnerKey,
+      },
+      buildCheckpoint: () => ({
+        status: run.status,
+        orchestrationPhase: run.orchestrationPhase ?? null,
+        currentPreconditionCaseId: run.currentPreconditionCaseId ?? null,
+        completedPreconditionCaseIds: run.completedPreconditionCaseIds ?? [],
+        pendingHumanHandoffId: run.pendingHumanHandoff?.id ?? null,
+        stepCount: run.steps.length,
+        artifactCount: run.artifacts.length,
+      }),
+      applyAction: (action) => {
+        switch (action) {
+          case "pause":
+            return this.pauseRun(run.id)
+          case "resume":
+            return this.resumeRun(run.id)
+          case "cancel":
+            return this.cancelRun(run.id)
+          default:
+            return false
+        }
+      },
+      onLeaseLost: (reason) => {
+        this.markRunInterrupted(run.id, reason)
+      },
+    })
+  }
+
+  private launchRunExecution(
+    run: ExecutionRun,
+    project: NonNullable<ReturnType<AutoVisDatabase["getProject"]>>,
+    testCase: TestCase,
+    script: ScriptArtifact,
+    preconditionPlan: ReturnType<SuiteService["buildPreconditionPlan"]>,
+    request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string },
+  ) {
+    const taskController = this.createManagedRunController(run, request)
+    if (run.status === "paused") {
+      taskController.pause()
+    }
+    log.info("run.started", {
+      runId: run.id,
+      taskRunId: request.taskRunId ?? null,
+      projectId: project.id,
+      projectName: project.name,
+      testCaseId: testCase.id,
+      testCaseCode: testCase.caseCode,
+      targetUrl: run.testBaseUrl,
+      preconditionCount: preconditionPlan.nodes.length,
+      scriptTimeoutMs: request.scriptTimeoutMs ?? null,
+    })
+    void this.executeRunWithPreconditions(run, project, testCase, script, preconditionPlan, taskController, request.scriptTimeoutMs, request.llmOwnerKey)
+  }
+
+  public async recoverRun(runId: string) {
+    if (this.tasks.has(runId)) {
+      return this.db.getRun(runId)
+    }
+
+    const existing = this.db.getRun(runId)
+    if (!existing) {
+      throw new Error(`Run ${runId} not found`)
+    }
+    if (existing.status === "passed" || existing.status === "failed" || existing.status === "cancelled" || existing.status === "interrupted") {
+      return existing
+    }
+
+    const project = this.db.getProject(existing.projectId)
+    const testCase = this.db.getTestCase(existing.testCaseId)
+    const script = this.db.getScript(existing.scriptId)
+    if (!project || !testCase || !script) {
+      throw new Error(`Run ${runId} dependencies not found`)
+    }
+
+    const target = this.resolveTargetUrlOrThrow(existing.projectId, existing.targetUrlId)
+    const preconditionPlan = this.suiteService.buildPreconditionPlan(testCase)
+    const run = createExecutionTemplate({
+      runId: existing.id,
+      project,
+      testCase,
+      script,
+      testBaseUrl: target.url,
+    })
+    run.targetUrlId = target.id
+    run.taskRunId = existing.taskRunId
+    run.batchOrder = existing.batchOrder
+    run.kind = existing.kind
+    run.liveViewport = {
+      mode: "ws-jpeg-stream",
+      url: `${appOrigin.replace(/^http/, "ws")}/api/runs/${run.id}/live`,
+      status: "connecting",
+      mimeType: "image/jpeg",
+    }
+    run.orchestrationPhase = preconditionPlan.nodes.length > 0 ? "preconditions" : "target"
+    run.completedPreconditionCaseIds = []
+    run.runtimeOutputs = []
+    run.preconditionSummary = preconditionPlan.nodes.map((entry) => `前置用例 ${entry.testCase.caseCode}`)
+    run.logs.push(`[${new Date().toLocaleTimeString()}] 检测到过期 lease，已自动重启执行。`)
+
+    const leaseRequest = this.db.getTaskLease("run", runId)?.request ?? {}
+    const request = {
+      projectId: run.projectId,
+      testCaseId: run.testCaseId,
+      scriptId: run.scriptId,
+      targetUrlId: run.targetUrlId,
+      kind: run.kind,
+      taskRunId: run.taskRunId,
+      batchOrder: run.batchOrder,
+      scriptTimeoutMs: typeof leaseRequest.scriptTimeoutMs === "number" ? leaseRequest.scriptTimeoutMs : undefined,
+      llmOwnerKey: typeof leaseRequest.llmOwnerKey === "string" ? leaseRequest.llmOwnerKey : undefined,
+    } satisfies StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string }
+
+    this.runStateService.saveRunSnapshot(run)
+    this.runStateService.notifyRun(run)
+    this.launchRunExecution(run, project, testCase, script, preconditionPlan, request)
+    if (existing.status === "paused") {
+      this.pauseRun(run.id)
+    }
+    return run
   }
 
   public async executeRunWithPreconditions(
@@ -405,15 +556,7 @@ export class RunService {
     this.runStateService.saveRunSnapshot(run)
     this.runStateService.notifyRun(run)
 
-    const taskController = this.tasks.create({
-      kind: "run",
-      id: run.id,
-      projectId: request.projectId,
-      testCaseId: request.testCaseId,
-    })
-
-    console.log(`[run] startRun runId=${run.id} case=${testCase.caseCode} project=${project.name} targetUrl=${target.url} preconditions=${preconditionPlan.nodes.length} scriptTimeoutMs=${request.scriptTimeoutMs ?? "(default)"} taskRunId=${request.taskRunId ?? "(standalone)"}`)
-    void this.executeRunWithPreconditions(run, project, testCase, script, preconditionPlan, taskController, request.scriptTimeoutMs, request.llmOwnerKey)
+    this.launchRunExecution(run, project, testCase, script, preconditionPlan, request)
 
     return run
   }

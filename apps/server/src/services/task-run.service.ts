@@ -1,5 +1,6 @@
 import type { AutoVisDatabase } from "../db.js"
 import { createId, now } from "./common.js"
+import { log } from "../log.js"
 import type { TaskControlRegistry } from "./task-control.js"
 import type { RunService } from "./run.service.js"
 import type {
@@ -34,6 +35,8 @@ export class TaskRunService {
   public cancelAgentCallback: ((sessionId: string) => boolean) | null = null
   /** 注入后由 AgentService 填充，用于查询 agent session 状态。 */
   public getAgentSessionCallback: ((sessionId: string) => AgentSession | undefined) | null = null
+  /** 注入后由 AgentService 填充，用于恢复 direct-agent 子任务。 */
+  public recoverAgentCallback: ((sessionId: string) => Promise<AgentSession | undefined>) | null = null
 
   constructor(
     private readonly db: AutoVisDatabase,
@@ -84,6 +87,309 @@ export class TaskRunService {
       logs: ["任务已创建，等待执行。"],
       startedAt: now(),
     }
+  }
+
+  private markTaskRunInterrupted(taskRunId: string, reason: string) {
+    const taskRun = this.db.getTaskRun(taskRunId)
+    if (!taskRun) return
+    if (taskRun.status === "passed" || taskRun.status === "failed" || taskRun.status === "cancelled" || taskRun.status === "interrupted") {
+      return
+    }
+    taskRun.status = "interrupted"
+    taskRun.finishedAt = taskRun.finishedAt || now()
+    taskRun.logs.push(`[${new Date().toLocaleTimeString()}] ${reason}`)
+    taskRun.currentRunId = undefined
+    taskRun.currentAgentId = undefined
+    taskRun.runningCount = 0
+    this.persistAndNotifyTaskRun(taskRun)
+  }
+
+  private createManagedTaskRunController(
+    taskRun: TaskRun,
+    opts: {
+      projectId: string
+      taskId: string
+      scheduleTriggerId?: string
+      attemptNo?: number
+      parentTaskRunId?: string
+      effectiveTaskMode: TaskModeConfig
+      scriptTimeoutMs?: number
+    },
+  ) {
+    return this.tasks.create({
+      kind: "task-run",
+      id: taskRun.id,
+      projectId: opts.projectId,
+      recoveryPolicy: "resume",
+      request: {
+        projectId: opts.projectId,
+        taskId: opts.taskId,
+        scheduleTriggerId: opts.scheduleTriggerId,
+        attemptNo: opts.attemptNo,
+        parentTaskRunId: opts.parentTaskRunId,
+        taskMode: opts.effectiveTaskMode,
+        scriptTimeoutMs: opts.scriptTimeoutMs,
+      },
+      buildCheckpoint: () => ({
+        status: taskRun.status,
+        totalCount: taskRun.totalCount,
+        queuedCount: taskRun.queuedCount,
+        runningCount: taskRun.runningCount,
+        passedCount: taskRun.passedCount,
+        failedCount: taskRun.failedCount,
+        skippedCount: taskRun.skippedCount,
+        currentRunId: taskRun.currentRunId ?? null,
+        currentAgentId: taskRun.currentAgentId ?? null,
+        lastAgentId: taskRun.lastAgentId ?? null,
+        runIds: taskRun.runIds,
+        attemptNo: taskRun.attemptNo ?? null,
+      }),
+      applyAction: (action) => {
+        switch (action) {
+          case "pause":
+            return this.pauseTaskRun(taskRun.id)
+          case "resume":
+            return this.resumeTaskRun(taskRun.id)
+          case "cancel":
+            return this.cancelTaskRun(taskRun.id)
+          default:
+            return false
+        }
+      },
+      onLeaseLost: (reason) => {
+        this.markTaskRunInterrupted(taskRun.id, reason)
+      },
+    })
+  }
+
+  private applyRunResult(taskRun: TaskRun, testCaseCode: string, status: string) {
+    taskRun.runningCount = 0
+    taskRun.currentRunId = undefined
+    if (status === "passed") {
+      taskRun.passedCount += 1
+      taskRun.logs.push(`${testCaseCode} 执行成功。`)
+      return
+    }
+    if (status === "cancelled") {
+      taskRun.logs.push(`${testCaseCode} 已取消。`)
+      return
+    }
+    taskRun.failedCount += 1
+    taskRun.logs.push(`${testCaseCode} 执行失败。`)
+  }
+
+  private applyAgentResult(taskRun: TaskRun, testCaseCode: string, status: string) {
+    taskRun.runningCount = 0
+    taskRun.currentRunId = undefined
+    taskRun.currentAgentId = undefined
+    if (status === "completed") {
+      taskRun.passedCount += 1
+      taskRun.logs.push(`${testCaseCode} AI 直接执行成功。`)
+      return
+    }
+    if (status === "cancelled") {
+      taskRun.logs.push(`${testCaseCode} 已取消。`)
+      return
+    }
+    taskRun.failedCount += 1
+    taskRun.logs.push(`${testCaseCode} AI 直接执行失败。`)
+  }
+
+  private async executeTaskRunLoop(
+    task: Task,
+    taskRun: TaskRun,
+    resolvedItems: Array<{ item: Task["items"][number]; testCase: ReturnType<AutoVisDatabase["getTestCase"]> }>,
+    taskController: ReturnType<TaskRunService["createManagedTaskRunController"]>,
+    opts: {
+      projectId: string
+      taskId: string
+      scheduleTriggerId?: string
+      attemptNo?: number
+      parentTaskRunId?: string
+      effectiveTaskMode: TaskModeConfig
+      scriptTimeoutMs?: number
+    },
+    startIndex = 0,
+  ) {
+    void (async () => {
+      if (taskRun.status !== "paused") {
+        taskRun.status = "running"
+        this.persistAndNotifyTaskRun(taskRun)
+      }
+      try {
+        for (let index = startIndex; index < resolvedItems.length; index += 1) {
+          const { item, testCase } = resolvedItems[index]
+          if (taskController.signal.aborted) break
+          await taskController.waitIfPaused()
+
+          if (!testCase) {
+            taskRun.skippedCount += 1
+            taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
+            taskRun.logs.push(`跳过第 ${index + 1} 项：引用的用例不存在。`)
+            this.persistAndNotifyTaskRun(taskRun)
+            continue
+          }
+
+          if (!testCase.latestScriptId) {
+            if (this.runDirectAgentForTask) {
+              taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
+              taskRun.runningCount = 1
+              taskRun.logs.push(`开始 AI 直接执行 ${testCase.caseCode}（无脚本）。`)
+              this.persistAndNotifyTaskRun(taskRun)
+              try {
+                const agentSession = await this.runDirectAgentForTask({
+                  projectId: opts.projectId,
+                  testCaseId: testCase.id,
+                  targetUrlId: item.targetUrlId,
+                  taskRunId: taskRun.id,
+                })
+                taskRun.currentAgentId = agentSession.id
+                taskRun.lastAgentId = agentSession.id
+                taskRun.currentRunId = agentSession.latestRunId ?? agentSession.warmupRunId
+                this.persistAndNotifyTaskRun(taskRun)
+                const finishedAgent = await this.waitForAgentCompletion(agentSession.id)
+                this.applyAgentResult(taskRun, testCase.caseCode, finishedAgent.status)
+              } catch (agentErr) {
+                taskRun.runningCount = 0
+                taskRun.currentRunId = undefined
+                taskRun.currentAgentId = undefined
+                taskRun.failedCount += 1
+                taskRun.logs.push(`${testCase.caseCode} AI 直接执行异常: ${(agentErr as Error).message}`)
+              }
+              this.persistAndNotifyTaskRun(taskRun)
+            } else {
+              taskRun.skippedCount += 1
+              taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
+              taskRun.logs.push(`跳过 ${testCase.caseCode}：缺少最新脚本。`)
+              this.persistAndNotifyTaskRun(taskRun)
+            }
+            continue
+          }
+
+          const run = await this.runService.startRun({
+            projectId: opts.projectId,
+            testCaseId: testCase.id,
+            scriptId: testCase.latestScriptId,
+            targetUrlId: item.targetUrlId,
+            taskRunId: taskRun.id,
+            batchOrder: index + 1,
+            scriptTimeoutMs: opts.scriptTimeoutMs,
+          })
+          taskRun.runIds.push(run.id)
+          taskRun.currentRunId = run.id
+          taskRun.queuedCount = Math.max(0, taskRun.totalCount - taskRun.runIds.length - taskRun.skippedCount)
+          taskRun.runningCount = 1
+          taskRun.logs.push(`开始执行 ${testCase.caseCode}。`)
+          this.persistAndNotifyTaskRun(taskRun)
+
+          const finishedRun = await this.runService.getRunStateService().waitForRunCompletion(run.id)
+          this.applyRunResult(taskRun, testCase.caseCode, finishedRun.status)
+          this.persistAndNotifyTaskRun(taskRun)
+        }
+
+        if (taskController.signal.aborted) {
+          taskRun.status = "cancelled"
+          taskRun.logs.push("任务已取消。")
+        } else {
+          taskRun.status = taskRun.failedCount > 0 ? "failed" : "passed"
+        }
+      } catch (error) {
+        taskRun.status = taskController.signal.aborted ? "cancelled" : "failed"
+        taskRun.logs.push(`任务执行异常: ${(error as Error).message}`)
+      } finally {
+        taskRun.finishedAt = now()
+        taskRun.currentRunId = undefined
+        taskRun.currentAgentId = undefined
+        taskRun.runningCount = 0
+        const isPollingMidAttempt = opts.effectiveTaskMode.kind === "polling" && !!opts.parentTaskRunId
+        if (!isPollingMidAttempt) {
+          this.db.updateTaskLastRun({
+            taskId: task.id,
+            lastRunId: taskRun.id,
+            lastStatus: taskRun.status,
+            lastRunAt: taskRun.finishedAt,
+          })
+        }
+        this.persistAndNotifyTaskRun(taskRun)
+        this.tasks.unregister(taskRun.id)
+      }
+    })()
+  }
+
+  public async recoverTaskRun(taskRunId: string): Promise<TaskRun | undefined> {
+    if (this.tasks.has(taskRunId)) {
+      return this.db.getTaskRun(taskRunId)
+    }
+
+    const taskRun = this.db.getTaskRun(taskRunId)
+    if (!taskRun) return undefined
+    if (taskRun.status === "passed" || taskRun.status === "failed" || taskRun.status === "cancelled" || taskRun.status === "interrupted") {
+      return taskRun
+    }
+
+    const leaseRequest = this.db.getTaskLease("task-run", taskRunId)?.request ?? {}
+    const task = this.db.getTask(taskRun.taskId)
+    if (!task) {
+      throw new Error(`Task ${taskRun.taskId} not found for task run recovery`)
+    }
+    const effectiveTaskMode = (leaseRequest.taskMode as TaskModeConfig | undefined) ?? taskRun.effectiveTaskMode ?? task.executionMode ?? { kind: "oneshot" }
+    const opts = {
+      projectId: taskRun.projectId,
+      taskId: taskRun.taskId,
+      scheduleTriggerId: typeof leaseRequest.scheduleTriggerId === "string" ? leaseRequest.scheduleTriggerId : taskRun.scheduleTriggerId,
+      attemptNo: typeof leaseRequest.attemptNo === "number" ? leaseRequest.attemptNo : taskRun.attemptNo,
+      parentTaskRunId: typeof leaseRequest.parentTaskRunId === "string" ? leaseRequest.parentTaskRunId : taskRun.parentTaskRunId,
+      effectiveTaskMode,
+      scriptTimeoutMs: typeof leaseRequest.scriptTimeoutMs === "number" ? leaseRequest.scriptTimeoutMs : this.computeScriptTimeoutMsForMode(effectiveTaskMode),
+    }
+    const resolvedItems = task.items.map((item) => ({
+      item,
+      testCase: this.db.getTestCase(item.caseId),
+    }))
+    const taskController = this.createManagedTaskRunController(taskRun, opts)
+    const previousStatus = taskRun.status
+    taskRun.finishedAt = undefined
+    taskRun.logs.push(`[${new Date().toLocaleTimeString()}] 检测到过期 lease，开始恢复任务执行。`)
+    this.persistAndNotifyTaskRun(taskRun)
+
+    if (taskRun.currentAgentId) {
+      const currentAgent = this.getAgentSessionCallback?.(taskRun.currentAgentId)
+      const currentLease = this.db.getTaskLease("agent", taskRun.currentAgentId)
+      const leaseExpired = !currentLease?.leaseExpiresAt || Date.parse(currentLease.leaseExpiresAt) <= Date.now()
+      if (currentAgent) {
+        if (leaseExpired) {
+          await this.recoverAgentCallback?.(currentAgent.id)
+        }
+        const finishedAgent = await this.waitForAgentCompletion(currentAgent.id)
+        const testCaseCode = this.db.getTestCase(currentAgent.testCaseId)?.caseCode ?? currentAgent.testCaseId
+        this.applyAgentResult(taskRun, testCaseCode, finishedAgent.status)
+        this.persistAndNotifyTaskRun(taskRun)
+      }
+    }
+
+    if (!taskRun.currentAgentId && taskRun.currentRunId) {
+      const currentRun = this.db.getRun(taskRun.currentRunId)
+      const currentLease = this.db.getTaskLease("run", taskRun.currentRunId)
+      const leaseExpired = !currentLease?.leaseExpiresAt || Date.parse(currentLease.leaseExpiresAt) <= Date.now()
+      if (currentRun) {
+        if (currentRun.status !== "passed" && currentRun.status !== "failed" && currentRun.status !== "cancelled" && currentRun.status !== "interrupted" && leaseExpired) {
+          await this.runService.recoverRun(currentRun.id)
+        }
+        const finishedRun = await this.runService.getRunStateService().waitForRunCompletion(currentRun.id)
+        const testCaseCode = this.db.getTestCase(currentRun.testCaseId)?.caseCode ?? currentRun.testCaseId
+        this.applyRunResult(taskRun, testCaseCode, finishedRun.status)
+        this.persistAndNotifyTaskRun(taskRun)
+      }
+    }
+
+    const startIndex = taskRun.passedCount + taskRun.failedCount + taskRun.skippedCount
+    if (previousStatus === "paused") {
+      taskController.pause()
+      taskRun.status = "paused"
+      this.persistAndNotifyTaskRun(taskRun)
+    }
+    this.executeTaskRunLoop(task, taskRun, resolvedItems, taskController, opts, startIndex)
+    return taskRun
   }
 
   private resolveTargetUrlOrThrow(projectId: string, targetUrlId?: string): { id?: string; url: string } {
@@ -175,7 +481,14 @@ export class TaskRunService {
     }
 
     const effectiveTaskMode: TaskModeConfig = request.taskMode ?? task.executionMode ?? { kind: "oneshot" }
-    console.log(`[task-run] startTaskRun project=${request.projectId} task=${request.taskId} mode=${describeTaskMode(effectiveTaskMode)} scheduleTriggerId=${request.scheduleTriggerId ?? "(none)"} parentTaskRunId=${request.parentTaskRunId ?? "(none)"} attemptNo=${request.attemptNo ?? 1}`)
+    log.info("task_run.started", {
+      projectId: request.projectId,
+      taskId: request.taskId,
+      mode: describeTaskMode(effectiveTaskMode),
+      scheduleTriggerId: request.scheduleTriggerId ?? null,
+      parentTaskRunId: request.parentTaskRunId ?? null,
+      attemptNo: request.attemptNo ?? 1,
+    })
 
     if (effectiveTaskMode.kind === "polling" && !request.parentTaskRunId) {
       const firstAttempt = await this.runTaskRunOnce(task, {
@@ -187,7 +500,14 @@ export class TaskRunService {
         effectiveTaskMode,
         scriptTimeoutMs: effectiveTaskMode.attemptTimeoutMs,
       })
-      console.log(`[task-run] polling chain started taskRunId=${firstAttempt.id} maxAttempts=${effectiveTaskMode.maxAttempts} intervalMs=${effectiveTaskMode.intervalMs} stopOn=${effectiveTaskMode.stopOn ?? "success"}`)
+      log.info("task_run.polling_chain_started", {
+        taskRunId: firstAttempt.id,
+        projectId: firstAttempt.projectId,
+        taskId: firstAttempt.taskId,
+        maxAttempts: effectiveTaskMode.maxAttempts,
+        intervalMs: effectiveTaskMode.intervalMs,
+        stopOn: effectiveTaskMode.stopOn ?? "success",
+      })
       void this.driveTaskPollingChain(firstAttempt, effectiveTaskMode, task, request)
       return firstAttempt
     }
@@ -234,21 +554,52 @@ export class TaskRunService {
 
     while (attemptNo < maxAttempts) {
       const finished = await this.waitForTaskRunCompletion(previous.id)
-      console.log(`[polling] attempt#${attemptNo} taskRun=${previous.id} finished status=${finished.status} passed=${finished.passedCount}/${finished.totalCount}`)
+      log.info("task_run.polling_attempt_finished", {
+        taskRunId: previous.id,
+        projectId: finished.projectId,
+        taskId: finished.taskId,
+        attemptNo,
+        status: finished.status,
+        passedCount: finished.passedCount,
+        totalCount: finished.totalCount,
+      })
       if (finished.status === "cancelled" || finished.status === "interrupted") {
-        console.log(`[polling] chain abort because attempt#${attemptNo} status=${finished.status}`)
+        log.info("task_run.polling_chain_aborted", {
+          taskRunId: previous.id,
+          projectId: finished.projectId,
+          taskId: finished.taskId,
+          attemptNo,
+          status: finished.status,
+        })
         return
       }
       if (stopOn === "success" && finished.status === "passed") {
-        console.log(`[polling] chain done (stopOn=success met) after attempt#${attemptNo}`)
+        log.info("task_run.polling_chain_completed", {
+          taskRunId: previous.id,
+          projectId: finished.projectId,
+          taskId: finished.taskId,
+          attemptNo,
+          stopOn,
+        })
         return
       }
       attemptNo += 1
       if (intervalMs > 0) {
-        console.log(`[polling] sleeping ${intervalMs}ms before attempt#${attemptNo}`)
+        log.info("task_run.polling_sleep", {
+          taskRunId: previous.id,
+          projectId: previous.projectId,
+          taskId: previous.taskId,
+          attemptNo,
+          intervalMs,
+        })
         await new Promise((resolve) => setTimeout(resolve, intervalMs))
       }
-      console.log(`[polling] starting attempt#${attemptNo} (parent=${previous.id})`)
+      log.info("task_run.polling_attempt_starting", {
+        parentTaskRunId: previous.id,
+        projectId: previous.projectId,
+        taskId: previous.taskId,
+        attemptNo,
+      })
 
       const next = await this.runTaskRunOnce(task, {
         projectId: request.projectId,
@@ -259,17 +610,38 @@ export class TaskRunService {
         effectiveTaskMode: mode,
         scriptTimeoutMs: mode.attemptTimeoutMs,
       }).catch((err) => {
-        console.warn(`[polling] attempt#${attemptNo} runTaskRunOnce failed:`, err instanceof Error ? err.stack || err.message : err)
+        log.warn("task_run.polling_attempt_failed", {
+          parentTaskRunId: previous.id,
+          projectId: previous.projectId,
+          taskId: previous.taskId,
+          attemptNo,
+          error: err,
+        })
         return undefined
       })
       if (!next) {
-        console.log(`[polling] chain aborted: attempt#${attemptNo} could not start`)
+        log.warn("task_run.polling_chain_stopped", {
+          parentTaskRunId: previous.id,
+          projectId: previous.projectId,
+          taskId: previous.taskId,
+          attemptNo,
+        })
         return
       }
-      console.log(`[polling] attempt#${attemptNo} started taskRunId=${next.id}`)
+      log.info("task_run.polling_attempt_started", {
+        taskRunId: next.id,
+        projectId: next.projectId,
+        taskId: next.taskId,
+        attemptNo,
+      })
       previous = next
     }
-    console.log(`[polling] chain exhausted maxAttempts=${maxAttempts}`)
+    log.info("task_run.polling_chain_exhausted", {
+      taskRunId: previous.id,
+      projectId: previous.projectId,
+      taskId: previous.taskId,
+      maxAttempts,
+    })
   }
 
   private async runTaskRunOnce(
@@ -295,7 +667,16 @@ export class TaskRunService {
     taskRun.attemptNo = opts.attemptNo
     taskRun.parentTaskRunId = opts.parentTaskRunId
     taskRun.effectiveTaskMode = opts.effectiveTaskMode
-    console.log(`[task-run] runTaskRunOnce taskRunId=${taskRun.id} items=${resolvedItems.length} effectiveMode=${describeTaskMode(opts.effectiveTaskMode)} scriptTimeoutMs=${opts.scriptTimeoutMs ?? "(runner default 300s)"} attemptNo=${opts.attemptNo ?? 1}`)
+    log.info("task_run.attempt_created", {
+      taskRunId: taskRun.id,
+      projectId: taskRun.projectId,
+      taskId: taskRun.taskId,
+      itemCount: resolvedItems.length,
+      effectiveMode: describeTaskMode(opts.effectiveTaskMode),
+      scriptTimeoutMs: opts.scriptTimeoutMs ?? null,
+      attemptNo: opts.attemptNo ?? 1,
+      parentTaskRunId: opts.parentTaskRunId ?? null,
+    })
     if (opts.attemptNo && opts.attemptNo > 1) {
       taskRun.logs.push(`polling · 第 ${opts.attemptNo} 轮（上一轮: ${opts.parentTaskRunId ?? "?"}）。`)
     }
@@ -313,133 +694,8 @@ export class TaskRunService {
 
     this.persistAndNotifyTaskRun(taskRun)
 
-    const taskController = this.tasks.create({
-      kind: "task-run",
-      id: taskRun.id,
-      projectId: opts.projectId,
-    })
-
-    void (async () => {
-      taskRun.status = "running"
-      this.persistAndNotifyTaskRun(taskRun)
-      try {
-        for (const [index, { item, testCase }] of resolvedItems.entries()) {
-          if (taskController.signal.aborted) break
-          await taskController.waitIfPaused()
-
-          if (!testCase) {
-            taskRun.skippedCount += 1
-            taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
-            taskRun.logs.push(`跳过第 ${index + 1} 项：引用的用例不存在。`)
-            this.persistAndNotifyTaskRun(taskRun)
-            continue
-          }
-          if (!testCase.latestScriptId) {
-            if (this.runDirectAgentForTask) {
-              taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
-              taskRun.runningCount = 1
-              taskRun.logs.push(`开始 AI 直接执行 ${testCase.caseCode}（无脚本）。`)
-              this.persistAndNotifyTaskRun(taskRun)
-              let agentSession: AgentSession | undefined
-              try {
-                agentSession = await this.runDirectAgentForTask({
-                  projectId: opts.projectId,
-                  testCaseId: testCase.id,
-                  targetUrlId: item.targetUrlId,
-                  taskRunId: taskRun.id,
-                })
-                taskRun.currentAgentId = agentSession.id
-                taskRun.lastAgentId = agentSession.id
-                taskRun.currentRunId = agentSession.latestRunId ?? agentSession.warmupRunId
-                this.persistAndNotifyTaskRun(taskRun)
-                const finishedAgent = await this.waitForAgentCompletion(agentSession.id)
-                taskRun.runningCount = 0
-                taskRun.currentRunId = undefined
-                taskRun.currentAgentId = undefined
-                if (finishedAgent.status === "completed") {
-                  taskRun.passedCount += 1
-                  taskRun.logs.push(`${testCase.caseCode} AI 直接执行成功。`)
-                } else if (finishedAgent.status === "cancelled") {
-                  taskRun.logs.push(`${testCase.caseCode} 已取消。`)
-                } else {
-                  taskRun.failedCount += 1
-                  taskRun.logs.push(`${testCase.caseCode} AI 直接执行失败。`)
-                }
-              } catch (agentErr) {
-                taskRun.runningCount = 0
-                taskRun.currentRunId = undefined
-                taskRun.currentAgentId = undefined
-                taskRun.failedCount += 1
-                taskRun.logs.push(`${testCase.caseCode} AI 直接执行异常: ${(agentErr as Error).message}`)
-              }
-              this.persistAndNotifyTaskRun(taskRun)
-            } else {
-              taskRun.skippedCount += 1
-              taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
-              taskRun.logs.push(`跳过 ${testCase.caseCode}：缺少最新脚本。`)
-              this.persistAndNotifyTaskRun(taskRun)
-            }
-            continue
-          }
-
-          const run = await this.runService.startRun({
-            projectId: opts.projectId,
-            testCaseId: testCase.id,
-            scriptId: testCase.latestScriptId,
-            targetUrlId: item.targetUrlId,
-            taskRunId: taskRun.id,
-            batchOrder: index + 1,
-            scriptTimeoutMs: opts.scriptTimeoutMs,
-          })
-          taskRun.runIds.push(run.id)
-          taskRun.currentRunId = run.id
-          taskRun.queuedCount = Math.max(0, taskRun.totalCount - taskRun.runIds.length - taskRun.skippedCount)
-          taskRun.runningCount = 1
-          taskRun.logs.push(`开始执行 ${testCase.caseCode}。`)
-          this.persistAndNotifyTaskRun(taskRun)
-
-          const finishedRun = await this.runService.getRunStateService().waitForRunCompletion(run.id)
-          taskRun.runningCount = 0
-          taskRun.currentRunId = undefined
-          if (finishedRun.status === "passed") {
-            taskRun.passedCount += 1
-            taskRun.logs.push(`${testCase.caseCode} 执行成功。`)
-          } else if (finishedRun.status === "cancelled") {
-            taskRun.logs.push(`${testCase.caseCode} 已取消。`)
-          } else {
-            taskRun.failedCount += 1
-            taskRun.logs.push(`${testCase.caseCode} 执行失败。`)
-          }
-          this.persistAndNotifyTaskRun(taskRun)
-        }
-
-        if (taskController.signal.aborted) {
-          taskRun.status = "cancelled"
-          taskRun.logs.push("任务已取消。")
-        } else {
-          taskRun.status = taskRun.failedCount > 0 ? "failed" : "passed"
-        }
-      } catch (error) {
-        taskRun.status = taskController.signal.aborted ? "cancelled" : "failed"
-        taskRun.logs.push(`任务执行异常: ${(error as Error).message}`)
-      } finally {
-        taskRun.finishedAt = now()
-        taskRun.currentRunId = undefined
-        taskRun.currentAgentId = undefined
-        taskRun.runningCount = 0
-        const isPollingMidAttempt = opts.effectiveTaskMode.kind === "polling" && !!opts.parentTaskRunId
-        if (!isPollingMidAttempt) {
-          this.db.updateTaskLastRun({
-            taskId: task.id,
-            lastRunId: taskRun.id,
-            lastStatus: taskRun.status,
-            lastRunAt: taskRun.finishedAt,
-          })
-        }
-        this.persistAndNotifyTaskRun(taskRun)
-        this.tasks.unregister(taskRun.id)
-      }
-    })()
+    const taskController = this.createManagedTaskRunController(taskRun, opts)
+    this.executeTaskRunLoop(task, taskRun, resolvedItems, taskController, opts)
 
     return taskRun
   }

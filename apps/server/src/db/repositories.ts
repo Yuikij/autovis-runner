@@ -14,3 +14,4 @@ export * from "./repositories/scheduleTriggers.js";
 export * from "./repositories/users.js";
 export * from "./repositories/validationTasks.js";
 export * from "./repositories/taskControl.js";
+export * from "./repositories/taskLeases.js";

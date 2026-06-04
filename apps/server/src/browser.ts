@@ -4,6 +4,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { chromium as playwrightChromium, type Browser, type BrowserContext, type BrowserType } from "@playwright/test"
 
+import { recordBrowserStartFailure } from "./observability.js"
+
 const nodeRequire = createRequire(import.meta.url)
 
 /**
@@ -22,11 +24,7 @@ const resolveChromium = (): BrowserType => {
     const patchright = nodeRequire("patchright") as { chromium: BrowserType }
     return patchright.chromium
   } catch (error) {
-    console.warn(
-      `[browser-backend] BROWSER_BACKEND=${backend} 但加载 patchright 失败，回退到 @playwright/test：${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    )
+    recordBrowserStartFailure("patchright_backend_load", error, { backend })
     return playwrightChromium
   }
 }
@@ -93,11 +91,19 @@ export const launchReplayBrowser = async (options: {
   windowSize?: { width: number; height: number }
 }): Promise<Browser> => {
   if (!options.stealth) {
-    return chromium.launch({
-      headless: options.headless ?? true,
-      slowMo: options.slowMo,
-      args: localNetworkAccessArgs(),
-    })
+    try {
+      return await chromium.launch({
+        headless: options.headless ?? true,
+        slowMo: options.slowMo,
+        args: localNetworkAccessArgs(),
+      })
+    } catch (error) {
+      recordBrowserStartFailure("replay_browser_launch", error, {
+        stealth: false,
+        headless: options.headless ?? true,
+      })
+      throw error
+    }
   }
   const channel = (process.env.BROWSER_CHANNEL ?? "chrome").trim()
   const size = options.windowSize ?? { width: 1440, height: 960 }
@@ -109,12 +115,13 @@ export const launchReplayBrowser = async (options: {
   try {
     return await chromium.launch(channel ? { ...launchOptions, channel } : launchOptions)
   } catch (error) {
-    console.warn(
-      `[browser] channel=${channel} 回放启动失败，回退 bundled Chromium（反检测能力下降，建议 npx patchright install chrome）：${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    )
-    return await chromium.launch(launchOptions)
+    recordBrowserStartFailure("replay_browser_channel_launch", error, { channel })
+    try {
+      return await chromium.launch(launchOptions)
+    } catch (fallbackError) {
+      recordBrowserStartFailure("replay_browser_fallback_launch", fallbackError, { channel })
+      throw fallbackError
+    }
   }
 }
 
@@ -137,14 +144,16 @@ export const launchStealthPersistentContext = async (
     return { context, userDataDir }
   } catch (error) {
     if (channel) {
-      console.warn(
-        `[browser] channel=${channel} 启动失败，回退到 bundled Chromium（反检测能力下降，建议 npx patchright install chrome）：${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      )
-      const context = await chromium.launchPersistentContext(userDataDir, baseOptions)
-      return { context, userDataDir }
+      recordBrowserStartFailure("stealth_persistent_context_channel_launch", error, { channel })
+      try {
+        const context = await chromium.launchPersistentContext(userDataDir, baseOptions)
+        return { context, userDataDir }
+      } catch (fallbackError) {
+        recordBrowserStartFailure("stealth_persistent_context_fallback_launch", fallbackError, { channel })
+        throw fallbackError
+      }
     }
+    recordBrowserStartFailure("stealth_persistent_context_launch", error, { channel: "(none)" })
     throw error
   }
 }

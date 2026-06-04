@@ -2,6 +2,7 @@ import type { ScheduleTrigger, UpsertScheduleTriggerRequest } from "@autovis/sha
 
 import type { AutoVisDatabase } from "../db.js"
 import { createId, now } from "./common.js"
+import { log } from "../log.js"
 import type { RunService } from "./run.service.js"
 import type { TaskRunService } from "./task-run.service.js"
 
@@ -121,7 +122,10 @@ export class SchedulerService {
     this.started = true
     const all = this.db.listAllScheduleTriggers()
     const enabledCount = all.filter((t) => t.enabled).length
-    console.log(`[scheduler] start: ${all.length} trigger(s) in DB, ${enabledCount} enabled, reloading…`)
+    log.info("scheduler.started", {
+      triggerCount: all.length,
+      enabledCount,
+    })
     for (const trigger of all) {
       if (!trigger.enabled) continue
       this.rescheduleTrigger(trigger.id)
@@ -193,13 +197,26 @@ export class SchedulerService {
     this.clearHandle(id)
     const trigger = this.db.getScheduleTrigger(id)
     if (!trigger || !trigger.enabled) {
-      if (trigger) console.log(`[scheduler] trigger ${id} (${trigger.name}) disabled, skip schedule`)
+      if (trigger) {
+        log.info("scheduler.trigger_disabled", {
+          triggerId: id,
+          projectId: trigger.projectId,
+          taskId: trigger.taskId,
+          name: trigger.name,
+        })
+      }
       return
     }
 
     const nextFireDate = this.computeNextFireTime(trigger)
     if (!nextFireDate) {
-      console.log(`[scheduler] trigger ${id} (${trigger.name}, kind=${trigger.kind}) has no upcoming fire time, parked`)
+      log.info("scheduler.trigger_parked", {
+        triggerId: id,
+        projectId: trigger.projectId,
+        taskId: trigger.taskId,
+        name: trigger.name,
+        kind: trigger.kind,
+      })
       this.db.updateScheduleTriggerNextFireAt(id, null)
       return
     }
@@ -208,13 +225,29 @@ export class SchedulerService {
     const MAX_DELAY = 2 ** 31 - 1
     const useDelay = Math.min(delay, MAX_DELAY)
     this.db.updateScheduleTriggerNextFireAt(id, nextFireDate.toISOString())
-    console.log(`[scheduler] trigger ${id} (${trigger.name}, kind=${trigger.kind}${trigger.kind === "cron" ? `, expr="${trigger.cronExpr}"` : ""}) → next fire at ${nextFireDate.toISOString()} (in ${Math.round(delay / 1000)}s${delay > MAX_DELAY ? "; will rewake at 24d boundary" : ""})`)
+    log.info("scheduler.trigger_scheduled", {
+      triggerId: id,
+      projectId: trigger.projectId,
+      taskId: trigger.taskId,
+      name: trigger.name,
+      kind: trigger.kind,
+      cronExpr: trigger.kind === "cron" ? trigger.cronExpr ?? null : null,
+      nextFireAt: nextFireDate.toISOString(),
+      delaySeconds: Math.round(delay / 1000),
+      clampedByMaxDelay: delay > MAX_DELAY,
+    })
     const timer = setTimeout(() => {
       if (delay > MAX_DELAY) {
         this.rescheduleTrigger(id)
         return
       }
-      void this.fireTrigger(id, nextFireDate).catch((err) => console.warn(`[scheduler] fire failed for trigger ${id}:`, err))
+      void this.fireTrigger(id, nextFireDate).catch((err) =>
+        log.warn("scheduler.trigger_fire_failed", {
+          triggerId: id,
+          fireAt: nextFireDate.toISOString(),
+          error: err,
+        }),
+      )
     }, useDelay)
     timer.unref?.()
     this.handles.set(id, { triggerId: id, timer, fireAt: nextFireDate.getTime() })
@@ -223,31 +256,60 @@ export class SchedulerService {
   private async fireTrigger(id: string, fireAt: Date) {
     const trigger = this.db.getScheduleTrigger(id)
     if (!trigger || !trigger.enabled) {
-      console.log(`[scheduler] fireTrigger skipped, trigger ${id} disabled or missing at fire time ${fireAt.toISOString()}`)
+      log.info("scheduler.trigger_fire_skipped", {
+        triggerId: id,
+        fireAt: fireAt.toISOString(),
+      })
       return
     }
     const task = this.db.getTask(trigger.taskId)
     if (!task) {
-      console.warn(`[scheduler] fireTrigger skipped, task ${trigger.taskId} for trigger ${id} not found`)
+      log.warn("scheduler.trigger_task_missing", {
+        triggerId: id,
+        projectId: trigger.projectId,
+        taskId: trigger.taskId,
+      })
       return
     }
     const nowIso = now()
-    console.log(`[scheduler] FIRE trigger ${id} (${trigger.name}, kind=${trigger.kind}) task=${trigger.taskId} project=${trigger.projectId} fireAt=${fireAt.toISOString()}`)
+    log.info("scheduler.trigger_firing", {
+      triggerId: id,
+      projectId: trigger.projectId,
+      taskId: trigger.taskId,
+      name: trigger.name,
+      kind: trigger.kind,
+      fireAt: fireAt.toISOString(),
+    })
     try {
       const taskRun = await this.taskRunService.startTaskRun({
         projectId: trigger.projectId,
         taskId: trigger.taskId,
         scheduleTriggerId: trigger.id,
       })
-      console.log(`[scheduler] startTaskRun ok for trigger ${id} → taskRunId=${taskRun?.id ?? "(unknown)"} status=${taskRun?.status ?? "(unknown)"}`)
+      log.info("scheduler.trigger_started_task_run", {
+        triggerId: id,
+        projectId: trigger.projectId,
+        taskId: trigger.taskId,
+        taskRunId: taskRun?.id ?? null,
+        status: taskRun?.status ?? null,
+      })
     } catch (err) {
-      console.warn(`[scheduler] startTaskRun failed for trigger ${id}:`, err instanceof Error ? err.stack || err.message : err)
+      log.warn("scheduler.trigger_start_task_run_failed", {
+        triggerId: id,
+        projectId: trigger.projectId,
+        taskId: trigger.taskId,
+        error: err,
+      })
     }
     if (trigger.kind === "at") {
       this.db.updateScheduleTriggerFiredAt(id, nowIso, null)
       this.db.setScheduleTriggerEnabled(id, false)
       this.clearHandle(id)
-      console.log(`[scheduler] at-trigger ${id} consumed (auto-disabled)`)
+      log.info("scheduler.at_trigger_consumed", {
+        triggerId: id,
+        projectId: trigger.projectId,
+        taskId: trigger.taskId,
+      })
     } else {
       this.db.updateScheduleTriggerFiredAt(id, nowIso, null)
       this.rescheduleTrigger(id)
@@ -266,7 +328,12 @@ export class SchedulerService {
         const parsed = parseCronExpression(trigger.cronExpr)
         return computeNextCronFireTime(parsed)
       } catch (err) {
-        console.warn("[scheduler] invalid cron expression", trigger.id, err)
+        log.warn("scheduler.invalid_cron_expression", {
+          triggerId: trigger.id,
+          projectId: trigger.projectId,
+          taskId: trigger.taskId,
+          error: err,
+        })
         return null
       }
     }

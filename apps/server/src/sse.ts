@@ -1,6 +1,9 @@
 import type { FastifyReply, FastifyRequest } from "fastify"
 
+import { recordSseStreamClosed, recordSseStreamOpened } from "./observability.js"
+
 type SseStreamOptions<T> = {
+  streamName: string
   request: FastifyRequest
   reply: FastifyReply
   initialData?: T
@@ -25,6 +28,7 @@ const writeHeartbeat = (reply: FastifyReply) => {
 }
 
 export const createSseStream = <T>({
+  streamName,
   request,
   reply,
   initialData,
@@ -36,8 +40,10 @@ export const createSseStream = <T>({
   reply.raw.setHeader("Cache-Control", "no-cache")
   reply.raw.setHeader("Connection", "keep-alive")
   reply.raw.flushHeaders()
+  recordSseStreamOpened(streamName, request)
 
   let closed = false
+  let failed = false
   let unsubscribe = () => {}
 
   const cleanup = () => {
@@ -45,6 +51,7 @@ export const createSseStream = <T>({
     closed = true
     clearInterval(heartbeat)
     unsubscribe()
+    recordSseStreamClosed(streamName, request, failed)
     if (isWritable(reply)) {
       reply.raw.end()
     }
@@ -67,6 +74,7 @@ export const createSseStream = <T>({
   request.raw.on("close", cleanup)
   reply.raw.on("close", cleanup)
   reply.raw.on("error", () => {
+    failed = true
     if (!closed) {
       writeSseEvent(reply, "error", { message: "SSE stream failed" })
     }
@@ -83,6 +91,7 @@ export const createSseStream = <T>({
         emit(value)
       })
     } catch (error) {
+      failed = true
       writeSseEvent(reply, "error", {
         message: error instanceof Error ? error.message : "SSE subscription failed",
       })

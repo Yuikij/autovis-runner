@@ -65,6 +65,17 @@ export const listPendingTaskControlCommands = (db: DatabaseSync): PersistedTaskC
   return rows.map(mapTaskControlCommand)
 }
 
+export const listRequestedTaskControlCommandsForTask = (
+  db: DatabaseSync,
+  taskKind: PersistedTaskControlCommand["taskKind"],
+  taskId: string,
+): PersistedTaskControlCommand[] => {
+  const rows = typedRows<TaskControlCommandRow>(
+    db.prepare("SELECT * FROM task_control_commands WHERE task_kind = ? AND task_id = ? AND status = 'requested' ORDER BY requested_at ASC").all(taskKind, taskId),
+  )
+  return rows.map(mapTaskControlCommand)
+}
+
 export const orphanPendingTaskControlCommands = (db: DatabaseSync, note: string) => {
   db.prepare("UPDATE task_control_commands SET status = 'orphaned', resolved_at = ?, note = ? WHERE status = 'requested'")
     .run(now(), note)

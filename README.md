@@ -37,7 +37,7 @@ docker run -d \
   -e AUTOVIS_CONFIG_DIR=/var/lib/autovis/config \
   -e AUTOVIS_CLOUD_URL=https://your-autovis-cloud.example.com \
   -e AUTOVIS_DEVICE_TOKEN=<device-token> \
-  yuikij/autovis-runner:latest
+  yuimax/autovis-runner:latest
 ```
 
 For Docker, passing `AUTOVIS_CLOUD_URL` and `AUTOVIS_DEVICE_TOKEN` as

@@ -1,6 +1,6 @@
 services:
   autovis-runner:
-    image: yuikij/autovis-runner:latest
+    image: yuimax/autovis-runner:latest
     container_name: autovis-runner
     restart: unless-stopped
     shm_size: "2gb"

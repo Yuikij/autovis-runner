@@ -3,6 +3,21 @@ import { chromium as playwrightChromium, type Browser, type BrowserType } from "
 
 const nodeRequire = createRequire(import.meta.url)
 
+type ObservabilityState = {
+  browserStartFailures?: Map<string, number>
+}
+
+const OBSERVABILITY_KEY = "__autovisObservabilityState__"
+
+const recordBrowserStartFailure = (surface: string) => {
+  const globalState = globalThis as typeof globalThis & {
+    [OBSERVABILITY_KEY]?: ObservabilityState
+  }
+  const state = globalState[OBSERVABILITY_KEY] ??= {}
+  const map = state.browserStartFailures ??= new Map<string, number>()
+  map.set(surface, (map.get(surface) ?? 0) + 1)
+}
+
 /**
  * 浏览器后端选择：
  * - 缺省 `patchright`（反检测的 Chromium，drop-in 兼容 Playwright API）
@@ -21,6 +36,7 @@ const resolveChromium = (): BrowserType => {
     const patchright = nodeRequire("patchright") as { chromium: BrowserType }
     return patchright.chromium
   } catch (error) {
+    recordBrowserStartFailure("runner.patchright_backend_load")
     console.warn(
       `[browser-backend] BROWSER_BACKEND=${backend} 但加载 patchright 失败，回退到 @playwright/test：${
         error instanceof Error ? error.message : String(error)
@@ -74,11 +90,16 @@ export const launchReplayBrowser = async (options: {
   windowSize?: { width: number; height: number }
 }): Promise<Browser> => {
   if (!options.stealth) {
-    return chromium.launch({
-      headless: options.headless ?? true,
-      slowMo: options.slowMo,
-      args: localNetworkAccessArgs(),
-    })
+    try {
+      return await chromium.launch({
+        headless: options.headless ?? true,
+        slowMo: options.slowMo,
+        args: localNetworkAccessArgs(),
+      })
+    } catch (error) {
+      recordBrowserStartFailure("runner.replay_browser_launch")
+      throw error
+    }
   }
   const channel = (process.env.BROWSER_CHANNEL ?? "chrome").trim()
   const size = options.windowSize ?? { width: 1440, height: 960 }
@@ -90,11 +111,17 @@ export const launchReplayBrowser = async (options: {
   try {
     return await chromium.launch(channel ? { ...launchOptions, channel } : launchOptions)
   } catch (error) {
+    recordBrowserStartFailure("runner.replay_browser_channel_launch")
     console.warn(
       `[browser] channel=${channel} 回放启动失败，回退 bundled Chromium（反检测能力下降，建议 npx patchright install chrome）：${
         error instanceof Error ? error.message : String(error)
       }`,
     )
-    return await chromium.launch(launchOptions)
+    try {
+      return await chromium.launch(launchOptions)
+    } catch (fallbackError) {
+      recordBrowserStartFailure("runner.replay_browser_fallback_launch")
+      throw fallbackError
+    }
   }
 }

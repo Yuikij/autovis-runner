@@ -118,6 +118,7 @@ export async function runsRoutes(app: FastifyInstance) {
     }
   
     return createSseStream({
+      streamName: "run",
       request,
       reply,
       initialData: run,
@@ -204,6 +205,7 @@ export async function runsRoutes(app: FastifyInstance) {
     }
   
     return createSseStream({
+      streamName: "task-run",
       request,
       reply,
       initialData: taskRun,

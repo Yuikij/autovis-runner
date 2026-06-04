@@ -7,6 +7,7 @@ import { appendAgentDebugLog, buildToolSummary, buildToolTitle, getPageSnapshot,
 import { AGENT_TOOLS, executeTool } from "./agent/tools/index.js"
 import { executeStepTool } from "./agent/tools/execute-step.js"
 import { type AgentContext, type ScriptRuntimeContext, type ToolExecutionResult } from "./agent/types.js"
+import { log } from "./log.js"
 
 const MAX_TURNS = 80
 const MAX_CONSECUTIVE_TEXT_ONLY = 3
@@ -43,7 +44,15 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
   const effectiveBaseUrl = ctx.effectiveBaseUrl?.trim() || project.testBaseUrl
   // 用克隆后的 project 视图覆盖 testBaseUrl，prompts / execute_step 看到的都是用户选的 URL
   const effectiveProject = effectiveBaseUrl !== project.testBaseUrl ? { ...project, testBaseUrl: effectiveBaseUrl } : project
-  console.log(`[agent ${agentSessionId}] start: project=${project.name} case=${testCase.caseCode} effectiveBaseUrl=${effectiveBaseUrl || "(none)"}${effectiveBaseUrl !== project.testBaseUrl ? ` (overridden from project.testBaseUrl=${project.testBaseUrl})` : ""}`)
+  log.info("agent.loop_started", {
+    sessionId: agentSessionId,
+    projectId: project.id,
+    projectName: project.name,
+    testCaseId: testCase.id,
+    testCaseCode: testCase.caseCode,
+    effectiveBaseUrl: effectiveBaseUrl || null,
+    projectBaseUrlOverridden: effectiveBaseUrl !== project.testBaseUrl,
+  })
 
   const needsBrowser = Boolean(effectiveBaseUrl)
   let ownedBrowser: Browser | null = null
@@ -115,7 +124,12 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
         await waitForPageContent(page, 15_000)
         initStep.status = "completed"
         initStep.content = `浏览器已就绪，已导航到 ${effectiveBaseUrl}`
-        console.log(`[agent ${agentSessionId}] browser ready at ${effectiveBaseUrl}`)
+        log.info("agent.browser_ready", {
+          sessionId: agentSessionId,
+          projectId: project.id,
+          testCaseId: testCase.id,
+          effectiveBaseUrl,
+        })
         onStep(initStep)
       } catch (launchError) {
         const launchMsg = launchError instanceof Error ? launchError.message : String(launchError)
@@ -207,7 +221,14 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
         thinkStep.status = "error"
         thinkStep.content = error instanceof Error ? error.message : "LLM 调用失败"
         onStep(thinkStep)
-        console.error(`[agent ${agentSessionId}] LLM 调用失败 (turn ${turn + 1}):`, error)
+        log.warn("agent.llm_call_failed", {
+          sessionId: agentSessionId,
+          projectId: project.id,
+          testCaseId: testCase.id,
+          turn: turn + 1,
+          consecutiveFailures: consecutiveLlmErrors,
+          error,
+        })
         
         if (consecutiveLlmErrors >= 5) {
           throw new Error(`LLM 连续 ${consecutiveLlmErrors} 次调用失败: ${error instanceof Error ? error.message : String(error)}`)
@@ -364,14 +385,25 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
                 lastExecuteStepFailed = true
                 callStep.status = "error"
                 callStep.content = `步骤「${parsedArgs.title}」执行失败`
-                console.warn(`[agent ${agentSessionId}] execute_step「${parsedArgs.title}」验证失败，等待 LLM 修复后重试。content=${truncate(stepResult.content, 600)}`)
+                log.warn("agent.execute_step_validation_failed", {
+                  sessionId: agentSessionId,
+                  projectId: project.id,
+                  testCaseId: testCase.id,
+                  title: parsedArgs.title,
+                  contentPreview: truncate(stepResult.content, 600),
+                })
               }
 
               // 详细调试：打印 LLM 实际生成的完整脚本（控制台），并把脚本 + 未截断的执行结果/页面快照
               // 落盘到 <DATA_DIR>/artifacts/<sessionId>/agent-debug.log，便于排查"为什么这步失败"。
-              console.log(
-                `[agent ${agentSessionId}] execute_step「${parsedArgs.title}」${stepPassed ? "PASS" : "FAIL"} · LLM 生成脚本 ↓↓↓\n${String(parsedArgs.code ?? "(无 code)")}\n[agent ${agentSessionId}] ↑↑↑`,
-              )
+              log.debug("agent.execute_step_code_generated", {
+                sessionId: agentSessionId,
+                projectId: project.id,
+                testCaseId: testCase.id,
+                title: parsedArgs.title,
+                status: stepPassed ? "passed" : "failed",
+                generatedCode: String(parsedArgs.code ?? "(无 code)"),
+              })
               await appendAgentDebugLog(
                 artifactsDir,
                 agentSessionId,
@@ -411,7 +443,13 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
               const message = error instanceof Error ? error.message : String(error)
               needsRecovery = true
               lastExecuteStepFailed = true
-              console.error(`[agent ${agentSessionId}] execute_step「${parsedArgs.title}」抛出异常:`, error)
+              log.error("agent.execute_step_failed", {
+                sessionId: agentSessionId,
+                projectId: project.id,
+                testCaseId: testCase.id,
+                title: parsedArgs.title,
+                error,
+              })
               toolResult = {
                 stage: "generation",
                 content: `execute_step 执行异常: ${message}`,
@@ -555,7 +593,13 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
       })
 
       if (consecutiveTextOnly >= MAX_CONSECUTIVE_TEXT_ONLY) {
-        console.warn(`[agent ${agentSessionId}] LLM 连续 ${consecutiveTextOnly} 轮拒绝调用 execute_step（lastVerifiedCode=${lastVerifiedCode ? "有" : "无"}）。`)
+        log.warn("agent.execute_step_refused", {
+          sessionId: agentSessionId,
+          projectId: project.id,
+          testCaseId: testCase.id,
+          consecutiveTextOnly,
+          hasLastVerifiedCode: Boolean(lastVerifiedCode),
+        })
         if (lastVerifiedCode) {
           onStep({
             id: stepId(),

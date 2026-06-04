@@ -70,7 +70,12 @@ export const getRequestUser = (request: FastifyRequest): AuthUser | null =>
 export const getRequestLlmOwnerKey = (request: FastifyRequest) => llmOwnerForUser(getRequestUser(request))
 
 const isPublicApi = (url: string) =>
-  url === "/api/auth/session" || url === "/api/auth/login" || url === "/api/auth/logout" || url === "/api/health"
+  url === "/api/auth/session" ||
+  url === "/api/auth/login" ||
+  url === "/api/auth/logout" ||
+  url === "/api/health" ||
+  url === "/api/ready" ||
+  url === "/api/metrics"
 
 export const registerAuthHook = (
   app: FastifyInstance,

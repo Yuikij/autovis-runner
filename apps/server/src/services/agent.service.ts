@@ -10,6 +10,7 @@ import { runAgentLoop } from "../agent.js"
 import { AgentWarmupService } from "./agent-warmup.service.js"
 import { getPageSnapshot } from "../agent/helpers.js"
 import { type InitialPageState, type PreconditionReport } from "../agent/types.js"
+import { log } from "../log.js"
 
 import { finalizeRunnerSession, failRunnerSession, createExecutionStep, createExecutionTemplate, createRunnerSession, executeScriptInSession, type RunnerSession } from "@autovis/runner"
 import {
@@ -247,7 +248,12 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           current.session.lastSyncedAt = now()
         }
         this.llmService.saveLlmConfigState(state, ownerKey)
-        console.warn("LLM generation failed, falling back to template:", message)
+        log.warn("agent.generation_fallback", {
+          projectId: request.projectId,
+          testCaseId: request.testCaseId,
+          provider: current.session.provider,
+          reason: message,
+        })
       }
     }
 
@@ -294,6 +300,34 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       id: session.id,
       projectId: request.projectId,
       testCaseId: request.testCaseId,
+      recoveryPolicy: "restart",
+      request: {
+        ...request,
+        mode: "generate",
+        sessionId: session.id,
+      },
+      buildCheckpoint: () => ({
+        mode: session.mode,
+        status: session.status,
+        verificationStatus: session.verificationStatus,
+        stepCount: session.steps.length,
+        latestRunId: session.latestRunId ?? null,
+        warmupRunId: session.warmupRunId ?? null,
+        resultScriptId: session.resultScriptId ?? null,
+        pausedAt: session.pausedAt ?? null,
+      }),
+      applyAction: (action) => {
+        switch (action) {
+          case "pause":
+            return this.pauseAgent(session.id)
+          case "resume":
+            return this.resumeAgent(session.id)
+          case "cancel":
+            return this.cancelAgent(session.id)
+          default:
+            return false
+        }
+      },
     })
     const abortController = { signal: taskController.signal } as { signal: AbortSignal }
 
@@ -332,9 +366,23 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           const stateRow = this.db.getAuthProfileState(authProfile.id, resolvedRunTarget.id)
           if (stateRow?.storageStateJson) {
             authStorageStateJson = stateRow.storageStateJson
-            console.log(`[agent ${request.sessionId}] 注入登录态: profile=${authProfile.name} targetUrl=${resolvedRunUrl}`)
+            log.info("agent.auth_state_injected", {
+              sessionId: request.sessionId,
+              projectId: request.projectId,
+              testCaseId: request.testCaseId,
+              authProfileId: authProfile.id,
+              authProfileName: authProfile.name,
+              targetUrl: resolvedRunUrl,
+            })
           } else {
-            console.warn(`[agent ${request.sessionId}] 用例绑定了登录态 ${authProfile.name}，但 targetUrl=${resolvedRunUrl} 尚未采集 storageState，将以未登录状态生成脚本。`)
+            log.warn("agent.auth_state_missing", {
+              sessionId: request.sessionId,
+              projectId: request.projectId,
+              testCaseId: request.testCaseId,
+              authProfileId: authProfile.id,
+              authProfileName: authProfile.name,
+              targetUrl: resolvedRunUrl,
+            })
           }
         }
       }
@@ -558,6 +606,33 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       id: session.id,
       projectId: request.projectId,
       testCaseId: request.testCaseId,
+      recoveryPolicy: "restart",
+      request: {
+        ...request,
+        mode: "direct",
+        sessionId: session.id,
+      },
+      buildCheckpoint: () => ({
+        mode: session.mode,
+        status: session.status,
+        verificationStatus: session.verificationStatus,
+        stepCount: session.steps.length,
+        latestRunId: session.latestRunId ?? null,
+        warmupRunId: session.warmupRunId ?? null,
+        pausedAt: session.pausedAt ?? null,
+      }),
+      applyAction: (action) => {
+        switch (action) {
+          case "pause":
+            return this.pauseAgent(session.id)
+          case "resume":
+            return this.resumeAgent(session.id)
+          case "cancel":
+            return this.cancelAgent(session.id)
+          default:
+            return false
+        }
+      },
     })
     const abortController = { signal: taskController.signal } as { signal: AbortSignal }
 
@@ -609,7 +684,15 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           const stateRow = this.db.getAuthProfileState(authProfile.id, resolvedRunTarget.id)
           if (stateRow?.storageStateJson) {
             authStorageStateJson = stateRow.storageStateJson
-            console.log(`[agent ${request.sessionId}] 注入登录态: profile=${authProfile.name} targetUrl=${resolvedRunUrl}`)
+            log.info("agent.auth_state_injected", {
+              sessionId: request.sessionId,
+              projectId: request.projectId,
+              testCaseId: request.testCaseId,
+              taskRunId: request.taskRunId ?? null,
+              authProfileId: authProfile.id,
+              authProfileName: authProfile.name,
+              targetUrl: resolvedRunUrl,
+            })
           }
         }
       }
@@ -780,6 +863,48 @@ ${promptSummary || "// Prompt summary: (empty)"}`
         await warmupSession.browser.close().catch(() => undefined)
       }
     }
+  }
+
+  public async recoverAgent(sessionId: string) {
+    if (this.tasks.has(sessionId)) {
+      return this.db.getAgentSession(sessionId)
+    }
+
+    const existing = this.db.getAgentSession(sessionId)
+    if (!existing) {
+      throw new Error(`Agent session ${sessionId} not found`)
+    }
+    if (existing.status === "completed" || existing.status === "cancelled" || existing.status === "error" || existing.status === "interrupted") {
+      return existing
+    }
+
+    const leaseRequest = this.db.getTaskLease("agent", sessionId)?.request ?? {}
+    if (existing.mode === "direct") {
+      void this.runDirectAgent({
+        sessionId,
+        projectId: String(leaseRequest.projectId ?? existing.projectId),
+        testCaseId: String(leaseRequest.testCaseId ?? existing.testCaseId),
+        prompt: String(leaseRequest.prompt ?? ""),
+        runTargetUrlId: typeof leaseRequest.runTargetUrlId === "string" ? leaseRequest.runTargetUrlId : undefined,
+        taskRunId: typeof leaseRequest.taskRunId === "string" ? leaseRequest.taskRunId : existing.taskRunId,
+        llmOwnerKey: typeof leaseRequest.llmOwnerKey === "string" ? leaseRequest.llmOwnerKey : undefined,
+      })
+    } else {
+      void this.runScriptAgent({
+        sessionId,
+        projectId: String(leaseRequest.projectId ?? existing.projectId),
+        testCaseId: String(leaseRequest.testCaseId ?? existing.testCaseId),
+        prompt: String(leaseRequest.prompt ?? ""),
+        runTargetUrlId: typeof leaseRequest.runTargetUrlId === "string" ? leaseRequest.runTargetUrlId : undefined,
+        baseScriptId: typeof leaseRequest.baseScriptId === "string" ? leaseRequest.baseScriptId : undefined,
+        llmOwnerKey: typeof leaseRequest.llmOwnerKey === "string" ? leaseRequest.llmOwnerKey : undefined,
+      })
+    }
+
+    if (existing.status === "paused") {
+      this.pauseAgent(sessionId)
+    }
+    return this.db.getAgentSession(sessionId) ?? existing
   }
 
   /**

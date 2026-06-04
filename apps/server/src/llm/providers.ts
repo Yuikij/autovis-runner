@@ -1,5 +1,6 @@
 import type { LlmSessionConfig } from "@autovis/shared"
 import type { ChatMessage, CopilotToolCallResult, ToolDefinition } from "../copilot.js"
+import { log } from "../log.js"
 import type { LlmSecretState } from "./types.js"
 
 const OPENAI_USER_AGENT = "AutoVis/0.1"
@@ -143,9 +144,13 @@ export const callOpenAiCompatible = async (
   const url = withPath(session.baseUrl, "chat/completions")
   const headers = openAiHeaders(requireApiKey(secrets))
 
-  console.log(
-    `[callOpenAiCompatible] url=${url} model=${body.model} messages=${Array.isArray(body.messages) ? body.messages.length : "?"} bodyBytes=${JSON.stringify(body).length}`,
-  )
+  log.debug("llm.openai_compatible.request", {
+    provider: session.provider,
+    url,
+    model: body.model,
+    messageCount: Array.isArray(body.messages) ? body.messages.length : undefined,
+    bodyBytes: JSON.stringify(body).length,
+  })
 
   const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) })
   const payload = await parseResponse(response)

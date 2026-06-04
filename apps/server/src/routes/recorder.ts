@@ -110,6 +110,7 @@ export async function recorderRoutes(app: FastifyInstance) {
     }
   
     return createSseStream({
+      streamName: "recorder",
       request,
       reply,
       initialData: session,

@@ -12,6 +12,8 @@ import {
   type TestCase,
 } from "@autovis/shared"
 import { type ExecutionRun } from "@autovis/shared"
+import { log } from "../log.js"
+import { recordBrowserStartFailure } from "../observability.js"
 import { TaskControlRegistry } from "./task-control.js"
 
 export class RecorderService {
@@ -199,7 +201,22 @@ export class RecorderService {
     this.persistAndNotifyRecorder(session)
 
     const { chromium, localNetworkAccessArgs } = await import("../browser.js")
-    const browser = await chromium.launch({ headless: process.env.HEADLESS !== "false", args: localNetworkAccessArgs() })
+    let browser
+    try {
+      browser = await chromium.launch({ headless: process.env.HEADLESS !== "false", args: localNetworkAccessArgs() })
+    } catch (error) {
+      recordBrowserStartFailure("recorder_browser_launch", error, {
+        projectId: request.projectId,
+        testCaseId: request.testCaseId,
+      })
+      log.error("recorder.browser_launch_failed", {
+        sessionId: session.id,
+        projectId: request.projectId,
+        testCaseId: request.testCaseId,
+        error,
+      })
+      throw error
+    }
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, recordVideo: { dir: join(artifactsDir, session.id), size: { width: 1440, height: 960 } } })
     const page = await context.newPage()
     this.activeRecorderBrowsers.set(session.id, browser)
@@ -227,6 +244,29 @@ export class RecorderService {
       id: session.id,
       projectId: request.projectId,
       testCaseId: request.testCaseId,
+      recoveryPolicy: "terminate",
+      request: {
+        ...request,
+        targetUrlId: resolved.id,
+      },
+      buildCheckpoint: () => ({
+        status: session.status,
+        actionCount: session.actions.length,
+        currentUrl: session.currentUrl ?? null,
+        generatedScriptId: session.generatedScriptId ?? null,
+      }),
+      applyAction: (action) => {
+        switch (action) {
+          case "pause":
+            return this.pauseRecorder(session.id)
+          case "resume":
+            return this.resumeRecorder(session.id)
+          case "cancel":
+            return this.cancelRecorder(session.id)
+          default:
+            return false
+        }
+      },
     })
     this.persistAndNotifyRecorder(session)
     return session

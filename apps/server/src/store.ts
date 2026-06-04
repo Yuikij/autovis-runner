@@ -14,8 +14,10 @@ import { AgentWarmupService } from "./services/agent-warmup.service.js"
 import { RecorderService } from "./services/recorder.service.js"
 import { AuthLoginSandboxService } from "./services/auth-login-sandbox.service.js"
 import { SchedulerService } from "./services/scheduler.service.js"
-import { taskControlRegistry } from "./services/task-control.js"
+import { TaskControlRegistry } from "./services/task-control.js"
 import { getSessionToken, type AuthUser } from "./auth.js"
+import { CURRENT_SCHEMA_VERSION } from "./db/migrations.js"
+import { log } from "./log.js"
 import type { FastifyRequest } from "fastify"
 
 import {
@@ -52,8 +54,13 @@ import {
 class PersistentStore {
   private readonly db = new AutoVisDatabase(dataDir, appOrigin)
   private readonly workspace = new WorkspaceService(dataDir)
+  private readonly startedAt = now()
+  private recoveryStatus: "running" | "succeeded" | "failed" = "running"
+  private recoveryCompletedAt?: string
+  private recoveryError?: string
+  private schedulerStartedAt?: string
 
-  private readonly tasks = taskControlRegistry
+  private readonly tasks = new TaskControlRegistry(this.db)
   private readonly suiteService = new SuiteService(this.db)
   private readonly taskService = new TaskService(this.db)
   private readonly llmService = new LlmConfigService(this.db)
@@ -79,9 +86,22 @@ class PersistentStore {
     this.taskRunService.cancelRunCallback = (runId) => this.cancelRun(runId)
     this.taskRunService.cancelAgentCallback = (sessionId) => this.cancelAgent(sessionId)
     this.taskRunService.getAgentSessionCallback = (sessionId) => this.agentService.getAgentSession(sessionId)
+    this.taskRunService.recoverAgentCallback = (sessionId) => this.agentService.recoverAgent(sessionId)
     this.reapStaleTasks()
     this.scheduleTemporaryRunCleanup()
     this.schedulerService.start()
+    this.schedulerStartedAt = now()
+    void this.recoverExpiredTasks()
+      .then(() => {
+        this.recoveryStatus = "succeeded"
+        this.recoveryCompletedAt = now()
+      })
+      .catch((error) => {
+        this.recoveryStatus = "failed"
+        this.recoveryCompletedAt = now()
+        this.recoveryError = error instanceof Error ? error.message : String(error)
+        log.error("store.lease_recovery.failed", { error })
+      })
   }
 
   private scheduleTemporaryRunCleanup() {
@@ -99,7 +119,7 @@ class PersistentStore {
           try {
             this.db.deleteRun(run.id)
           } catch (err) {
-            console.warn("[store] failed to delete stale temporary run", run.id, err)
+            log.warn("store.temp_run_cleanup.failed", { runId: run.id, error: err })
           }
         }
       }
@@ -110,10 +130,10 @@ class PersistentStore {
 
   private reapStaleTasks() {
     const reason = "进程重启导致中断"
-    const isLive = (id: string) => this.tasks.has(id)
+    const shouldInterrupt = (kind: TaskKind, id: string) => !this.tasks.has(id) && !this.db.getTaskLease(kind, id)
 
     for (const agent of this.db.listAllAgentSessions()) {
-      if (!isLive(agent.id) && (agent.status === "running" || agent.status === "paused" || agent.status === "cancelling")) {
+      if (shouldInterrupt("agent", agent.id) && (agent.status === "running" || agent.status === "paused" || agent.status === "cancelling")) {
         agent.status = "interrupted"
         agent.error = agent.error || reason
         agent.finishedAt = agent.finishedAt || now()
@@ -123,7 +143,7 @@ class PersistentStore {
     }
 
     for (const run of this.db.listAllRuns()) {
-      if (!isLive(run.id) && (run.status === "running" || run.status === "paused" || run.status === "cancelling" || run.status === "awaiting_human" || run.status === "queued")) {
+      if (shouldInterrupt("run", run.id) && (run.status === "running" || run.status === "paused" || run.status === "cancelling" || run.status === "awaiting_human" || run.status === "queued")) {
         run.status = "interrupted"
         run.finishedAt = run.finishedAt || now()
         run.pendingHumanHandoff = undefined
@@ -133,7 +153,7 @@ class PersistentStore {
     }
 
     for (const taskRun of this.db.listAllTaskRuns()) {
-      if (!isLive(taskRun.id) && (taskRun.status === "running" || taskRun.status === "paused" || taskRun.status === "cancelling" || taskRun.status === "queued")) {
+      if (shouldInterrupt("task-run", taskRun.id) && (taskRun.status === "running" || taskRun.status === "paused" || taskRun.status === "cancelling" || taskRun.status === "queued")) {
         taskRun.status = "interrupted"
         taskRun.finishedAt = taskRun.finishedAt || now()
         taskRun.logs.push(`[${new Date().toLocaleTimeString()}] ${reason}`)
@@ -142,7 +162,7 @@ class PersistentStore {
     }
 
     for (const recorder of this.db.listAllRecorderSessions()) {
-      if (!isLive(recorder.id) && (recorder.status === "running" || recorder.status === "paused" || recorder.status === "cancelling" || recorder.status === "starting" || recorder.status === "stopping")) {
+      if (shouldInterrupt("recorder", recorder.id) && (recorder.status === "running" || recorder.status === "paused" || recorder.status === "cancelling" || recorder.status === "starting" || recorder.status === "stopping")) {
         recorder.status = "interrupted"
         recorder.finishedAt = recorder.finishedAt || now()
         recorder.error = recorder.error || reason
@@ -151,37 +171,83 @@ class PersistentStore {
     }
   }
 
-  private recordTaskControlCommand(kind: TaskKind, taskId: string, action: TaskControlAction, execute: () => boolean) {
-    const commandId = createId("task_ctrl")
-    this.db.createTaskControlCommand({
-      id: commandId,
-      taskKind: kind,
-      taskId,
-      action,
-      status: "requested",
-      requestedAt: now(),
-    })
-
-    try {
-      const ok = execute()
-      this.db.resolveTaskControlCommand(
-        commandId,
-        ok ? "applied" : "rejected",
-        ok ? undefined : "Task controller unavailable or state transition rejected.",
-      )
-      return ok
-    } catch (error) {
-      this.db.resolveTaskControlCommand(
-        commandId,
-        "rejected",
-        error instanceof Error ? error.message : String(error),
-      )
-      throw error
+  private getTaskStatus(kind: TaskKind, taskId: string) {
+    switch (kind) {
+      case "run":
+        return this.db.getRun(taskId)?.status
+      case "task-run":
+        return this.db.getTaskRun(taskId)?.status
+      case "agent":
+        return this.db.getAgentSession(taskId)?.status
+      case "recorder":
+        return this.db.getRecorderSession(taskId)?.status
+      default:
+        return undefined
     }
   }
 
-  private async recordTaskControlCommandAsync(kind: TaskKind, taskId: string, action: TaskControlAction, execute: () => Promise<boolean>) {
+  private isTerminalTaskStatus(kind: TaskKind, status: string | undefined) {
+    if (!status) return false
+    switch (kind) {
+      case "run":
+      case "task-run":
+        return status === "passed" || status === "failed" || status === "cancelled" || status === "interrupted"
+      case "agent":
+        return status === "completed" || status === "cancelled" || status === "error" || status === "interrupted"
+      case "recorder":
+        return status === "completed" || status === "cancelled" || status === "error" || status === "interrupted"
+      default:
+        return false
+    }
+  }
+
+  private recordTaskControlCommand(kind: TaskKind, taskId: string, action: TaskControlAction) {
     const commandId = createId("task_ctrl")
+    const taskStatus = this.getTaskStatus(kind, taskId)
+    const lease = this.db.getTaskLease(kind, taskId)
+
+    if (!taskStatus) {
+      this.db.createTaskControlCommand({
+        id: commandId,
+        taskKind: kind,
+        taskId,
+        action,
+        status: "rejected",
+        requestedAt: now(),
+        resolvedAt: now(),
+        note: "Task not found.",
+      })
+      return false
+    }
+
+    if (this.isTerminalTaskStatus(kind, taskStatus)) {
+      this.db.createTaskControlCommand({
+        id: commandId,
+        taskKind: kind,
+        taskId,
+        action,
+        status: "rejected",
+        requestedAt: now(),
+        resolvedAt: now(),
+        note: `Task already finished with status ${taskStatus}.`,
+      })
+      return false
+    }
+
+    if (!lease || (lease.status !== "active" && lease.status !== "recovering")) {
+      this.db.createTaskControlCommand({
+        id: commandId,
+        taskKind: kind,
+        taskId,
+        action,
+        status: "rejected",
+        requestedAt: now(),
+        resolvedAt: now(),
+        note: "Task lease unavailable for command dispatch.",
+      })
+      return false
+    }
+
     this.db.createTaskControlCommand({
       id: commandId,
       taskKind: kind,
@@ -190,22 +256,143 @@ class PersistentStore {
       status: "requested",
       requestedAt: now(),
     })
+    this.tasks.poke(kind, taskId)
+    return true
+  }
 
-    try {
-      const ok = await execute()
-      this.db.resolveTaskControlCommand(
-        commandId,
-        ok ? "applied" : "rejected",
-        ok ? undefined : "Task controller unavailable or state transition rejected.",
-      )
-      return ok
-    } catch (error) {
-      this.db.resolveTaskControlCommand(
-        commandId,
-        "rejected",
-        error instanceof Error ? error.message : String(error),
-      )
-      throw error
+  private async recoverExpiredTasks() {
+    const expiredLeases = this.db.listExpiredActiveTaskLeases()
+    if (expiredLeases.length === 0) {
+      return
+    }
+
+    const activeAgentRunIds = new Set(
+      this.db.listAllAgentSessions()
+        .filter((session) => session.status === "running" || session.status === "paused" || session.status === "cancelling")
+        .flatMap((session) => [session.latestRunId, session.warmupRunId].filter((value): value is string => Boolean(value))),
+    )
+
+    for (const lease of expiredLeases.filter((item) => item.taskKind === "task-run")) {
+      try {
+        await this.taskRunService.recoverTaskRun(lease.taskId)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        const taskRun = this.db.getTaskRun(lease.taskId)
+        if (taskRun && taskRun.status !== "passed" && taskRun.status !== "failed" && taskRun.status !== "cancelled" && taskRun.status !== "interrupted") {
+          taskRun.status = "interrupted"
+          taskRun.finishedAt = taskRun.finishedAt || now()
+          taskRun.logs.push(`[${new Date().toLocaleTimeString()}] 任务恢复失败: ${message}`)
+          this.db.upsertTaskRun(taskRun)
+        }
+        this.db.finalizeTaskLease({ taskKind: "task-run", taskId: lease.taskId, status: "terminated", lastError: message })
+      }
+    }
+
+    for (const lease of expiredLeases.filter((item) => item.taskKind === "agent")) {
+      const session = this.db.getAgentSession(lease.taskId)
+      if (!session || session.taskRunId) continue
+      try {
+        await this.agentService.recoverAgent(lease.taskId)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (session.status !== "completed" && session.status !== "cancelled" && session.status !== "error" && session.status !== "interrupted") {
+          session.status = "interrupted"
+          session.error = message
+          session.finishedAt = session.finishedAt || now()
+          session.pausedAt = undefined
+          this.db.upsertAgentSession(session)
+        }
+        this.db.finalizeTaskLease({ taskKind: "agent", taskId: lease.taskId, status: "terminated", lastError: message })
+      }
+    }
+
+    for (const lease of expiredLeases.filter((item) => item.taskKind === "run")) {
+      const run = this.db.getRun(lease.taskId)
+      if (!run || activeAgentRunIds.has(run.id) || run.taskRunId) continue
+      try {
+        await this.runService.recoverRun(lease.taskId)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (run.status !== "passed" && run.status !== "failed" && run.status !== "cancelled" && run.status !== "interrupted") {
+          run.status = "interrupted"
+          run.finishedAt = run.finishedAt || now()
+          run.pendingHumanHandoff = undefined
+          run.logs.push(`[${new Date().toLocaleTimeString()}] 运行恢复失败: ${message}`)
+          this.db.upsertRun(run)
+        }
+        this.db.finalizeTaskLease({ taskKind: "run", taskId: lease.taskId, status: "terminated", lastError: message })
+      }
+    }
+
+    for (const lease of expiredLeases.filter((item) => item.taskKind === "recorder")) {
+      const recorder = this.db.getRecorderSession(lease.taskId)
+      if (!recorder) continue
+      recorder.status = "interrupted"
+      recorder.finishedAt = recorder.finishedAt || now()
+      recorder.error = recorder.error || "Recorder session cannot be resumed after executor restart."
+      this.db.upsertRecorderSession(recorder)
+      this.db.finalizeTaskLease({
+        taskKind: "recorder",
+        taskId: lease.taskId,
+        status: "terminated",
+        lastError: recorder.error,
+      })
+    }
+  }
+
+  private async recordTaskControlCommandAsync(kind: TaskKind, taskId: string, action: TaskControlAction) {
+    return this.recordTaskControlCommand(kind, taskId, action)
+  }
+
+  private isActiveRunStatus(status: string) {
+    return status === "running" || status === "paused" || status === "cancelling" || status === "awaiting_human" || status === "queued"
+  }
+
+  private isActiveTaskRunStatus(status: string) {
+    return status === "running" || status === "paused" || status === "cancelling" || status === "queued"
+  }
+
+  private isActiveAgentStatus(status: string) {
+    return status === "running" || status === "paused" || status === "cancelling"
+  }
+
+  private isActiveRecorderStatus(status: string) {
+    return status === "running" || status === "paused" || status === "cancelling" || status === "starting" || status === "stopping"
+  }
+
+  getReadinessSnapshot() {
+    const ready = this.recoveryStatus === "succeeded" && Boolean(this.schedulerStartedAt)
+    return {
+      ready,
+      startedAt: this.startedAt,
+      recoveryStatus: this.recoveryStatus,
+      recoveryCompletedAt: this.recoveryCompletedAt,
+      recoveryError: this.recoveryError,
+      schedulerStartedAt: this.schedulerStartedAt,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+    }
+  }
+
+  getMetricsSnapshot() {
+    const readiness = this.getReadinessSnapshot()
+    const runs = this.db.listAllRuns()
+    const taskRuns = this.db.listAllTaskRuns()
+    const agents = this.db.listAllAgentSessions()
+    const recorders = this.db.listAllRecorderSessions()
+    const leases = this.db.listTaskLeases()
+
+    return {
+      ready: readiness.ready ? 1 : 0,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      uptimeSeconds: Math.floor((Date.now() - Date.parse(this.startedAt)) / 1000),
+      projectsTotal: this.db.listProjects().length,
+      activeRuns: runs.filter((item) => this.isActiveRunStatus(item.status)).length,
+      activeTaskRuns: taskRuns.filter((item) => this.isActiveTaskRunStatus(item.status)).length,
+      activeAgents: agents.filter((item) => this.isActiveAgentStatus(item.status)).length,
+      activeRecorders: recorders.filter((item) => this.isActiveRecorderStatus(item.status)).length,
+      activeLeases: leases.filter((item) => item.status === "active").length,
+      recoveringLeases: leases.filter((item) => item.status === "recovering").length,
+      expiredActiveLeases: this.db.listExpiredActiveTaskLeases().length,
     }
   }
 
@@ -381,22 +568,22 @@ class PersistentStore {
   async submitRunHumanInput(runId: string, handoffId: string, value: string) { return this.runStateService.submitRunHumanInput(runId, handoffId, value) }
   subscribe(runId: string, listener: (run: ExecutionRun) => void) { return this.runStateService.subscribe(runId, listener) }
   subscribeLiveViewport(runId: string, listener: (chunk: Uint8Array) => void) { return this.runStateService.subscribeLiveViewport(runId, listener) }
-  pauseRun(runId: string) { return this.recordTaskControlCommand("run", runId, "pause", () => this.runService.pauseRun(runId)) }
-  resumeRun(runId: string) { return this.recordTaskControlCommand("run", runId, "resume", () => this.runService.resumeRun(runId)) }
-  cancelRun(runId: string) { return this.recordTaskControlCommand("run", runId, "cancel", () => this.runService.cancelRun(runId)) }
-  pauseTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "pause", () => this.taskRunService.pauseTaskRun(taskRunId)) }
-  resumeTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "resume", () => this.taskRunService.resumeTaskRun(taskRunId)) }
-  cancelTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "cancel", () => this.taskRunService.cancelTaskRun(taskRunId)) }
+  pauseRun(runId: string) { return this.recordTaskControlCommand("run", runId, "pause") }
+  resumeRun(runId: string) { return this.recordTaskControlCommand("run", runId, "resume") }
+  cancelRun(runId: string) { return this.recordTaskControlCommand("run", runId, "cancel") }
+  pauseTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "pause") }
+  resumeTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "resume") }
+  cancelTaskRun(taskRunId: string) { return this.recordTaskControlCommand("task-run", taskRunId, "cancel") }
 
   // -- Agent control --
-  pauseAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "pause", () => this.agentService.pauseAgent(sessionId)) }
-  resumeAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "resume", () => this.agentService.resumeAgent(sessionId)) }
-  cancelAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "cancel", () => this.agentService.cancelAgent(sessionId)) }
+  pauseAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "pause") }
+  resumeAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "resume") }
+  cancelAgent(sessionId: string) { return this.recordTaskControlCommand("agent", sessionId, "cancel") }
 
   // -- Recorder control --
-  pauseRecorder(sessionId: string) { return this.recordTaskControlCommand("recorder", sessionId, "pause", () => this.recorderService.pauseRecorder(sessionId)) }
-  resumeRecorder(sessionId: string) { return this.recordTaskControlCommand("recorder", sessionId, "resume", () => this.recorderService.resumeRecorder(sessionId)) }
-  async cancelRecorder(sessionId: string) { return this.recordTaskControlCommandAsync("recorder", sessionId, "cancel", () => this.recorderService.cancelRecorder(sessionId)) }
+  pauseRecorder(sessionId: string) { return this.recordTaskControlCommand("recorder", sessionId, "pause") }
+  resumeRecorder(sessionId: string) { return this.recordTaskControlCommand("recorder", sessionId, "resume") }
+  async cancelRecorder(sessionId: string) { return this.recordTaskControlCommandAsync("recorder", sessionId, "cancel") }
   listTaskControlCommands(input: { projectId?: string; taskKind?: TaskKind; taskId?: string; status?: PersistedTaskControlCommand["status"]; limit?: number }) {
     return this.db.listTaskControlCommands(input)
   }

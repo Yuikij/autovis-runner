@@ -1,3 +1,8 @@
+import { createHash } from "node:crypto"
+
+import { log } from "./log.js"
+import { recordRelayConnected, recordRelayDisconnected, recordRelayHeartbeatFailure } from "./observability.js"
+
 type CloudClientOptions = {
   cloudUrl: string
   deviceToken: string
@@ -69,9 +74,11 @@ export const startCloudClient = (options: CloudClientOptions) => {
   const cloudUrl = trimSlash(options.cloudUrl)
   const localOrigin = trimSlash(options.localOrigin)
   const deviceToken = options.deviceToken
+  const deviceId = createHash("sha256").update(deviceToken).digest("hex").slice(0, 12)
   const localSockets = new Map<string, WebSocket>()
 
   let stopped = false
+  let hasConnectedOnce = false
   let reconnectDelay = RECONNECT_MIN_MS
 
   const heartbeat = async () => {
@@ -90,10 +97,19 @@ export const startCloudClient = (options: CloudClientOptions) => {
         }),
       })
       if (!response.ok) {
-        console.warn(`[cloud] heartbeat failed: ${response.status} ${await response.text()}`)
+        recordRelayHeartbeatFailure({
+          deviceId,
+          cloudUrl,
+          statusCode: response.status,
+          message: await response.text(),
+        })
       }
     } catch (error) {
-      console.warn(`[cloud] heartbeat failed: ${error instanceof Error ? error.message : String(error)}`)
+      recordRelayHeartbeatFailure({
+        deviceId,
+        cloudUrl,
+        message: error instanceof Error ? error.message : String(error),
+      })
     }
   }
 
@@ -189,26 +205,59 @@ export const startCloudClient = (options: CloudClientOptions) => {
     while (!stopped) {
       try {
         const socket = new WebSocket(toWebSocketUrl(cloudUrl, deviceToken))
+        let openedThisCycle = false
+        let disconnectSource: "close" | "error" = "close"
+        let disconnectCode: number | undefined
+        let disconnectReason: string | undefined
         socket.addEventListener("open", () => {
+          openedThisCycle = true
           reconnectDelay = RECONNECT_MIN_MS
-          console.log(`[cloud] connected to ${cloudUrl}`)
+          recordRelayConnected({ deviceId, cloudUrl, reconnected: hasConnectedOnce })
+          hasConnectedOnce = true
           void heartbeat()
         })
         socket.addEventListener("message", (event) => {
           try {
             handleMessage(socket, event.data)
           } catch (error) {
-            console.warn(`[cloud] message handling failed: ${error instanceof Error ? error.message : String(error)}`)
+            log.warn("relay.message_handling_failed", {
+              deviceId,
+              cloudUrl,
+              error,
+            })
           }
         })
         await new Promise<void>((resolve) => {
-          socket.addEventListener("close", () => resolve(), { once: true })
-          socket.addEventListener("error", () => resolve(), { once: true })
+          socket.addEventListener("close", (event) => {
+            disconnectSource = "close"
+            disconnectCode = event.code
+            disconnectReason = event.reason || undefined
+            resolve()
+          }, { once: true })
+          socket.addEventListener("error", () => {
+            disconnectSource = "error"
+            disconnectReason = "WebSocket error"
+            resolve()
+          }, { once: true })
         })
+        if (openedThisCycle) {
+          recordRelayDisconnected({
+            deviceId,
+            cloudUrl,
+            source: disconnectSource,
+            code: disconnectCode,
+            reason: disconnectReason,
+          })
+        }
         for (const localSocket of localSockets.values()) localSocket.close()
         localSockets.clear()
       } catch (error) {
-        console.warn(`[cloud] connection failed: ${error instanceof Error ? error.message : String(error)}`)
+        log.warn("relay.connection_failed", {
+          deviceId,
+          cloudUrl,
+          reconnectDelayMs: reconnectDelay,
+          error,
+        })
       }
       await sleep(reconnectDelay)
       reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS)

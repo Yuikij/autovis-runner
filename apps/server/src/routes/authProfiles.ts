@@ -51,6 +51,7 @@ export async function authProfilesRoutes(app: FastifyInstance) {
     const task = store.getValidationTask(taskId)
 
     return createSseStream({
+      streamName: "validation-task",
       request,
       reply,
       initialData: task,
