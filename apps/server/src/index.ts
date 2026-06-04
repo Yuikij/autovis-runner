@@ -12,7 +12,7 @@ import { authProfilesRoutes } from "./routes/authProfiles.js"
 import { authLoginSandboxRoutes } from "./routes/authLoginSandbox.js"
 import { scheduleTriggersRoutes } from "./routes/scheduleTriggers.js"
 import { authRoutes } from "./routes/auth.js"
-import { registerAuthHook } from "./auth.js"
+import { authEnabled, registerAuthHook } from "./auth.js"
 import websocket from "@fastify/websocket"
 import cors from "@fastify/cors"
 import multipart from "@fastify/multipart"
@@ -31,6 +31,31 @@ import { store } from "./store.js"
 const port = Number(process.env.PORT ?? 8787)
 const appOrigin = process.env.APP_ORIGIN ?? `http://localhost:${port}`
 const allowAnyCorsOrigin = process.env.NODE_ENV !== "production"
+const allowInsecureNoAuth = ["1", "true", "yes", "on"].includes((process.env.AUTOVIS_ALLOW_INSECURE_NO_AUTH ?? "").toLowerCase())
+
+const isLocalOrigin = (origin: string) => {
+  try {
+    const url = new URL(origin)
+    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+  } catch {
+    return false
+  }
+}
+
+if (process.env.NODE_ENV === "production" && !authEnabled) {
+  log.warn("auth.production_disabled", {
+    appOrigin,
+    allowInsecureNoAuth,
+  })
+
+  if (!isLocalOrigin(appOrigin) && !allowInsecureNoAuth) {
+    log.error("auth.production_insecure_start_blocked", {
+      appOrigin,
+      hint: "Set AUTOVIS_AUTH_ENABLED=true or AUTOVIS_ALLOW_INSECURE_NO_AUTH=true to continue.",
+    })
+    process.exit(1)
+  }
+}
 
 const app = Fastify({
   logger: {

@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react"
+
 import { appName, appVersion, navItems } from "./constants"
 import { FrontendErrorBoundary } from "./FrontendErrorBoundary"
 import { Badge } from "./components/ui/badge"
@@ -5,15 +7,16 @@ import { Button } from "./components/ui/button"
 import { PageHeader } from "./components/page-header"
 import type { ReadyWorkspaceController } from "./useWorkspaceController"
 import { DashboardSection } from "./sections/DashboardSection"
-import { ProjectsSection } from "./sections/ProjectsSection"
-import { CasesSection } from "./sections/CasesSection"
-import { WorkbenchSection } from "./sections/WorkbenchSection"
-import { RunsSection } from "./sections/RunsSection"
-import { AuthProfilesSection } from "./sections/auth-profiles"
-import { TargetUrlsSection } from "./sections/TargetUrlsSection"
-import { TasksSection } from "./sections/TasksSection"
-import { LlmConnectionsSection } from "./sections/LlmConnectionsSection"
 import type { AuthSession } from "../App"
+
+const ProjectsSection = lazy(async () => ({ default: (await import("./sections/ProjectsSection")).ProjectsSection }))
+const CasesSection = lazy(async () => ({ default: (await import("./sections/CasesSection")).CasesSection }))
+const WorkbenchSection = lazy(async () => ({ default: (await import("./sections/WorkbenchSection")).WorkbenchSection }))
+const RunsSection = lazy(async () => ({ default: (await import("./sections/RunsSection")).RunsSection }))
+const AuthProfilesSection = lazy(async () => ({ default: (await import("./sections/auth-profiles")).AuthProfilesSection }))
+const TargetUrlsSection = lazy(async () => ({ default: (await import("./sections/TargetUrlsSection")).TargetUrlsSection }))
+const TasksSection = lazy(async () => ({ default: (await import("./sections/TasksSection")).TasksSection }))
+const LlmConnectionsSection = lazy(async () => ({ default: (await import("./sections/LlmConnectionsSection")).LlmConnectionsSection }))
 
 const sectionCopy: Record<string, { title: string; description: string }> = {
   dashboard: { title: "总览", description: "集中查看项目健康度、模型连接状态和最近活动。" },
@@ -31,6 +34,14 @@ type WorkspaceShellProps = {
   authSession: AuthSession
   controller: ReadyWorkspaceController
   onLogout: () => Promise<void>
+}
+
+function SectionLoadingState({ title }: { title: string }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-card/50 px-6 py-8 text-sm text-muted-foreground shadow-sm">
+      正在加载 {title}…
+    </div>
+  )
 }
 
 export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceShellProps) {
@@ -152,15 +163,17 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
               </div>
             ) : null}
             <FrontendErrorBoundary section={activeSection} onGoDashboard={() => setActiveSection("dashboard")}>
-              {activeSection === "dashboard" ? <DashboardSection controller={controller} /> : null}
-              {activeSection === "projects" ? <ProjectsSection controller={controller} /> : null}
-              {activeSection === "cases" ? <CasesSection controller={controller} /> : null}
-              {activeSection === "tasks" ? <TasksSection controller={controller} /> : null}
-              {activeSection === "targetUrls" ? <TargetUrlsSection controller={controller} /> : null}
-              {activeSection === "authProfiles" ? <AuthProfilesSection controller={controller} /> : null}
-              {activeSection === "workbench" ? <WorkbenchSection controller={controller} /> : null}
-              {activeSection === "runs" ? <RunsSection controller={controller} /> : null}
-              {activeSection === "llmConnections" ? <LlmConnectionsSection controller={controller} /> : null}
+              <Suspense fallback={<SectionLoadingState title={currentSection.title} />}>
+                {activeSection === "dashboard" ? <DashboardSection controller={controller} /> : null}
+                {activeSection === "projects" ? <ProjectsSection controller={controller} /> : null}
+                {activeSection === "cases" ? <CasesSection controller={controller} /> : null}
+                {activeSection === "tasks" ? <TasksSection controller={controller} /> : null}
+                {activeSection === "targetUrls" ? <TargetUrlsSection controller={controller} /> : null}
+                {activeSection === "authProfiles" ? <AuthProfilesSection controller={controller} /> : null}
+                {activeSection === "workbench" ? <WorkbenchSection controller={controller} /> : null}
+                {activeSection === "runs" ? <RunsSection controller={controller} /> : null}
+                {activeSection === "llmConnections" ? <LlmConnectionsSection controller={controller} /> : null}
+              </Suspense>
             </FrontendErrorBoundary>
           </div>
         </main>

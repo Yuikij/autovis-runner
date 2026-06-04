@@ -6,6 +6,8 @@ and exposes the local web UI and API.
 
 ## Install
 
+Node.js 25 or newer is required for local installs and release artifacts.
+
 Linux:
 
 ```shell
@@ -59,6 +61,13 @@ Authentication is disabled by default. To protect a self-hosted runner, set:
 AUTOVIS_AUTH_ENABLED=true
 AUTOVIS_ADMIN_USER=admin
 AUTOVIS_ADMIN_PASSWORD=<strong-password>
+```
+
+In production, the runner now refuses to start without authentication when
+`APP_ORIGIN` is not localhost unless you explicitly set:
+
+```shell
+AUTOVIS_ALLOW_INSECURE_NO_AUTH=true
 ```
 
 LLM account storage can be shared by every login or separated per user:

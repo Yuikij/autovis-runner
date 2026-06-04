@@ -41,11 +41,11 @@ install_system_deps() {
 ensure_node() {
   if command -v node >/dev/null 2>&1; then
     major="$(node -p "process.versions.node.split('.')[0]")"
-    if [ "$major" -ge 22 ]; then
+    if [ "$major" -ge 25 ]; then
       return
     fi
   fi
-  err "Node.js 22+ is required. Install Node.js first, then rerun this installer."
+  err "Node.js 25+ is required. Install Node.js first, then rerun this installer."
 }
 
 main() {

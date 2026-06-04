@@ -24,6 +24,7 @@ export const llmOwnerForUser = (user?: AuthUser | null) =>
 
 const cookieName = "autovis_session"
 const sessionTtlMs = 1000 * 60 * 60 * 24 * 14
+const appOrigin = process.env.APP_ORIGIN ?? ""
 
 export const hashPassword = (password: string) => {
   const salt = randomBytes(16).toString("hex")
@@ -51,15 +52,34 @@ const parseCookies = (header: string | undefined) => {
 
 export const getSessionToken = (request: FastifyRequest) => parseCookies(request.headers.cookie).get(cookieName)
 
-export const setSessionCookie = (reply: FastifyReply, token: string) => {
+const requestUsesHttps = (request?: FastifyRequest) => {
+  if (appOrigin.toLowerCase().startsWith("https://")) {
+    return true
+  }
+
+  const forwardedProto = request?.headers["x-forwarded-proto"]
+  if (typeof forwardedProto === "string") {
+    return forwardedProto.split(",").some((value) => value.trim().toLowerCase() === "https")
+  }
+  if (Array.isArray(forwardedProto)) {
+    return forwardedProto.some((value) => value.trim().toLowerCase() === "https")
+  }
+
+  return false
+}
+
+const sessionCookieAttributes = (request?: FastifyRequest) =>
+  `Path=/; HttpOnly; SameSite=Lax${requestUsesHttps(request) ? "; Secure" : ""}`
+
+export const setSessionCookie = (reply: FastifyReply, token: string, request?: FastifyRequest) => {
   reply.header(
     "Set-Cookie",
-    `${cookieName}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(sessionTtlMs / 1000)}`,
+    `${cookieName}=${encodeURIComponent(token)}; ${sessionCookieAttributes(request)}; Max-Age=${Math.floor(sessionTtlMs / 1000)}`,
   )
 }
 
-export const clearSessionCookie = (reply: FastifyReply) => {
-  reply.header("Set-Cookie", `${cookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`)
+export const clearSessionCookie = (reply: FastifyReply, request?: FastifyRequest) => {
+  reply.header("Set-Cookie", `${cookieName}=; ${sessionCookieAttributes(request)}; Max-Age=0`)
 }
 
 export const sessionExpiresAt = () => new Date(Date.now() + sessionTtlMs).toISOString()

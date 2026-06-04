@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify"
 import { z } from "zod"
 import type {
   ApiEnvelope,
+  ConflictTaskResponse,
   CopilotPollDeviceFlowRequest,
   CopilotSessionResponse,
   CopilotStartDeviceFlowRequest,
@@ -42,11 +43,29 @@ import type {
 import { store } from "../store.js"
 import { getRequestLlmOwnerKey } from "../auth.js"
 import { createSseStream } from "../sse.js"
+import { buildTaskConflictResponse } from "./conflicts.js"
 
 const AGENT_TERMINAL_STATUSES = new Set(["completed", "error", "cancelled", "interrupted"])
 
+type AgentStartupConflictResponse = ConflictTaskResponse & {
+  sessionId: string
+}
+
+const buildAgentConflict = (sessionId: string, status: string): AgentStartupConflictResponse =>
+  ({
+    ...buildTaskConflictResponse({
+      code: "TASK_CONFLICT",
+      conflictId: sessionId,
+      conflictKind: "agent",
+      conflictStatus: status,
+      name: "Error",
+      message: "Agent startup conflict",
+    }),
+    sessionId,
+  })
+
 export async function agentRoutes(app: FastifyInstance) {
-  app.post("/scripts/generate", async (request, reply): Promise<ApiEnvelope<GenerateScriptResponse> | void> => {
+  app.post("/scripts/generate", async (request, reply): Promise<ApiEnvelope<GenerateScriptResponse | AgentStartupConflictResponse> | void> => {
     const body = z
       .object({
         projectId: z.string(),
@@ -59,12 +78,11 @@ export async function agentRoutes(app: FastifyInstance) {
 
     const existing = store.findActiveAgentForCase(body.testCaseId)
     if (existing) {
+      const status = existing.status
       reply.code(409)
       return {
-        data: {
-          sessionId: existing.id,
-        },
-      } as any
+        data: buildAgentConflict(existing.id, status),
+      }
     }
 
     const sessionId = `agent_${Math.random().toString(36).slice(2, 10)}`
@@ -84,7 +102,7 @@ export async function agentRoutes(app: FastifyInstance) {
     }
   })
 
-  app.post("/scripts/direct-execute", async (request, reply): Promise<ApiEnvelope<GenerateScriptResponse> | void> => {
+  app.post("/scripts/direct-execute", async (request, reply): Promise<ApiEnvelope<GenerateScriptResponse | AgentStartupConflictResponse> | void> => {
     const body = z
       .object({
         projectId: z.string(),
@@ -96,12 +114,11 @@ export async function agentRoutes(app: FastifyInstance) {
 
     const existing = store.findActiveAgentForCase(body.testCaseId)
     if (existing) {
+      const status = existing.status
       reply.code(409)
       return {
-        data: {
-          sessionId: existing.id,
-        },
-      } as any
+        data: buildAgentConflict(existing.id, status),
+      }
     }
 
     const sessionId = `agent_${Math.random().toString(36).slice(2, 10)}`

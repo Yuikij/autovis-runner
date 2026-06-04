@@ -24,7 +24,7 @@ export async function authRoutes(app: FastifyInstance) {
       return { message: "Invalid username or password" }
     }
 
-    setSessionCookie(reply, result.token)
+    setSessionCookie(reply, result.token, request)
     return {
       data: {
         authEnabled,
@@ -36,7 +36,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post("/auth/logout", async (request, reply) => {
     store.logout(request)
-    clearSessionCookie(reply)
+    clearSessionCookie(reply, request)
     return { data: true }
   })
 }

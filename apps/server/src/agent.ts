@@ -1,11 +1,11 @@
 import { type Browser, type BrowserContext, type Page } from "@playwright/test"
 import { launchReplayBrowser, shouldStealthReplay } from "./browser.js"
 import { type AgentStep } from "@autovis/shared"
-import { callLlmWithTools, generateTextWithLlm, type ChatMessage } from "./llm.js"
+import { callLlmWithTools, type ChatMessage } from "./llm.js"
 import { buildAgentSystemPrompt, buildAgentUserPrompt, buildDirectAgentSystemPrompt, buildDirectAgentUserPrompt } from "./agent/prompts.js"
-import { appendAgentDebugLog, buildToolSummary, buildToolTitle, getPageSnapshot, recoverBlankSpaRoute, waitForPageContent } from "./agent/helpers.js"
-import { AGENT_TOOLS, executeTool } from "./agent/tools/index.js"
-import { executeStepTool } from "./agent/tools/execute-step.js"
+import { buildToolSummary, recoverBlankSpaRoute, waitForPageContent } from "./agent/helpers.js"
+import { AGENT_TOOLS } from "./agent/tools/index.js"
+import { executeAgentToolCall } from "./agent/tool-execution.js"
 import { type AgentContext, type ScriptRuntimeContext, type ToolExecutionResult } from "./agent/types.js"
 import { log } from "./log.js"
 
@@ -277,244 +277,55 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
             parsedArgs = {}
           }
 
-          const title = buildToolTitle(toolCall.name, parsedArgs)
           const summary = buildToolSummary(toolCall.name, parsedArgs)
+          const executed = await executeAgentToolCall({
+            toolCall,
+            parsedArgs,
+            session,
+            secrets,
+            ctx,
+            project,
+            testCase,
+            effectiveProject,
+            effectiveBaseUrl,
+            agentSessionId,
+            artifactsDir,
+            pageMutatingTools: PAGE_MUTATING_TOOLS,
+            recoveryUrl,
+            ownedBrowser,
+            caseTextCorpus,
+            onStep,
+            stepId,
+            now,
+            truncate,
+            cloneRuntimeContext,
+            state: {
+              page,
+              browserContext,
+              recoveryStorageState,
+              lastVerifiedCode,
+              verifiedRuntimeContext,
+              needsRecovery,
+              liveStateDirty,
+              lastExecuteStepFailed,
+              pageDataCorpus,
+            },
+          })
 
-          const callStep: AgentStep = {
-            id: stepId(),
-            type: "tool_call",
-            stage: toolCall.name === "execute_step" ? "generation" : "page",
-            title,
-            content: summary,
-            status: "running",
-            toolName: toolCall.name,
-            timestamp: now(),
-            payloadJson: toolCall.name === "execute_step" ? undefined : JSON.stringify(parsedArgs, null, 2),
-          }
-          onStep(callStep)
-
-          let toolResult: ToolExecutionResult
-
-          if (toolCall.name === "execute_step" && page) {
-            const attemptRuntimeContext = cloneRuntimeContext(verifiedRuntimeContext)
-            try {
-              const stepResult = await executeStepTool(
-                parsedArgs as { title: string; code: string },
-                {
-                  page,
-                  project: effectiveProject,
-                  agentSessionId,
-                  artifactsDir,
-                  lastVerifiedCode,
-                  analyzeImage: ctx.analyzeImage,
-                  requestHumanInput: ctx.requestHumanInput,
-                  generateText: async (prompt: string, systemPrompt?: string) => {
-                    return generateTextWithLlm({
-                      prompt,
-                      systemPrompt,
-                      session,
-                      secrets,
-                    })
-                  },
-                  forceReplayFromCheckpoint: needsRecovery || liveStateDirty,
-                  resetBrowser: async () => {
-                    if (!recoveryUrl) {
-                      return page!
-                    }
-
-                    const recoveryBrowser = browserContext?.browser() ?? ownedBrowser ?? ctx.browser ?? null
-                    if (!recoveryBrowser || !recoveryStorageState) {
-                      try {
-                        await page!.goto(recoveryUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
-                      } catch (navErr) {
-                        if (!(navErr instanceof Error && navErr.message.includes("interrupted by another navigation"))) {
-                          throw navErr
-                        }
-                        await page!.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
-                      }
-                      await recoverBlankSpaRoute(page!, recoveryUrl, effectiveBaseUrl)
-                      await page!.waitForLoadState("load", { timeout: 8_000 }).catch(() => undefined)
-                      await waitForPageContent(page!, 15_000)
-                      return page!
-                    }
-
-                    await browserContext?.close().catch(() => undefined)
-                    // 回放必须与生成时同一指纹，否则\u201c脚本写完了重放也不一定对\u201d：
-                    // 初始 context 在 stealth 时用 viewport:null（见上方启动逻辑），这里保持一致。
-                    const replayStealth = shouldStealthReplay(ctx.authStorageStateJson)
-                    browserContext = await recoveryBrowser.newContext({
-                      viewport: replayStealth ? null : { width: 1440, height: 960 },
-                      ignoreHTTPSErrors: true,
-                      storageState: recoveryStorageState,
-                    })
-                    page = await browserContext.newPage()
-                    try {
-                      await page.goto(recoveryUrl, { waitUntil: "domcontentloaded", timeout: 15_000 })
-                    } catch (navErr) {
-                      if (!(navErr instanceof Error && navErr.message.includes("interrupted by another navigation"))) {
-                        throw navErr
-                      }
-                      await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
-                    }
-                    await recoverBlankSpaRoute(page, recoveryUrl, effectiveBaseUrl)
-                    await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => undefined)
-                    await waitForPageContent(page, 15_000)
-                    return page
-                  },
-                  dataGuard: { caseTextCorpus, pageDataCorpus },
-                  runtimeContext: attemptRuntimeContext,
-                  onStep: ctx.onStep,
-                },
-              )
-
-              const stepPassed = Boolean(stepResult.newVerifiedCode)
-              if (stepResult.newVerifiedCode) {
-                lastVerifiedCode = stepResult.newVerifiedCode
-                verifiedRuntimeContext = attemptRuntimeContext
-                needsRecovery = false
-                lastExecuteStepFailed = false
-                liveStateDirty = false
-                // 刷新 storageState 快照，捕获步骤执行后可能更新的 cookie/token（sliding session）
-                if (browserContext) {
-                  recoveryStorageState = await browserContext.storageState().catch(() => recoveryStorageState)
-                }
-                callStep.status = "completed"
-                callStep.content = `步骤「${parsedArgs.title}」验证通过`
-              } else {
-                needsRecovery = true
-                lastExecuteStepFailed = true
-                callStep.status = "error"
-                callStep.content = `步骤「${parsedArgs.title}」执行失败`
-                log.warn("agent.execute_step_validation_failed", {
-                  sessionId: agentSessionId,
-                  projectId: project.id,
-                  testCaseId: testCase.id,
-                  title: parsedArgs.title,
-                  contentPreview: truncate(stepResult.content, 600),
-                })
-              }
-
-              // 详细调试：打印 LLM 实际生成的完整脚本（控制台），并把脚本 + 未截断的执行结果/页面快照
-              // 落盘到 <DATA_DIR>/artifacts/<sessionId>/agent-debug.log，便于排查"为什么这步失败"。
-              log.debug("agent.execute_step_code_generated", {
-                sessionId: agentSessionId,
-                projectId: project.id,
-                testCaseId: testCase.id,
-                title: parsedArgs.title,
-                status: stepPassed ? "passed" : "failed",
-                generatedCode: String(parsedArgs.code ?? "(无 code)"),
-              })
-              await appendAgentDebugLog(
-                artifactsDir,
-                agentSessionId,
-                [
-                  `\n==== ${now()} execute_step「${String(parsedArgs.title)}」 → ${stepPassed ? "PASS" : "FAIL"} ====`,
-                  `URL: ${stepResult.url ?? page?.url() ?? "?"}`,
-                  "--- LLM 生成的完整累积脚本 ---",
-                  String(parsedArgs.code ?? "(无 code)"),
-                  "--- 执行结果 / 错误 / 完整页面快照（含 iframe）---",
-                  stepResult.content,
-                ].join("\n"),
-              )
-
-              if (stepResult.newPage) {
-                page = stepResult.newPage
-              }
-
-              if (page) {
-                try {
-                  const fresh = await getPageSnapshot(page)
-                  if (fresh) {
-                    // 始终只保留最新快照，避免累积到阈值后突然全部丢弃
-                    pageDataCorpus = fresh
-                  }
-                } catch {
-                  // 快照失败不影响主流程
-                }
-              }
-
-              toolResult = {
-                stage: stepResult.stage,
-                content: stepResult.content,
-                screenshotUrl: stepResult.screenshotUrl,
-                url: stepResult.url,
-              }
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error)
-              needsRecovery = true
-              lastExecuteStepFailed = true
-              log.error("agent.execute_step_failed", {
-                sessionId: agentSessionId,
-                projectId: project.id,
-                testCaseId: testCase.id,
-                title: parsedArgs.title,
-                error,
-              })
-              toolResult = {
-                stage: "generation",
-                content: `execute_step 执行异常: ${message}`,
-              }
-              callStep.status = "error"
-              callStep.content = message
-            }
-          } else {
-            // 交互探索工具改了页面 → 标记 live 状态已脏，下次 execute_step 会从干净态全量重放校验。
-            const mutatesLiveState =
-              PAGE_MUTATING_TOOLS.has(toolCall.name) ||
-              (toolCall.name === "inspect_page" && Boolean((parsedArgs as { url?: string }).url))
-            if (mutatesLiveState) {
-              liveStateDirty = true
-            }
-            try {
-              toolResult = await executeTool(toolCall.name, toolCall.arguments, {
-                page,
-                project: effectiveProject,
-                agentSessionId,
-                artifactsDir,
-                hasWorkspace: ctx.hasWorkspace,
-                listWorkspaceTree: ctx.listWorkspaceTree,
-                globWorkspacePaths: ctx.globWorkspacePaths,
-                searchWorkspaceCode: ctx.searchWorkspaceCode,
-                readWorkspaceFile: ctx.readWorkspaceFile,
-                analyzeImage: ctx.analyzeImage,
-              })
-              callStep.status = "completed"
-              callStep.content = `${title} 完成`
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error)
-              toolResult = {
-                stage: "page",
-                content: `工具执行失败: ${message}`,
-                payloadJson: JSON.stringify(parsedArgs, null, 2),
-              }
-              callStep.status = "error"
-              callStep.content = message
-            }
-          }
-          onStep(callStep)
-
-          const resultStep: AgentStep = {
-            id: stepId(),
-            type: "tool_result",
-            stage: toolResult.stage ?? "page",
-            title: `${title} 结果`,
-            content: truncate(toolResult.content, 1600),
-            detail: toolResult.detail,
-            status: callStep.status === "error" ? "error" : "completed",
-            toolName: toolCall.name,
-            timestamp: now(),
-            payloadJson: toolResult.payloadJson,
-            screenshotUrl: toolResult.screenshotUrl,
-            url: toolResult.url,
-            fileName: toolResult.fileName,
-            selector: toolResult.selector,
-          }
-          onStep(resultStep)
+          page = executed.state.page
+          browserContext = executed.state.browserContext
+          recoveryStorageState = executed.state.recoveryStorageState
+          lastVerifiedCode = executed.state.lastVerifiedCode
+          verifiedRuntimeContext = executed.state.verifiedRuntimeContext
+          needsRecovery = executed.state.needsRecovery
+          liveStateDirty = executed.state.liveStateDirty
+          lastExecuteStepFailed = executed.state.lastExecuteStepFailed
+          pageDataCorpus = executed.state.pageDataCorpus
 
           messages.push({
             role: "tool",
             tool_call_id: toolCall.id,
-            content: toolResult.content,
+            content: executed.toolMessageContent,
           })
         }
         continue

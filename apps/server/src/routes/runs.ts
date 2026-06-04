@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify"
 import { z } from "zod"
 import type {
   ApiEnvelope,
+  ConflictTaskResponse,
   ExecutionRun,
   GenerateScriptResponse,
   PersistedTaskControlCommand,
@@ -14,9 +15,19 @@ import type {
 import { store } from "../store.js"
 import { getRequestLlmOwnerKey } from "../auth.js"
 import { createSseStream } from "../sse.js"
+import { buildTaskConflictResponse, isTaskConflictError } from "./conflicts.js"
 
 const RUN_TERMINAL_STATUSES = new Set<ExecutionRun["status"]>(["passed", "failed", "cancelled", "interrupted"])
 const TASK_RUN_TERMINAL_STATUSES = new Set<TaskRun["status"]>(["passed", "failed", "cancelled", "interrupted"])
+
+type RunStartupConflictResponse = ConflictTaskResponse & {
+  run?: ExecutionRun
+}
+
+const withRunConflict = async (conflictId: string, base: ConflictTaskResponse): Promise<RunStartupConflictResponse> => ({
+  ...base,
+  run: (await store.getRun(conflictId)) ?? undefined,
+})
 
 export async function runsRoutes(app: FastifyInstance) {
   app.get("/task-control-commands", async (request): Promise<ApiEnvelope<PersistedTaskControlCommand[]>> => {
@@ -33,7 +44,7 @@ export async function runsRoutes(app: FastifyInstance) {
     }
   })
 
-  app.post("/runs", async (request, reply): Promise<ApiEnvelope<StartRunResponse> | void> => {
+  app.post("/runs", async (request, reply): Promise<ApiEnvelope<StartRunResponse | RunStartupConflictResponse> | void> => {
     const body = z
       .object({
         projectId: z.string(),
@@ -52,20 +63,18 @@ export async function runsRoutes(app: FastifyInstance) {
           run: await store.startRun({ ...body, llmOwnerKey: getRequestLlmOwnerKey(request) }),
         },
       }
-    } catch (err: any) {
-      if (err?.code === "TASK_CONFLICT" && err.conflictId) {
+    } catch (err) {
+      if (isTaskConflictError(err) && err.conflictId) {
         reply.code(409)
         return {
-          data: {
-            run: (await store.getRun(err.conflictId)) ?? (undefined as any),
-          },
-        } as any
+          data: await withRunConflict(err.conflictId, buildTaskConflictResponse(err)),
+        }
       }
       throw err
     }
   })
 
-  app.post("/verifications", async (request): Promise<ApiEnvelope<StartVerificationResponse>> => {
+  app.post("/verifications", async (request, reply): Promise<ApiEnvelope<StartVerificationResponse | RunStartupConflictResponse> | void> => {
     const body = z
       .object({
         projectId: z.string(),
@@ -74,11 +83,21 @@ export async function runsRoutes(app: FastifyInstance) {
         targetUrlId: z.string().optional(),
       })
       .parse(request.body) as StartVerificationRequest
-  
-    return {
-      data: {
-        run: await store.startVerification({ ...body, llmOwnerKey: getRequestLlmOwnerKey(request) }),
-      },
+
+    try {
+      return {
+        data: {
+          run: await store.startVerification({ ...body, llmOwnerKey: getRequestLlmOwnerKey(request) }),
+        },
+      }
+    } catch (err) {
+      if (isTaskConflictError(err) && err.conflictId) {
+        reply.code(409)
+        return {
+          data: await withRunConflict(err.conflictId, buildTaskConflictResponse(err)),
+        }
+      }
+      throw err
     }
   })
 
