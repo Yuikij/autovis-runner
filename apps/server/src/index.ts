@@ -61,6 +61,7 @@ const app = Fastify({
   logger: {
     level: process.env.AUTOVIS_LOG_LEVEL ?? "info",
   },
+  disableRequestLogging: true,
   requestIdHeader: "x-request-id",
   genReqId(request) {
     const header = request.headers["x-request-id"]
@@ -173,11 +174,10 @@ app.route({
     reply.type(contentType)
 
     if (request.method === "HEAD") {
-      reply.send()
-      return
+      return reply.send()
     }
 
-    reply.send(createReadStream(resolved.filePath))
+    return reply.send(createReadStream(resolved.filePath))
   },
 })
 
