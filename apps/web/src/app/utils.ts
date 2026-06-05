@@ -12,6 +12,22 @@ export const resolveUrl = (url?: string) => {
   return `${apiBase}${url}`
 }
 
+export const resolveWebSocketUrl = (url?: string) => {
+  if (!url || typeof window === "undefined") {
+    return url ?? ""
+  }
+
+  const source = new URL(url, window.location.href)
+  const base = new URL(apiBase || "/", window.location.href)
+  const basePath = base.pathname.replace(/\/$/, "")
+  const sourcePath = `${source.pathname}${source.search}${source.hash}`
+  const path = sourcePath.startsWith(`${basePath}/`) || (!basePath && sourcePath.startsWith("/"))
+    ? sourcePath
+    : `${basePath}${sourcePath.startsWith("/") ? sourcePath : `/${sourcePath}`}`
+  const protocol = base.protocol === "https:" ? "wss:" : "ws:"
+  return `${protocol}//${base.host}${path}`
+}
+
 export const formatDateTime = (value?: string) => {
   if (!value) {
     return "--"
@@ -106,4 +122,3 @@ export const translateTestType = (type: string) => {
   }
   return map[type] ?? type
 }
-

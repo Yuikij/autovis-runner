@@ -86,7 +86,7 @@ EOF
 
   cd "$INSTALL_DIR/app"
   pnpm install --prod --frozen-lockfile
-  pnpm --filter @autovis/server exec playwright install chromium
+  pnpm --filter @autovis/server exec playwright install chromium chrome
 
   cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]

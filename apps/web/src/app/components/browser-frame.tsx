@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { resolveUrl } from "../utils"
+import { resolveUrl, resolveWebSocketUrl } from "../utils"
 import type { LiveViewportState } from "@autovis/shared"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 
@@ -39,7 +39,7 @@ export function BrowserFrame({
     }
 
     let disposed = false
-    const socket = new WebSocket(liveViewport.url)
+    const socket = new WebSocket(resolveWebSocketUrl(liveViewport.url))
     socket.binaryType = "arraybuffer"
     socket.onmessage = (event) => {
       if (disposed || !(event.data instanceof ArrayBuffer) || !canvasRef.current) {

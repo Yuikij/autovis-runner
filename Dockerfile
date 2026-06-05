@@ -27,7 +27,7 @@ COPY --from=builder /src/dist-packages/autovis-runner-*/ /opt/autovis-runner/
 RUN npm install -g pnpm@10.20.0 \
   && cd /opt/autovis-runner/app \
   && pnpm install --prod --frozen-lockfile \
-  && pnpm --filter @autovis/server exec playwright install chromium
+  && pnpm --filter @autovis/server exec playwright install chromium chrome
 
 VOLUME ["/var/lib/autovis"]
 EXPOSE 8787

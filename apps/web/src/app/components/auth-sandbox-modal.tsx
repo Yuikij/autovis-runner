@@ -7,6 +7,7 @@ import type {
 } from "@autovis/shared"
 import { request } from "../api"
 import { apiRoutes } from "../apiRoutes"
+import { resolveWebSocketUrl } from "../utils"
 import { Button } from "./ui/button"
 
 // 服务端用 viewport:null（跟随真实窗口）启动反检测浏览器，真实 CSS 视口尺寸由
@@ -85,7 +86,7 @@ export function AuthSandboxModal({
 
   // 连 WS-JPEG 实时画面
   useEffect(() => {
-    const liveUrl = session?.liveViewport?.url
+    const liveUrl = resolveWebSocketUrl(session?.liveViewport?.url)
     if (!liveUrl) return undefined
 
     let disposed = false

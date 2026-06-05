@@ -59,12 +59,14 @@ export const chromium = resolveChromium()
  * 这是自动化测试浏览器（受控环境），关掉该限制是安全且必要的；可用 LOCAL_NETWORK_ACCESS=0 关闭本开关。
  */
 const localNetworkAccessArgs = (): string[] => {
+  const args = ["--no-sandbox", "--disable-setuid-sandbox"]
   if ((process.env.LOCAL_NETWORK_ACCESS ?? "1").trim() === "0") {
-    return []
+    return args
   }
-  return [
+  args.push(
     "--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessForNavigations,PrivateNetworkAccessForWorkers",
-  ]
+  )
+  return args
 }
 
 /**
