@@ -27,6 +27,9 @@ type TunnelEnvelope =
 const HEARTBEAT_INTERVAL_MS = 20_000
 const RECONNECT_MIN_MS = 1_000
 const RECONNECT_MAX_MS = 30_000
+// 二进制产物（如录制 webm）分块回传：单帧远低于 Cloudflare 32MiB 收帧上限与中继的 envelope 校验上限，
+// 避免大文件被中继判定为超大帧而整条 agent 连接被关闭（导致视频等大产物在远程模式下完全无法访问）。
+const RESPONSE_CHUNK_BYTES = 512 * 1024
 const TEXT_CONTENT_TYPES = [
   "application/json",
   "application/javascript",
@@ -76,6 +79,33 @@ export const startCloudClient = (options: CloudClientOptions) => {
   const deviceToken = options.deviceToken
   const deviceId = createHash("sha256").update(deviceToken).digest("hex").slice(0, 12)
   const localSockets = new Map<string, WebSocket>()
+
+  // 当 AUTOVIS_AUTH_ENABLED=true 时，runner 的 /api/* WS（如 LiveViewport 的 /live）也会被鉴权 preHandler 拦截。
+  // HTTP 请求经中继时会携带浏览器 Cookie，但中继的 ws-open 不转发任何头，导致桥接到本地的 WS 因缺少 autovis_session
+  // 被 401 关闭（浏览器侧只看到 101，但收不到任何帧 → LiveViewport 全程空白）。
+  // 这里用本机管理员凭据换一个本地会话 Cookie，作为可信桥接的服务身份附加到本地 WS；用户在云端早已完成鉴权。
+  let localAuthCookie: string | null = null
+  const refreshLocalAuthCookie = async () => {
+    const username = process.env.AUTOVIS_ADMIN_USER?.trim() || "admin"
+    const password = process.env.AUTOVIS_ADMIN_PASSWORD?.trim()
+    if (!password) {
+      localAuthCookie = null
+      return
+    }
+    try {
+      const response = await fetch(`${localOrigin}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      })
+      if (!response.ok) return
+      const headers = response.headers as Headers & { getSetCookie?: () => string[] }
+      const rawCookie = headers.getSetCookie?.()[0] ?? response.headers.get("set-cookie")
+      if (rawCookie) localAuthCookie = rawCookie.split(";")[0] ?? null
+    } catch {
+      // 鉴权未开启或登录失败时保持 null，本地 WS 仍可无 Cookie 连接（未鉴权场景）。
+    }
+  }
 
   let stopped = false
   let hasConnectedOnce = false
@@ -131,17 +161,32 @@ export const startCloudClient = (options: CloudClientOptions) => {
       const contentType = response.headers.get("content-type") ?? ""
       const text = isTextResponse(contentType)
 
+      if (text) {
+        send(socket, {
+          type: "response",
+          id,
+          response: {
+            status: response.status,
+            headers,
+            body: new TextDecoder().decode(bodyBuffer),
+            binary: false,
+          },
+        })
+        return
+      }
+
+      // 二进制响应分块流式回传：start → chunk* → end，避免单帧过大被中继拒收并关闭连接。
       send(socket, {
-        type: "response",
+        type: "response-start",
         id,
-        response: {
-          status: response.status,
-          headers,
-          body: text ? new TextDecoder().decode(bodyBuffer) : undefined,
-          bodyBase64: text ? undefined : bufferToBase64(bodyBuffer),
-          binary: !text,
-        },
+        response: { status: response.status, headers },
       })
+      const buffer = Buffer.from(bodyBuffer)
+      for (let offset = 0; offset < buffer.length; offset += RESPONSE_CHUNK_BYTES) {
+        const chunk = buffer.subarray(offset, offset + RESPONSE_CHUNK_BYTES)
+        send(socket, { type: "response-chunk", id, data: chunk.toString("base64") })
+      }
+      send(socket, { type: "response-end", id })
     } catch (error) {
       send(socket, {
         type: "response",
@@ -155,7 +200,9 @@ export const startCloudClient = (options: CloudClientOptions) => {
   }
 
   const openLocalSocket = (agentSocket: WebSocket, id: string, path: string) => {
-    const localSocket = new WebSocket(toLocalWsUrl(localOrigin, path))
+    // 带上服务身份 Cookie 才能通过鉴权 preHandler（见 refreshLocalAuthCookie）。
+    const wsOptions = localAuthCookie ? { headers: { Cookie: localAuthCookie } } : undefined
+    const localSocket = new WebSocket(toLocalWsUrl(localOrigin, path), wsOptions as never)
     // Node 的全局 WebSocket(undici) 默认 binaryType="blob"，二进制帧会回传 Blob，
     // 而 Buffer.from(Blob) 会抛 ERR_INVALID_ARG_TYPE —— 监听器内异常导致每一帧被静默丢弃，
     // 表现为云端中继下 LiveViewport(WS-JPEG) 全程黑屏。强制 arraybuffer 才能正确转 base64。
@@ -219,6 +266,7 @@ export const startCloudClient = (options: CloudClientOptions) => {
           recordRelayConnected({ deviceId, cloudUrl, reconnected: hasConnectedOnce })
           hasConnectedOnce = true
           void heartbeat()
+          void refreshLocalAuthCookie()
         })
         socket.addEventListener("message", (event) => {
           try {
@@ -270,6 +318,7 @@ export const startCloudClient = (options: CloudClientOptions) => {
 
   const heartbeatTimer = setInterval(() => void heartbeat(), HEARTBEAT_INTERVAL_MS)
   void heartbeat()
+  void refreshLocalAuthCookie()
   void connect()
 
   return () => {

@@ -7,7 +7,7 @@ import { EmptyState } from "../../components/empty-state"
 import { BrowserFrame } from "../../components/browser-frame"
 import { LogPanel } from "../../components/log-panel"
 import { TaskControlBar } from "../../components/TaskControlBar"
-import { translateStatus, translateArtifactKind } from "../../utils"
+import { translateStatus, translateArtifactKind, resolveUrl } from "../../utils"
 import type { AgentStep } from "@autovis/shared"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
@@ -374,11 +374,11 @@ export function WorkbenchSandbox({
                                         className="mt-3 relative rounded-xl overflow-hidden border border-border/50 group max-w-sm aspect-[16/10] bg-black/40 cursor-zoom-in shadow-md"
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          setLightboxUrl(step.screenshotUrl!)
+                                          setLightboxUrl(resolveUrl(step.screenshotUrl!))
                                         }}
                                       >
                                         <img
-                                          src={step.screenshotUrl}
+                                          src={resolveUrl(step.screenshotUrl)}
                                           alt={step.title}
                                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                         />
@@ -485,7 +485,7 @@ export function WorkbenchSandbox({
                             {verificationRun.artifacts.map((artifact) => (
                               <a 
                                 className="flex items-center justify-between rounded-xl border border-border bg-card/40 px-3 py-2 text-xs transition hover:bg-secondary/40 animate-fade-in" 
-                                href={artifact.url} 
+                                href={resolveUrl(artifact.url)} 
                                 key={artifact.name} 
                                 rel="noreferrer" 
                                 target="_blank"

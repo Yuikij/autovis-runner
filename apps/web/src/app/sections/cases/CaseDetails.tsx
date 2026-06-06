@@ -3,7 +3,7 @@ import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { inputClassName } from "../../components/ui/field"
-import { formatDateTime, formatDuration, translateStatus, translateTestType } from "../../utils"
+import { formatDateTime, formatDuration, translateStatus, translateTestType, resolveUrl } from "../../utils"
 import { BrowserFrame } from "../../components/browser-frame"
 import { LogPanel } from "../../components/log-panel"
 import { TaskControlBar } from "../../components/TaskControlBar"
@@ -260,7 +260,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                   {temporaryRun.artifacts.map((artifact: any) => (
                     <a
                       key={artifact.name}
-                      href={artifact.url}
+                      href={resolveUrl(artifact.url)}
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center justify-between rounded-xl border border-border bg-card/40 px-3 py-2 text-xs transition hover:bg-secondary/40"

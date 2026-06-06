@@ -344,7 +344,7 @@ export function RunDetail({
                               {parent.screenshotUrl ? (
                                 <div
                                   className="mt-3 relative rounded-lg overflow-hidden border border-border/50 group max-w-[200px] aspect-[16/10] bg-black/10 cursor-zoom-in shadow-sm hover:border-primary/50 transition-colors"
-                                  onClick={() => onSetLightboxUrl(parent.screenshotUrl ?? null)}
+                                  onClick={() => onSetLightboxUrl(parent.screenshotUrl ? resolveUrl(parent.screenshotUrl) : null)}
                                 >
                                   <img src={resolveUrl(parent.screenshotUrl)} alt={parent.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-sm">
@@ -368,7 +368,7 @@ export function RunDetail({
                                           {child.screenshotUrl ? (
                                             <div
                                               className="mt-2 relative rounded overflow-hidden border border-border/50 group max-w-[120px] aspect-[16/10] bg-black/10 cursor-zoom-in shadow-sm hover:border-primary/50 transition-colors"
-                                              onClick={() => onSetLightboxUrl(child.screenshotUrl ?? null)}
+                                              onClick={() => onSetLightboxUrl(child.screenshotUrl ? resolveUrl(child.screenshotUrl) : null)}
                                             >
                                               <img src={resolveUrl(child.screenshotUrl)} alt={child.title} className="w-full h-full object-cover" />
                                             </div>

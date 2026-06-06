@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { AuthProfile, ValidationProgressStep, ValidationTask } from "@autovis/shared"
 import { Badge } from "../../components/ui/badge"
 import { EmptyState } from "../../components/empty-state"
+import { resolveUrl } from "../../utils"
 
 const STEP_ICON: Record<NonNullable<ValidationProgressStep["kind"]>, string> = {
   init: "settings",
@@ -65,10 +66,10 @@ export function TimelineStep({ step, isLast }: { step: ValidationProgressStep; i
                 className="rounded-xl overflow-hidden border border-border/40 bg-black/40 max-w-md cursor-zoom-in group"
                 onClick={(e) => {
                   e.stopPropagation()
-                  setLightboxUrl(step.screenshotUrl!)
+                  setLightboxUrl(resolveUrl(step.screenshotUrl!))
                 }}
               >
-                <img src={step.screenshotUrl} alt={step.label} className="w-full h-auto max-h-64 object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
+                <img src={resolveUrl(step.screenshotUrl)} alt={step.label} className="w-full h-auto max-h-64 object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
               </div>
             ) : null}
             {step.codePreview ? (
