@@ -72,6 +72,11 @@ interface ScheduleRuntime {
   waitUntil: (target: string | number | Date, options?: { pollMs?: number; logEverySec?: number }) => Promise<void>
 }
 
+interface HttpRuntime {
+  get: (url: string, options?: { headers?: Record<string, string>; params?: Record<string, string> }) => Promise<any>
+  post: (url: string, options?: { headers?: Record<string, string>; data?: any }) => Promise<any>
+}
+
 interface LoopRuntime {
   /** 反复执行 predicate，直到返回真值即返回该值；可设置间隔、上限耗时、上限轮次、每多少轮打一行日志。 */
   until: <T>(predicate: () => Promise<T | false | null | undefined> | T | false | null | undefined, options: {
@@ -106,6 +111,7 @@ type ScriptExecutor = (
   schedule: ScheduleRuntime,
   loop: LoopRuntime,
   retry: RetryRuntime,
+  http: HttpRuntime,
 ) => Promise<void>
 
 const AsyncExecutor = Object.getPrototypeOf(async function () {
@@ -646,10 +652,33 @@ export const executeScriptInSession = async ({
     throw lastError instanceof Error ? lastError : new Error(`RETRY_EXHAUSTED: ${label} 用尽 ${times} 次仍失败`)
   }
 
-  const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", body)
+  const http: HttpRuntime = {
+    get: async (url, options) => {
+      traceLog(`网络请求 · http.get(${url})`)
+      await onUpdate()
+      const query = options?.params ? `?${new URLSearchParams(options.params).toString()}` : ""
+      const res = await fetch(url + query, { headers: options?.headers })
+      if (!res.ok) throw new Error(`HTTP GET ${url} failed with status ${res.status}`)
+      const text = await res.text()
+      try { return JSON.parse(text) } catch { return text }
+    },
+    post: async (url, options) => {
+      traceLog(`网络请求 · http.post(${url})`)
+      await onUpdate()
+      const isJson = options?.data && typeof options.data === "object"
+      const headers = { ...(isJson ? { "Content-Type": "application/json" } : {}), ...options?.headers }
+      const body = isJson ? JSON.stringify(options.data) : options?.data
+      const res = await fetch(url, { method: "POST", headers, body })
+      if (!res.ok) throw new Error(`HTTP POST ${url} failed with status ${res.status}`)
+      const text = await res.text()
+      try { return JSON.parse(text) } catch { return text }
+    }
+  }
+
+  const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", "http", body)
 
   const scriptExecution = async () => {
-    await executor(instrumentedPage, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry)
+    await executor(instrumentedPage, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry, http)
     await testChain
   }
 

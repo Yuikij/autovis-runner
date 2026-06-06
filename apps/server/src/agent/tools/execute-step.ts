@@ -15,7 +15,7 @@ export const executeStepTools: ToolDefinition[] = [
         type: "object",
         properties: {
           title: { type: "string", description: "当前步骤标题，如：展开侧边菜单、填写查询条件" },
-          code: { type: "string", description: "完整的累积脚本代码（包含之前所有已验证步骤 + 本次新增）。可使用 page, expect, human, ai, test, getBaseUrl。" },
+          code: { type: "string", description: "完整的累积脚本代码（包含之前所有已验证步骤 + 本次新增）。可使用 page, expect, human, ai, test, getBaseUrl 以及 http（用于发送网络请求，如 webhook 通知或 API 调用）。" },
         },
         required: ["title", "code"],
       },
@@ -72,6 +72,11 @@ interface ScheduleRuntime {
   waitUntil: (target: string | number | Date, options?: { pollMs?: number; logEverySec?: number }) => Promise<void>
 }
 
+interface HttpRuntime {
+  get: (url: string, options?: { headers?: Record<string, string>; params?: Record<string, string> }) => Promise<any>
+  post: (url: string, options?: { headers?: Record<string, string>; data?: any }) => Promise<any>
+}
+
 interface LoopRuntime {
   until: <T>(predicate: () => Promise<T | false | null | undefined> | T | false | null | undefined, options: {
     intervalMs: number
@@ -105,6 +110,7 @@ type ScriptExecutor = (
   schedule: ScheduleRuntime,
   loop: LoopRuntime,
   retry: RetryRuntime,
+  http: HttpRuntime,
 ) => Promise<void>
 
 const AsyncExecutor = Object.getPrototypeOf(async function () {
@@ -557,11 +563,32 @@ export async function executeStepTool(
     throw lastError instanceof Error ? lastError : new Error(`RETRY_EXHAUSTED: ${label}`)
   }
 
+  const http: HttpRuntime = {
+    get: async (url, options) => {
+      devLog(`http.get: ${url}`)
+      const query = options?.params ? `?${new URLSearchParams(options.params).toString()}` : ""
+      const res = await fetch(url + query, { headers: options?.headers })
+      if (!res.ok) throw new Error(`HTTP GET ${url} failed with status ${res.status}`)
+      const text = await res.text()
+      try { return JSON.parse(text) } catch { return text }
+    },
+    post: async (url, options) => {
+      devLog(`http.post: ${url}`)
+      const isJson = options?.data && typeof options.data === "object"
+      const headers = { ...(isJson ? { "Content-Type": "application/json" } : {}), ...options?.headers }
+      const body = isJson ? JSON.stringify(options.data) : options?.data
+      const res = await fetch(url, { method: "POST", headers, body })
+      if (!res.ok) throw new Error(`HTTP POST ${url} failed with status ${res.status}`)
+      const text = await res.text()
+      try { return JSON.parse(text) } catch { return text }
+    }
+  }
+
   try {
-    const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", jsCode)
+    const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", "http", jsCode)
 
     const execution = async () => {
-      await executor(page, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry)
+      await executor(page, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry, http)
       await testChain
     }
 
