@@ -12,7 +12,7 @@ ENV NODE_ENV=production \
     DATA_DIR=/var/lib/autovis \
     APP_ORIGIN=http://localhost:8787 \
     HEADLESS=false \
-    BROWSER_BACKEND=playwright
+    BROWSER_BACKEND=patchright
 
 WORKDIR /opt/autovis-runner
 
@@ -27,7 +27,8 @@ COPY --from=builder /src/dist-packages/autovis-runner-*/ /opt/autovis-runner/
 RUN npm install -g pnpm@10.20.0 \
   && cd /opt/autovis-runner/app \
   && pnpm install --prod --frozen-lockfile \
-  && pnpm --filter @autovis/server exec playwright install chromium chrome
+  && pnpm --filter @autovis/server exec playwright install chromium chrome \
+  && pnpm --filter @autovis/server exec patchright install chromium
 
 VOLUME ["/var/lib/autovis"]
 EXPOSE 8787

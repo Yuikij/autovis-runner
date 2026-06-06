@@ -74,7 +74,7 @@ PORT=${PORT:-8787}
 DATA_DIR=$DATA_DIR
 APP_ORIGIN=${APP_ORIGIN:-http://localhost:${PORT:-8787}}
 HEADLESS=${HEADLESS:-false}
-BROWSER_BACKEND=${BROWSER_BACKEND:-playwright}
+BROWSER_BACKEND=${BROWSER_BACKEND:-patchright}
 AUTOVIS_AUTH_ENABLED=${AUTOVIS_AUTH_ENABLED:-false}
 AUTOVIS_LLM_SCOPE=${AUTOVIS_LLM_SCOPE:-shared}
 AUTOVIS_ADMIN_USER=${AUTOVIS_ADMIN_USER:-admin}
@@ -87,6 +87,7 @@ EOF
   cd "$INSTALL_DIR/app"
   pnpm install --prod --frozen-lockfile
   pnpm --filter @autovis/server exec playwright install chromium chrome
+  pnpm --filter @autovis/server exec patchright install chromium
 
   cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]

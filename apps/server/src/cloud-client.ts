@@ -156,6 +156,10 @@ export const startCloudClient = (options: CloudClientOptions) => {
 
   const openLocalSocket = (agentSocket: WebSocket, id: string, path: string) => {
     const localSocket = new WebSocket(toLocalWsUrl(localOrigin, path))
+    // Node 的全局 WebSocket(undici) 默认 binaryType="blob"，二进制帧会回传 Blob，
+    // 而 Buffer.from(Blob) 会抛 ERR_INVALID_ARG_TYPE —— 监听器内异常导致每一帧被静默丢弃，
+    // 表现为云端中继下 LiveViewport(WS-JPEG) 全程黑屏。强制 arraybuffer 才能正确转 base64。
+    localSocket.binaryType = "arraybuffer"
     localSockets.set(id, localSocket)
 
     localSocket.addEventListener("message", (event) => {
