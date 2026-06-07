@@ -27,6 +27,15 @@ type TunnelEnvelope =
 const HEARTBEAT_INTERVAL_MS = 20_000
 const RECONNECT_MIN_MS = 1_000
 const RECONNECT_MAX_MS = 30_000
+// 应用层心跳：周期向中继发送 ping（中继用 setWebSocketAutoResponse 自动回 pong），
+// 既能保活穿越 Cloudflare 边缘/NAT 的长连接，又能在超时未收到任何回应时尽快判死并重连，
+// 避免半死连接长时间表现为 503。
+const PING_INTERVAL_MS = 25_000
+const PING_TIMEOUT_MS = 75_000
+const PING_MESSAGE = JSON.stringify({ type: "ping" })
+const PONG_MESSAGE = JSON.stringify({ type: "pong" })
+// 文本响应单帧上限（字符数）。超过则改走分块流式回传，防止触发中继 2MB envelope 上限被判 1003 而整条连接被关。
+const SAFE_TEXT_FRAME_CHARS = 1_500_000
 // 二进制产物（如录制 webm）分块回传：单帧远低于 Cloudflare 32MiB 收帧上限与中继的 envelope 校验上限，
 // 避免大文件被中继判定为超大帧而整条 agent 连接被关闭（导致视频等大产物在远程模式下完全无法访问）。
 const RESPONSE_CHUNK_BYTES = 512 * 1024
@@ -162,17 +171,22 @@ export const startCloudClient = (options: CloudClientOptions) => {
       const text = isTextResponse(contentType)
 
       if (text) {
-        send(socket, {
-          type: "response",
-          id,
-          response: {
-            status: response.status,
-            headers,
-            body: new TextDecoder().decode(bodyBuffer),
-            binary: false,
-          },
-        })
-        return
+        const decoded = new TextDecoder().decode(bodyBuffer)
+        if (decoded.length <= SAFE_TEXT_FRAME_CHARS) {
+          send(socket, {
+            type: "response",
+            id,
+            response: {
+              status: response.status,
+              headers,
+              body: decoded,
+              binary: false,
+            },
+          })
+          return
+        }
+        // 超大文本响应改走分块路径，避免触发中继 envelope 上限（该极端场景下不做远程 URL 重写）。
+        log.warn("relay.text_response_too_large", { path: request.path, chars: decoded.length })
       }
 
       // 二进制响应分块流式回传：start → chunk* → end，避免单帧过大被中继拒收并关闭连接。
@@ -260,16 +274,48 @@ export const startCloudClient = (options: CloudClientOptions) => {
         let disconnectSource: "close" | "error" = "close"
         let disconnectCode: number | undefined
         let disconnectReason: string | undefined
+        let lastPongAt = Date.now()
+        let pingTimer: ReturnType<typeof setInterval> | undefined
+        const stopKeepalive = () => {
+          if (pingTimer) {
+            clearInterval(pingTimer)
+            pingTimer = undefined
+          }
+        }
         socket.addEventListener("open", () => {
           openedThisCycle = true
           reconnectDelay = RECONNECT_MIN_MS
           recordRelayConnected({ deviceId, cloudUrl, reconnected: hasConnectedOnce })
           hasConnectedOnce = true
+          lastPongAt = Date.now()
+          stopKeepalive()
+          pingTimer = setInterval(() => {
+            if (socket.readyState !== WebSocket.OPEN) return
+            if (Date.now() - lastPongAt > PING_TIMEOUT_MS) {
+              log.warn("relay.keepalive_timeout", { deviceId, cloudUrl })
+              try {
+                socket.close(4000, "keepalive timeout")
+              } catch {
+                // 忽略关闭异常：close 监听器会触发重连。
+              }
+              return
+            }
+            try {
+              socket.send(PING_MESSAGE)
+            } catch {
+              // 发送失败时静默：连接异常会由 close/error 监听器接管。
+            }
+          }, PING_INTERVAL_MS)
           void heartbeat()
           void refreshLocalAuthCookie()
         })
         socket.addEventListener("message", (event) => {
           try {
+            if (typeof event.data === "string" && (event.data === PONG_MESSAGE || event.data === PING_MESSAGE)) {
+              lastPongAt = Date.now()
+              return
+            }
+            lastPongAt = Date.now()
             handleMessage(socket, event.data)
           } catch (error) {
             log.warn("relay.message_handling_failed", {
@@ -292,6 +338,7 @@ export const startCloudClient = (options: CloudClientOptions) => {
             resolve()
           }, { once: true })
         })
+        stopKeepalive()
         if (openedThisCycle) {
           recordRelayDisconnected({
             deviceId,
