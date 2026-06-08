@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test"
 import { type ToolDefinition } from "../../llm.js"
-import { getPageSnapshot, recoverBlankSpaRoute, resolveUrl, sanitizeFileSegment, saveAgentScreenshot, waitForPageContent } from "../helpers.js"
+import { detectRiskControl, getPageSnapshot, recoverBlankSpaRoute, resolveUrl, riskControlBanner, sanitizeFileSegment, saveAgentScreenshot, waitForPageContent } from "../helpers.js"
 import { type ToolExecutionResult, type ToolRuntimeContext } from "../types.js"
 
 export const pageNavigationTools: ToolDefinition[] = [
@@ -73,14 +73,16 @@ export async function executeInspectPage(
   }
   const title = await page.title()
   const snapshot = await getPageSnapshot(page)
+  const risk = await detectRiskControl(page)
   const screenshotUrl = await saveAgentScreenshot(page, ctx.artifactsDir, ctx.agentSessionId, `inspect-${title || "page"}`)
+  const riskPrefix = risk.blocked ? `${riskControlBanner(risk)}\n\n` : ""
   return {
     stage: "page",
-    content: `页面标题: ${title || "(empty)"}\nURL: ${page.url()}\n\n页面结构:\n${snapshot}`,
+    content: `${riskPrefix}页面标题: ${title || "(empty)"}\nURL: ${page.url()}\n\n页面结构:\n${snapshot}`,
     detail: navigated ? `已跳转到 ${page.url()}` : `当前页面 ${page.url()}`,
     screenshotUrl,
     url: page.url(),
-    payloadJson: JSON.stringify({ title, url: page.url(), navigated }),
+    payloadJson: JSON.stringify({ title, url: page.url(), navigated, riskControlled: risk.blocked, riskKind: risk.kind }),
   }
 }
 
@@ -100,13 +102,14 @@ export async function executeNavigateTo(
   }
   await recoverBlankSpaRoute(page, url, ctx.project.testBaseUrl)
   await waitForPageContent(page, 8000)
+  const risk = await detectRiskControl(page)
   const screenshotUrl = await saveAgentScreenshot(page, ctx.artifactsDir, ctx.agentSessionId, `navigate-${sanitizeFileSegment(url)}`)
   return {
     stage: "page",
-    content: `已导航到 ${page.url()}`,
+    content: risk.blocked ? `已导航到 ${page.url()}\n\n${riskControlBanner(risk)}` : `已导航到 ${page.url()}`,
     detail: `当前页面标题: ${await page.title()}`,
     screenshotUrl,
     url: page.url(),
-    payloadJson: JSON.stringify({ url: page.url() }),
+    payloadJson: JSON.stringify({ url: page.url(), riskControlled: risk.blocked, riskKind: risk.kind }),
   }
 }

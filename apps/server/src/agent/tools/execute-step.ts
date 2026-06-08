@@ -2,7 +2,7 @@ import * as ts from "typescript"
 import { type Page, expect } from "@playwright/test"
 import type { RuntimeOutput } from "@autovis/shared"
 import { type ToolDefinition } from "../../llm.js"
-import { getPageSnapshot, saveAgentScreenshot } from "../helpers.js"
+import { detectRiskControl, getPageSnapshot, riskControlBanner, saveAgentScreenshot } from "../helpers.js"
 import { type ScriptRuntimeContext, type ToolExecutionResult, type ToolRuntimeContext } from "../types.js"
 
 export const executeStepTools: ToolDefinition[] = [
@@ -602,9 +602,12 @@ export async function executeStepTool(
     const hardcodeWarning = ctx.dataGuard
       ? buildHardcodeWarning(detectHardcodedPageData(args.code, ctx.dataGuard))
       : ""
+    // 即使断言“通过”，也可能落在风控页（断言写得太宽时会出现假性 PASS）→ 显式提示，避免误判已完成。
+    const passRisk = await detectRiskControl(page).catch(() => ({ blocked: false, kind: null, reason: "" }))
+    const passRiskBanner = passRisk.blocked ? `\n\n${riskControlBanner(passRisk)}` : ""
     return {
       stage: "page",
-      content: `步骤「${args.title}」执行成功。${isFullRerun ? "（检测到早期代码修改，已重置浏览器从头执行）" : ""}\n当前 URL: ${page.url()}${hardcodeWarning}`,
+      content: `步骤「${args.title}」执行成功。${isFullRerun ? "（检测到早期代码修改，已重置浏览器从头执行）" : ""}\n当前 URL: ${page.url()}${hardcodeWarning}${passRiskBanner}`,
       screenshotUrl,
       url: page.url(),
       newVerifiedCode: args.code,
@@ -624,9 +627,15 @@ export async function executeStepTool(
       ? buildHardcodeWarning(detectHardcodedPageData(args.code, ctx.dataGuard))
       : ""
 
+    // 风控拦截置顶：很多“undefined / includes is not a function / 超时”其实是被风控打回后页面为空导致的次生错误，
+    // 必须先告诉 LLM 这是环境拦截，避免它去改选择器或重写早期步骤。
+    const failRisk = await detectRiskControl(page).catch(() => ({ blocked: false, kind: null, reason: "" }))
+    const failRiskBanner = failRisk.blocked ? riskControlBanner(failRisk) : ""
+
     return {
       stage: "page",
       content: [
+        failRiskBanner,
         `步骤「${args.title}」执行失败。${isFullRerun ? "（已重置浏览器从头执行）" : ""}`,
         `错误: ${message}`,
         `当前 URL: ${page.url()}`,

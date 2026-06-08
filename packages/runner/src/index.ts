@@ -11,6 +11,7 @@ export * from "./utils.js"
 export * from "./live-streamer.js"
 export * from "./browser-manager.js"
 export * from "./script-executor.js"
+export * from "./risk-control.js"
 
 export const createExecutionTemplate = ({ runId, project, testCase, script, testBaseUrl }: CreateExecutionTemplateInput): ExecutionRun => {
   const steps = [

@@ -84,11 +84,41 @@ export const performanceArgs = (): string[] => {
 }
 
 /**
- * 是否对"回放采集的登录态"启用反检测有头模式。
- * 注入了 storageState 才需要（说明这是登录态回放），且未被 STEALTH_REPLAY=0 关闭。
+ * 浏览器代理：从 `BROWSER_PROXY` 读取（如 `http://host:port` / `socks5://host:port`）。
+ * 风控站点常需要让流量走指定出口；系统级/分流代理对受控浏览器不一定生效，这里支持显式注入。
  */
-export const shouldStealthReplay = (storageStateJson?: string | null): boolean =>
-  Boolean(storageStateJson) && (process.env.STEALTH_REPLAY ?? "1").trim() !== "0"
+export interface ProxyConfig {
+  server: string
+  bypass?: string
+  username?: string
+  password?: string
+}
+
+export const resolveProxy = (): ProxyConfig | undefined => {
+  const server = (process.env.BROWSER_PROXY ?? "").trim()
+  if (!server) return undefined
+  const proxy: ProxyConfig = { server }
+  const bypass = (process.env.BROWSER_PROXY_BYPASS ?? "").trim()
+  if (bypass) proxy.bypass = bypass
+  const username = (process.env.BROWSER_PROXY_USERNAME ?? "").trim()
+  const password = process.env.BROWSER_PROXY_PASSWORD ?? ""
+  if (username) {
+    proxy.username = username
+    proxy.password = password
+  }
+  return proxy
+}
+
+/**
+ * 是否对"回放采集的登录态"启用反检测有头模式。
+ * - 注入了 storageState 才需要（说明这是登录态回放），且未被 STEALTH_REPLAY=0 关闭；
+ * - `STEALTH_ALWAYS=1` 可对无登录态的公网站点也强制走真 Chrome 反检测（服务器需配合 xvfb）。
+ */
+export const shouldStealthReplay = (storageStateJson?: string | null): boolean => {
+  if ((process.env.STEALTH_REPLAY ?? "1").trim() === "0") return false
+  if ((process.env.STEALTH_ALWAYS ?? "0").trim() === "1") return true
+  return Boolean(storageStateJson)
+}
 
 /**
  * 启动用于"登录态回放"的浏览器。
@@ -105,12 +135,14 @@ export const launchReplayBrowser = async (options: {
   slowMo?: number
   windowSize?: { width: number; height: number }
 }): Promise<Browser> => {
+  const proxy = resolveProxy()
   if (!options.stealth) {
     try {
       return await chromium.launch({
         headless: options.headless ?? true,
         slowMo: options.slowMo,
         args: [...localNetworkAccessArgs(), ...performanceArgs()],
+        ...(proxy ? { proxy } : {}),
       })
     } catch (error) {
       recordBrowserStartFailure("runner.replay_browser_launch")
@@ -123,6 +155,7 @@ export const launchReplayBrowser = async (options: {
     headless: false,
     slowMo: options.slowMo,
     args: [`--window-size=${size.width},${size.height}`, ...localNetworkAccessArgs(), ...performanceArgs()],
+    ...(proxy ? { proxy } : {}),
   }
   try {
     return await chromium.launch(channel ? { ...launchOptions, channel } : launchOptions)

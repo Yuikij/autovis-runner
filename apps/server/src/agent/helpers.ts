@@ -1,7 +1,11 @@
 import { appendFile, mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { type Frame, type FrameLocator, type Page } from "@playwright/test"
+import { detectRiskControl, riskControlBanner, type RiskControlSignal } from "@autovis/runner"
 import { type LocatorQuery } from "./types.js"
+
+// 风控检测与提示文案统一收敛到 @autovis/runner（运行时 risk 方法、server 探索工具共用一份正则，避免漂移）。
+export { detectRiskControl, riskControlBanner, type RiskControlSignal }
 
 /**
  * 把 agent 单步的完整调试信息（LLM 生成脚本 + 未截断的执行结果/页面快照）追加到文件，
@@ -180,21 +184,12 @@ export async function getPageSnapshot(page: Page): Promise<string> {
     sections.push("[页面] (无法获取页面元信息)")
   }
 
-  // 反爬 / 风控 / 验证 / 登录 信号（放最前面，避免 LLM 把"被风控打回"误判成选择器问题而反复改）
+  // 反爬 / 风控 / 验证 / 登录 信号（放最前面，避免 LLM 把"被风控打回"误判成选择器问题而反复改）。
+  // URL/标题/正文/滑块 DOM 四类信号合并判定，覆盖中英文风控页（含淘系 Captcha Interception / error.taobao.com）。
   try {
-    const url = page.url().toLowerCase()
-    const title = (await page.title().catch(() => "")) || ""
-    // 通用的"验证/登录墙"信号（不针对任何具体站点）：URL/标题像人机验证或登录页时提示一句，
-    // 让 LLM 别把"被拦下/登录态失效"误判成选择器问题。限频类的临时回弹不在这里特判——
-    // 交给脚本自身"验证落点 + retry 退避"的通用自愈逻辑（见 system prompt）。
-    const wall =
-      /\/verify|captcha|geetest|slidecode|punish|antispider|anti[_-]spider|passport\./.test(url) ||
-      /验证|安全验证|人机|拦截|访问异常|页面异常|滑块|未登录|请登录/.test(title)
-    if (wall) {
-      sections.push(
-        `[⚠️ 验证/登录墙] 当前 URL/标题像人机验证或登录页（${title || url}）。这通常**不是选择器写错**，是被反自动化拦下或登录态失效。` +
-          "别反复改选择器或重写早期步骤；用 `human.input({ reason: 'captcha', ... })` 让用户人工通过，仍不行就输出文本报告并停手。",
-      )
+    const signal = await detectRiskControl(page)
+    if (signal.blocked) {
+      sections.push(riskControlBanner(signal))
     }
   } catch {
     // Non-critical

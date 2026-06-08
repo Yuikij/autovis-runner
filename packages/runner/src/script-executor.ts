@@ -4,6 +4,7 @@ import { expect, type Page } from "@playwright/test"
 import type { ExecutionRun, HumanHandoffReason, HumanHandoffRequest, RuntimeOutput } from "@autovis/shared"
 import { markRunStep, artifactUrlToFilePath, inferMimeTypeFromPath, formatRuntimeValue, createRuntimeOutputId, isRuntimeOwnedData, matchesProducer, now, normalizeRuntimeMatch } from "./utils.js"
 import { captureElementScreenshot, captureStepScreenshot } from "./browser-manager.js"
+import { detectRiskControl, isRiskControlError, RISK_CONTROL_ERROR_PREFIX, type RiskControlSignal } from "./risk-control.js"
 import type { ExecutePlaywrightRunInput, ExecuteScriptInSessionInput, RunnerSession } from "./types.js"
 
 interface HumanInputOptions {
@@ -77,6 +78,20 @@ interface HttpRuntime {
   post: (url: string, options?: { headers?: Record<string, string>; data?: any }) => Promise<any>
 }
 
+/**
+ * 风控/反自动化拦截运行时方法。比"靠提示词让 LLM 小心"更可靠：脚本在进入强风控环节
+ * （详情页/下单等）后调用，命中即抛出标准化的 `RISK_CONTROL_BLOCKED` 错误——
+ * retry 默认不会重试这类错误（重试只会让风控更严），上层也能据此把 run 标成"风控拦截"而非脚本 bug。
+ */
+interface RiskRuntime {
+  /** 返回当前页面的风控判定（blocked/kind/reason），不抛错。 */
+  check: () => Promise<RiskControlSignal>
+  /** 当前页面是否被风控拦截（check 的便捷布尔版）。 */
+  blocked: () => Promise<boolean>
+  /** 若当前页面被风控拦截则抛 `RISK_CONTROL_BLOCKED` 错误；clear 时静默返回。进入详情页/下单后调用。 */
+  assertClear: (label?: string) => Promise<void>
+}
+
 interface LoopRuntime {
   /** 反复执行 predicate，直到返回真值即返回该值；可设置间隔、上限耗时、上限轮次、每多少轮打一行日志。 */
   until: <T>(predicate: () => Promise<T | false | null | undefined> | T | false | null | undefined, options: {
@@ -112,6 +127,7 @@ type ScriptExecutor = (
   loop: LoopRuntime,
   retry: RetryRuntime,
   http: HttpRuntime,
+  risk: RiskRuntime,
 ) => Promise<void>
 
 const AsyncExecutor = Object.getPrototypeOf(async function () {
@@ -638,7 +654,8 @@ export const executeScriptInSession = async ({
       } catch (err) {
         lastError = err
         if (signal?.aborted) throw err
-        const shouldRetry = options?.shouldRetry ? await options.shouldRetry(err, attempt) : true
+        // 默认不重试"风控拦截"错误：再导航/再点只会让风控更严。脚本仍可用 shouldRetry 显式覆盖。
+        const shouldRetry = options?.shouldRetry ? await options.shouldRetry(err, attempt) : !isRiskControlError(err)
         if (!shouldRetry || attempt >= times) {
           console.warn(`[runner ${run.id}] ${label} · 第 ${attempt}/${times} 次失败：${err instanceof Error ? err.message : String(err)}（放弃重试）`)
           break
@@ -650,6 +667,20 @@ export const executeScriptInSession = async ({
       }
     }
     throw lastError instanceof Error ? lastError : new Error(`RETRY_EXHAUSTED: ${label} 用尽 ${times} 次仍失败`)
+  }
+
+  const risk: RiskRuntime = {
+    check: async () => detectRiskControl(session.page),
+    blocked: async () => (await detectRiskControl(session.page)).blocked,
+    assertClear: async (label) => {
+      const signal = await detectRiskControl(session.page)
+      if (signal.blocked) {
+        const prefix = label ? `${label} - ` : ""
+        traceLog(`风控拦截 · ${prefix}${signal.reason}（kind=${signal.kind}）`)
+        await onUpdate()
+        throw new Error(`${RISK_CONTROL_ERROR_PREFIX}: ${prefix}${signal.reason}`)
+      }
+    },
   }
 
   const http: HttpRuntime = {
@@ -675,10 +706,10 @@ export const executeScriptInSession = async ({
     }
   }
 
-  const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", "http", body)
+  const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", "http", "risk", body)
 
   const scriptExecution = async () => {
-    await executor(instrumentedPage, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry, http)
+    await executor(instrumentedPage, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry, http, risk)
     await testChain
   }
 
