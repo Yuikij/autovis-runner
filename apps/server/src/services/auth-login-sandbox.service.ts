@@ -13,13 +13,34 @@ import { appOrigin, createId, now } from "./common.js"
 import { buildStorageStateSummary } from "./authProfile.utils.js"
 
 const WINDOW_SIZE = { width: 1440, height: 960 }
-const SCREENCAST = { format: "jpeg" as const, quality: 70, maxWidth: 1280, maxHeight: 720, everyNthFrame: 1 }
+
+const screencastEveryNthFrame = (): number => {
+  const raw = Number.parseInt(process.env.LIVE_SCREENCAST_EVERY_NTH ?? "", 10)
+  return Number.isFinite(raw) && raw >= 1 ? raw : 2
+}
+const screencastQuality = (): number => {
+  const raw = Number.parseInt(process.env.LIVE_SCREENCAST_QUALITY ?? "", 10)
+  return Number.isFinite(raw) && raw >= 1 && raw <= 100 ? raw : 60
+}
+const SCREENCAST = { format: "jpeg" as const, maxWidth: 1280, maxHeight: 720 }
+
+/** 登录沙盒空闲自动回收时长（ms），杜绝用户开了沙盒走开后残留的有头 Chrome。0 关闭。 */
+const idleTimeoutMs = (): number => {
+  const raw = Number.parseInt(process.env.AUTH_SANDBOX_IDLE_MS ?? "", 10)
+  return Number.isFinite(raw) && raw >= 0 ? raw : 10 * 60_000
+}
+
+interface ScreencastController {
+  setDemand: (active: boolean) => void
+  stop: () => Promise<void>
+}
 
 interface SandboxRuntime {
   context: BrowserContext
   page: Page
   userDataDir: string
-  stopScreencast?: () => Promise<void>
+  screencast?: ScreencastController
+  lastActivityAt: number
 }
 
 /**
@@ -34,20 +55,57 @@ export class AuthLoginSandboxService {
   private readonly runtimes = new Map<string, SandboxRuntime>()
   private readonly liveViewportSubscribers = new Map<string, Set<(chunk: Uint8Array) => void>>()
 
-  constructor(private readonly db: AutoVisDatabase) {}
+  constructor(private readonly db: AutoVisDatabase) {
+    const ttl = idleTimeoutMs()
+    if (ttl > 0) {
+      const timer = setInterval(() => this.reapIdleSessions(ttl), Math.min(ttl, 60_000))
+      // 不要因为这个常驻定时器阻止进程退出。
+      ;(timer as { unref?: () => void }).unref?.()
+    }
+  }
 
   public getSession(sessionId: string): AuthLoginSandboxSession | undefined {
     return this.sessions.get(sessionId)
+  }
+
+  private touch(sessionId: string) {
+    const runtime = this.runtimes.get(sessionId)
+    if (runtime) {
+      runtime.lastActivityAt = Date.now()
+    }
+  }
+
+  private reapIdleSessions(ttl: number) {
+    const nowMs = Date.now()
+    for (const [sessionId, runtime] of this.runtimes) {
+      // 有观众在看 → 不算空闲。
+      if ((this.liveViewportSubscribers.get(sessionId)?.size ?? 0) > 0) continue
+      if (nowMs - runtime.lastActivityAt < ttl) continue
+      const session = this.sessions.get(sessionId)
+      if (session && (session.status === "live" || session.status === "starting")) {
+        session.status = "cancelled"
+        session.error = "登录沙盒空闲超时，已自动回收。"
+        session.finishedAt = now()
+      }
+      void this.teardown(sessionId)
+    }
   }
 
   public subscribeLiveViewport(sessionId: string, listener: (chunk: Uint8Array) => void) {
     const set = this.liveViewportSubscribers.get(sessionId) ?? new Set<(chunk: Uint8Array) => void>()
     set.add(listener)
     this.liveViewportSubscribers.set(sessionId, set)
+    this.touch(sessionId)
+    // 第一个观众接入 → 开启抓帧。
+    if (set.size === 1) {
+      this.runtimes.get(sessionId)?.screencast?.setDemand(true)
+    }
     return () => {
       set.delete(listener)
       if (set.size === 0) {
         this.liveViewportSubscribers.delete(sessionId)
+        // 最后一个观众离开 → 停止抓帧。
+        this.runtimes.get(sessionId)?.screencast?.setDemand(false)
       }
     }
   }
@@ -92,12 +150,16 @@ export class AuthLoginSandboxService {
       throw error
     }
     const page = context.pages()[0] ?? (await context.newPage())
-    const runtime: SandboxRuntime = { context, page, userDataDir }
+    const runtime: SandboxRuntime = { context, page, userDataDir, lastActivityAt: Date.now() }
     this.runtimes.set(session.id, runtime)
 
     page.on("close", () => this.handleUnexpectedClose(session.id))
 
-    runtime.stopScreencast = await this.startScreencast(session.id, page)
+    runtime.screencast = await this.startScreencast(session.id, page)
+    // 若此刻已有观众在等画面，立即开抓帧。
+    if ((this.liveViewportSubscribers.get(session.id)?.size ?? 0) > 0) {
+      runtime.screencast?.setDemand(true)
+    }
 
     session.liveViewport = {
       mode: "ws-jpeg-stream",
@@ -140,6 +202,7 @@ export class AuthLoginSandboxService {
     if (session.status !== "live" && session.status !== "starting") {
       throw new Error("登录沙盒会话当前不可交互")
     }
+    runtime.lastActivityAt = Date.now()
     const { page } = runtime
 
     if (interaction.type === "navigate") {
@@ -214,7 +277,7 @@ export class AuthLoginSandboxService {
     return true
   }
 
-  private async startScreencast(sessionId: string, page: Page): Promise<(() => Promise<void>) | undefined> {
+  private async startScreencast(sessionId: string, page: Page): Promise<ScreencastController | undefined> {
     let cdp
     try {
       cdp = await page.context().newCDPSession(page)
@@ -222,17 +285,42 @@ export class AuthLoginSandboxService {
       return undefined
     }
     let stopped = false
+    let streaming = false
     cdp.on("Page.screencastFrame", async (payload: { data: string; sessionId: number }) => {
-      if (stopped) {
-        return
+      if (!stopped && streaming) {
+        this.notifyLiveViewport(sessionId, Buffer.from(payload.data, "base64"))
       }
-      this.notifyLiveViewport(sessionId, Buffer.from(payload.data, "base64"))
       await cdp.send("Page.screencastFrameAck", { sessionId: payload.sessionId }).catch(() => undefined)
     })
-    await cdp.send("Page.startScreencast", SCREENCAST).catch(() => undefined)
-    return async () => {
-      stopped = true
+
+    const startStream = async () => {
+      if (stopped || streaming) return
+      streaming = true
+      await cdp
+        .send("Page.startScreencast", {
+          ...SCREENCAST,
+          quality: screencastQuality(),
+          everyNthFrame: screencastEveryNthFrame(),
+        })
+        .catch(() => {
+          streaming = false
+        })
+    }
+    const stopStream = async () => {
+      if (stopped || !streaming) return
+      streaming = false
       await cdp.send("Page.stopScreencast").catch(() => undefined)
+    }
+
+    return {
+      setDemand: (active: boolean) => {
+        if (stopped) return
+        void (active ? startStream() : stopStream())
+      },
+      stop: async () => {
+        stopped = true
+        await stopStream()
+      },
     }
   }
 
@@ -266,8 +354,8 @@ export class AuthLoginSandboxService {
       return
     }
     this.runtimes.delete(sessionId)
-    if (runtime.stopScreencast) {
-      await runtime.stopScreencast().catch(() => undefined)
+    if (runtime.screencast) {
+      await runtime.screencast.stop().catch(() => undefined)
     }
     // persistent context：关闭 context 即关闭浏览器。
     await runtime.context.close().catch(() => undefined)

@@ -2,9 +2,15 @@ import type { AutoVisDatabase } from "../db.js"
 import { createId, now } from "./common.js"
 import type { ExecutionRun, HumanHandoffRequest } from "@autovis/shared"
 
+export interface LiveViewportController {
+  /** 按观众数量开关底层 screencast 抓帧。 */
+  setDemand: (active: boolean) => void
+}
+
 export class RunStateService {
   private readonly subscribers = new Map<string, Set<(run: ExecutionRun) => void>>()
   private readonly liveViewportSubscribers = new Map<string, Set<(chunk: Uint8Array) => void>>()
+  private readonly liveViewportControllers = new Map<string, LiveViewportController>()
   private readonly pendingRunHumanInputs = new Map<
     string,
     { handoffId: string; resolve: (value: string) => void; reject: (error: Error) => void }
@@ -49,13 +55,31 @@ export class RunStateService {
     const set = this.liveViewportSubscribers.get(runId) ?? new Set<(chunk: Uint8Array) => void>()
     set.add(listener)
     this.liveViewportSubscribers.set(runId, set)
+    // 第一个观众接入 → 开启抓帧。
+    if (set.size === 1) {
+      this.liveViewportControllers.get(runId)?.setDemand(true)
+    }
 
     return () => {
       set.delete(listener)
       if (set.size === 0) {
         this.liveViewportSubscribers.delete(runId)
+        // 最后一个观众离开 → 停止抓帧，避免空烧。
+        this.liveViewportControllers.get(runId)?.setDemand(false)
       }
     }
+  }
+
+  /** 注册某个 run 的实时预览控制器；若此刻已有观众则立即开启抓帧。 */
+  public registerLiveViewportController(runId: string, controller: LiveViewportController) {
+    this.liveViewportControllers.set(runId, controller)
+    if ((this.liveViewportSubscribers.get(runId)?.size ?? 0) > 0) {
+      controller.setDemand(true)
+    }
+  }
+
+  public unregisterLiveViewportController(runId: string) {
+    this.liveViewportControllers.delete(runId)
   }
 
   public async requestRunHumanInput(

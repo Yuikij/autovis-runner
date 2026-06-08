@@ -378,6 +378,10 @@ export class RunService {
         landingUrl,
       })
 
+      if (session.liveStream) {
+        this.runStateService.registerLiveViewportController(run.id, session.liveStream)
+      }
+
       for (const dependency of preconditionPlan.nodes) {
         run.orchestrationPhase = "preconditions"
         run.currentPreconditionCaseId = dependency.testCase.id
@@ -459,6 +463,7 @@ export class RunService {
       }
       this.runStateService.rejectPendingHumanInput(run.id, wasCancelled ? "Run cancelled" : "Run failed")
     } finally {
+      this.runStateService.unregisterLiveViewportController(run.id)
       this.tasks.unregister(run.id)
     }
   }

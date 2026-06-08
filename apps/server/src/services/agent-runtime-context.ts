@@ -70,6 +70,7 @@ export function handleUnauthorizedCopilotError(params: {
 
 export async function closeWarmupSession(warmupSession: RunnerSession | null) {
   if (!warmupSession) return
+  await warmupSession.liveStream?.stop().catch(() => undefined)
   await warmupSession.context.close().catch(() => undefined)
   await warmupSession.browser.close().catch(() => undefined)
 }

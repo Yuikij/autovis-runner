@@ -63,6 +63,18 @@ export const waitForSpaContent = async (page: Page, timeout = 15_000): Promise<v
   ).catch(() => undefined)
 }
 
+/**
+ * 是否录制 video / trace 的默认策略：
+ * - temporary（即席快验）run 默认不录，省去 ffmpeg 编码 + trace 快照的重型开销；
+ * - 其它 run 默认开启，保持产物回放能力。
+ * 可用 RECORD_VIDEO / RUN_TRACING（"0"/"1"）全局覆盖。
+ */
+const resolveArtifactToggle = (envName: string, fallback: boolean): boolean => {
+  const raw = process.env[envName]
+  if (raw === undefined || raw.trim() === "") return fallback
+  return raw.trim() !== "0"
+}
+
 export const createRunnerSession = async ({
   run,
   artifactsDir,
@@ -72,12 +84,18 @@ export const createRunnerSession = async ({
   initStepIndex = 0,
   storageStateJson,
   landingUrl,
+  recordVideo,
+  trace,
 }: CreateRunnerSessionInput): Promise<RunnerSession> => {
   const runDir = join(artifactsDir, run.id)
   await mkdir(runDir, { recursive: true })
 
   run.status = "running"
   await onUpdate()
+
+  const defaultArtifacts = run.kind !== "temporary"
+  const shouldRecordVideo = resolveArtifactToggle("RECORD_VIDEO", recordVideo ?? defaultArtifacts)
+  const shouldTrace = resolveArtifactToggle("RUN_TRACING", trace ?? defaultArtifacts)
 
   const stealth = shouldStealthReplay(storageStateJson)
   const browser = await launchReplayBrowser({
@@ -89,14 +107,16 @@ export const createRunnerSession = async ({
   try {
     const context = await browser.newContext({
       viewport: stealth ? null : { width: 1440, height: 960 },
-      recordVideo: { dir: runDir, size: { width: 1440, height: 960 } },
+      ...(shouldRecordVideo ? { recordVideo: { dir: runDir, size: { width: 1440, height: 960 } } } : {}),
       storageState: storageStateJson ? JSON.parse(storageStateJson) : undefined,
     })
-    await context.tracing.start({ screenshots: true, snapshots: true })
+    if (shouldTrace) {
+      await context.tracing.start({ screenshots: true, snapshots: true })
+    }
 
     const page = await context.newPage()
     const video = page.video()
-    const stopLiveStream = await createCdpLiveStreamer(page, onLiveViewportEvent)
+    const liveStream = await createCdpLiveStreamer(page, onLiveViewportEvent)
 
     const initialUrl = landingUrl && landingUrl.trim() ? landingUrl : run.testBaseUrl
     const initialUrlLabel = landingUrl && landingUrl !== run.testBaseUrl
@@ -122,7 +142,8 @@ export const createRunnerSession = async ({
       context,
       page,
       video,
-      stopLiveStream,
+      liveStream,
+      traceEnabled: shouldTrace,
     }
   } catch (err) {
     await browser.close().catch(() => undefined)
@@ -132,9 +153,11 @@ export const createRunnerSession = async ({
 
 export const finalizeRunnerSession = async ({ run, session, onUpdate, archiveStepIndex }: FinalizeRunnerSessionInput) => {
   await markRunStep(run, archiveStepIndex, "running", onUpdate, "正在归档 trace、video 和截图。")
-  const tracePath = join(session.runDir, "trace.zip")
-  await session.context.tracing.stop({ path: tracePath })
-  await session.stopLiveStream?.()
+  if (session.traceEnabled) {
+    const tracePath = join(session.runDir, "trace.zip")
+    await session.context.tracing.stop({ path: tracePath }).catch(() => undefined)
+  }
+  await session.liveStream?.stop()
   await session.context.close()
   await session.browser.close()
 
@@ -177,8 +200,10 @@ export const failRunnerSession = async (
   run.status = "failed"
   run.finishedAt = now()
   run.logs.push(`[${new Date().toLocaleTimeString()}] 执行失败: ${error.message}`)
-  await session.context.tracing.stop({ path: join(session.runDir, "trace.zip") }).catch(() => undefined)
-  await session.stopLiveStream?.().catch(() => undefined)
+  if (session.traceEnabled) {
+    await session.context.tracing.stop({ path: join(session.runDir, "trace.zip") }).catch(() => undefined)
+  }
+  await session.liveStream?.stop().catch(() => undefined)
   await session.context.close().catch(() => undefined)
   await session.browser.close().catch(() => undefined)
   const artifacts = await readdir(session.runDir).catch(() => [])

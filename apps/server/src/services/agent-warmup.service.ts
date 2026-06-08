@@ -169,6 +169,10 @@ export class AgentWarmupService {
         storageStateJson: authStorageStateJson,
       })
 
+      if (warmupSession.liveStream) {
+        this.runService.getRunStateService().registerLiveViewportController(warmupRun.id, warmupSession.liveStream)
+      }
+
       for (const dependency of preconditionPlan.nodes) {
         const stepIndex = warmupRun.steps.length - 1
         warmupRun.steps.splice(stepIndex, 0, createExecutionStep(warmupRun.id, warmupRun.steps.length + 1, `[前置用例] ${dependency.testCase.caseCode}`, `执行前置用例 ${dependency.testCase.caseCode}`, "precondition_case"))
@@ -264,6 +268,10 @@ export class AgentWarmupService {
     } catch (warmupError) {
       const warmupMsg = warmupError instanceof Error ? warmupError.message : String(warmupError)
       if (warmupSession) {
+        if (currentWarmupRunId) {
+          this.runService.getRunStateService().unregisterLiveViewportController(currentWarmupRunId)
+        }
+        await warmupSession.liveStream?.stop().catch(() => undefined)
         await warmupSession.context.close().catch(() => undefined)
         await warmupSession.browser.close().catch(() => undefined)
         warmupSession = null

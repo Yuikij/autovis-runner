@@ -188,6 +188,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
     }
 
     let warmupSession: Awaited<ReturnType<typeof prepareAgentExecutionContext>>["warmupSession"] = null
+    let warmupRunId: string | undefined
 
     try {
       const prepared = await prepareAgentExecutionContext({
@@ -209,6 +210,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           }
           if (patch.warmupRunId !== undefined) {
             session.warmupRunId = patch.warmupRunId
+            warmupRunId = patch.warmupRunId ?? warmupRunId
           }
           this.sessionService.persistAndNotifyAgent(session)
         },
@@ -321,6 +323,9 @@ ${promptSummary || "// Prompt summary: (empty)"}`
       handleUnauthorizedCopilotError({ error, message, llmService: this.llmService, state, current, ownerKey })
     } finally {
       this.sessionService.unregister(session.id)
+      if (warmupRunId) {
+        this.runService.getRunStateService().unregisterLiveViewportController(warmupRunId)
+      }
       await closeWarmupSession(warmupSession)
     }
   }

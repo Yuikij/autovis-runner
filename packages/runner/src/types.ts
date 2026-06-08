@@ -7,6 +7,7 @@ import type {
   ScriptArtifact,
   TestCase,
 } from "@autovis/shared"
+import type { LiveStreamController } from "./live-streamer.js"
 
 export interface CreateExecutionTemplateInput {
   runId: string
@@ -58,7 +59,10 @@ export interface RunnerSession {
   context: BrowserContext
   page: Page
   video: Awaited<ReturnType<Page["video"]>>
-  stopLiveStream?: () => Promise<void>
+  /** 实时预览推流控制器：stop 释放、setDemand 按观众开关抓帧。 */
+  liveStream?: LiveStreamController
+  /** 是否开启了 tracing（决定 finalize 时是否调用 tracing.stop，避免未 start 即 stop 抛错）。 */
+  traceEnabled?: boolean
 }
 
 export interface CreateRunnerSessionInput {
@@ -75,6 +79,10 @@ export interface CreateRunnerSessionInput {
    * 留空则回退到 run.testBaseUrl，保持原有行为。
    */
   landingUrl?: string
+  /** 是否录制 webm 视频。缺省按 run.kind 决定（temporary 不录），可被环境变量覆盖。 */
+  recordVideo?: boolean
+  /** 是否开启 Playwright trace（screenshots+snapshots，较重）。缺省同 recordVideo。 */
+  trace?: boolean
 }
 
 export interface ExecuteScriptInSessionInput {

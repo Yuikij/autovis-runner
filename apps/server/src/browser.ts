@@ -52,6 +52,20 @@ export const localNetworkAccessArgs = (): string[] => {
   return args
 }
 
+/**
+ * 性能相关启动参数：无显示器(xvfb)机器上 GPU 走软件渲染，独立 gpu-process 会空烧大量 CPU
+ * （见线上 top：gpu-process 常年 ~70%）。`--disable-gpu` 关掉独立 GPU 进程改走 CPU 直绘，
+ * `--disable-software-rasterizer` 进一步去掉软件光栅化进程，`--disable-dev-shm-usage` 避免
+ * 容器里 /dev/shm 过小导致渲染进程崩溃。可用 BROWSER_DISABLE_GPU=0 关闭（如需真实 WebGL 指纹）。
+ */
+export const performanceArgs = (): string[] => {
+  const args = ["--disable-dev-shm-usage"]
+  if ((process.env.BROWSER_DISABLE_GPU ?? "1").trim() !== "0") {
+    args.push("--disable-gpu", "--disable-software-rasterizer")
+  }
+  return args
+}
+
 export interface StealthContextOptions {
   /** 默认 false：headless Chrome 极易被风控识别，交互式沙盒必须 headed。 */
   headless?: boolean
@@ -97,7 +111,7 @@ export const launchReplayBrowser = async (options: {
       return await chromium.launch({
         headless: options.headless ?? true,
         slowMo: options.slowMo,
-        args: localNetworkAccessArgs(),
+        args: [...localNetworkAccessArgs(), ...performanceArgs()],
       })
     } catch (error) {
       recordBrowserStartFailure("replay_browser_launch", error, {
@@ -112,7 +126,7 @@ export const launchReplayBrowser = async (options: {
   const launchOptions = {
     headless: false,
     slowMo: options.slowMo,
-    args: [`--window-size=${size.width},${size.height}`, ...localNetworkAccessArgs()],
+    args: [`--window-size=${size.width},${size.height}`, ...localNetworkAccessArgs(), ...performanceArgs()],
   }
   try {
     return await chromium.launch(channel ? { ...launchOptions, channel } : launchOptions)
@@ -133,7 +147,7 @@ export const launchStealthPersistentContext = async (
   const headless = options.headless ?? false
   const channel = (process.env.BROWSER_CHANNEL ?? "chrome").trim()
   const userDataDir = options.userDataDir ?? (await mkdtemp(join(tmpdir(), "autovis-sbx-")))
-  const args: string[] = [...localNetworkAccessArgs()]
+  const args: string[] = [...localNetworkAccessArgs(), ...performanceArgs()]
   if (options.windowSize) {
     args.push(`--window-size=${options.windowSize.width},${options.windowSize.height}`)
   }

@@ -109,6 +109,7 @@ export class AgentDirectService {
     }
 
     let warmupSession: Awaited<ReturnType<typeof prepareAgentExecutionContext>>["warmupSession"] = null
+    let warmupRunId: string | undefined
 
     try {
       const prepared = await prepareAgentExecutionContext({
@@ -130,6 +131,7 @@ export class AgentDirectService {
           }
           if (patch.warmupRunId !== undefined) {
             session.warmupRunId = patch.warmupRunId
+            warmupRunId = patch.warmupRunId ?? warmupRunId
           }
           this.sessionService.persistAndNotifyAgent(session)
         },
@@ -252,6 +254,9 @@ export class AgentDirectService {
       handleUnauthorizedCopilotError({ error, message, llmService: this.llmService, state, current, ownerKey })
     } finally {
       this.sessionService.unregister(session.id)
+      if (warmupRunId) {
+        this.runService.getRunStateService().unregisterLiveViewportController(warmupRunId)
+      }
       await closeWarmupSession(warmupSession)
     }
   }

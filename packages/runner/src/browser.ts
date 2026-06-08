@@ -70,6 +70,20 @@ const localNetworkAccessArgs = (): string[] => {
 }
 
 /**
+ * 性能相关启动参数：无显示器(xvfb)机器上 GPU 走软件渲染，独立 gpu-process 会空烧大量 CPU
+ * （见线上 top：gpu-process 常年 ~70%）。`--disable-gpu` 关掉独立 GPU 进程改走 CPU 直绘，
+ * `--disable-software-rasterizer` 进一步去掉软件光栅化进程，`--disable-dev-shm-usage` 避免
+ * 容器里 /dev/shm 过小导致渲染进程崩溃。可用 BROWSER_DISABLE_GPU=0 关闭（如需真实 WebGL 指纹）。
+ */
+export const performanceArgs = (): string[] => {
+  const args = ["--disable-dev-shm-usage"]
+  if ((process.env.BROWSER_DISABLE_GPU ?? "1").trim() !== "0") {
+    args.push("--disable-gpu", "--disable-software-rasterizer")
+  }
+  return args
+}
+
+/**
  * 是否对"回放采集的登录态"启用反检测有头模式。
  * 注入了 storageState 才需要（说明这是登录态回放），且未被 STEALTH_REPLAY=0 关闭。
  */
@@ -96,7 +110,7 @@ export const launchReplayBrowser = async (options: {
       return await chromium.launch({
         headless: options.headless ?? true,
         slowMo: options.slowMo,
-        args: localNetworkAccessArgs(),
+        args: [...localNetworkAccessArgs(), ...performanceArgs()],
       })
     } catch (error) {
       recordBrowserStartFailure("runner.replay_browser_launch")
@@ -108,7 +122,7 @@ export const launchReplayBrowser = async (options: {
   const launchOptions = {
     headless: false,
     slowMo: options.slowMo,
-    args: [`--window-size=${size.width},${size.height}`, ...localNetworkAccessArgs()],
+    args: [`--window-size=${size.width},${size.height}`, ...localNetworkAccessArgs(), ...performanceArgs()],
   }
   try {
     return await chromium.launch(channel ? { ...launchOptions, channel } : launchOptions)

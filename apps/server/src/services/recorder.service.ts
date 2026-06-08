@@ -16,18 +16,44 @@ import { log } from "../log.js"
 import { recordBrowserStartFailure } from "../observability.js"
 import { TaskControlRegistry } from "./task-control.js"
 
+/** 录制会话空闲自动回收时长（ms），杜绝用户开了录制走开后残留的浏览器进程。0 关闭。 */
+const recorderIdleTimeoutMs = (): number => {
+  const raw = Number.parseInt(process.env.RECORDER_IDLE_MS ?? "", 10)
+  return Number.isFinite(raw) && raw >= 0 ? raw : 15 * 60_000
+}
+
 export class RecorderService {
   private readonly recorderSubscribers = new Map<string, Set<(session: RecorderSession) => void>>()
   private readonly activeRecorderPages = new Map<string, import("@playwright/test").Page>()
   private readonly activeRecorderContexts = new Map<string, import("@playwright/test").BrowserContext>()
   private readonly activeRecorderBrowsers = new Map<string, import("@playwright/test").Browser>()
+  private readonly lastActivityAt = new Map<string, number>()
 
   constructor(
     private readonly db: AutoVisDatabase,
     private readonly startVerificationCb: (req: any) => Promise<ExecutionRun>,
     private readonly createScriptArtifactCb: (testCaseId: string, provider: ScriptArtifact["provider"], prompt: string, code: string, source: ScriptArtifact["source"]) => ScriptArtifact,
     private readonly tasks: TaskControlRegistry,
-  ) {}
+  ) {
+    const ttl = recorderIdleTimeoutMs()
+    if (ttl > 0) {
+      const timer = setInterval(() => this.reapIdleSessions(ttl), Math.min(ttl, 60_000))
+      ;(timer as { unref?: () => void }).unref?.()
+    }
+  }
+
+  private reapIdleSessions(ttl: number) {
+    const now = Date.now()
+    for (const [sessionId, last] of this.lastActivityAt) {
+      if (now - last < ttl) continue
+      if (!this.activeRecorderBrowsers.has(sessionId)) {
+        this.lastActivityAt.delete(sessionId)
+        continue
+      }
+      log.warn("recorder.idle_reaped", { sessionId, idleMs: now - last })
+      void this.cancelRecorder(sessionId)
+    }
+  }
 
   public listActiveRecorderSessions(projectId?: string): RecorderSession[] {
     return this.tasks
@@ -77,6 +103,7 @@ export class RecorderService {
     this.activeRecorderPages.delete(sessionId)
     this.activeRecorderContexts.delete(sessionId)
     this.activeRecorderBrowsers.delete(sessionId)
+    this.lastActivityAt.delete(sessionId)
     this.tasks.unregister(sessionId)
     if (session) {
       session.status = "cancelled"
@@ -200,10 +227,10 @@ export class RecorderService {
     const session = this.createRecorderSession({ ...request, targetUrlId: resolved.id }, resolved.url)
     this.persistAndNotifyRecorder(session)
 
-    const { chromium, localNetworkAccessArgs } = await import("../browser.js")
+    const { chromium, localNetworkAccessArgs, performanceArgs } = await import("../browser.js")
     let browser
     try {
-      browser = await chromium.launch({ headless: process.env.HEADLESS !== "false", args: localNetworkAccessArgs() })
+      browser = await chromium.launch({ headless: process.env.HEADLESS !== "false", args: [...localNetworkAccessArgs(), ...performanceArgs()] })
     } catch (error) {
       recordBrowserStartFailure("recorder_browser_launch", error, {
         projectId: request.projectId,
@@ -222,6 +249,7 @@ export class RecorderService {
     this.activeRecorderBrowsers.set(session.id, browser)
     this.activeRecorderContexts.set(session.id, context)
     this.activeRecorderPages.set(session.id, page)
+    this.lastActivityAt.set(session.id, Date.now())
 
     await fs.mkdir(join(artifactsDir, session.id), { recursive: true })
     await page.goto(resolved.url, { waitUntil: "domcontentloaded" })
@@ -285,6 +313,7 @@ export class RecorderService {
     if (ctrl) {
       await ctrl.waitIfPaused()
     }
+    this.lastActivityAt.set(sessionId, Date.now())
 
     const pointerTarget = null
     const lastTarget = this.getLastRecorderTarget(session.actions)
@@ -419,6 +448,7 @@ export class RecorderService {
     this.activeRecorderPages.delete(sessionId)
     this.activeRecorderContexts.delete(sessionId)
     this.activeRecorderBrowsers.delete(sessionId)
+    this.lastActivityAt.delete(sessionId)
     this.tasks.unregister(sessionId)
 
     return { session, script: savedScript, run: verificationRun }
