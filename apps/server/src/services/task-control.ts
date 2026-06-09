@@ -269,7 +269,7 @@ export class TaskControlRegistry {
       request: managed.request,
     })
     if (!acquired) {
-      const error = new Error(`Task lease for ${ctrl.kind}:${ctrl.id} is already held by another executor.`) as Error & { code?: string }
+      const error = new Error("该任务已有一个正在运行的实例（任务锁被占用）。如果确认上一次执行已经中断，请稍候片刻让其锁自动过期后重试，或先取消进行中的任务。") as Error & { code?: string }
       error.code = "TASK_LEASE_CONFLICT"
       throw error
     }

@@ -1,43 +1,44 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 
 import type { ExecutionRun } from "@autovis/shared"
 
 import { apiRoutes, streamUrl } from "../../apiRoutes"
 import type { WorkspaceEffectsParams } from "../types"
-import { connectRetryingEventSource } from "./eventSource"
+import { useEntityStream } from "./useEntityStream"
+import type { ProjectSync } from "./useProjectSync"
 
 type RunStreamParams = Pick<WorkspaceEffectsParams,
   | "activeRun"
   | "activeSection"
   | "agentSession"
-  | "callbackRef"
-  | "loadProjectResources"
   | "loadRun"
   | "projectRuns"
   | "selectedCase"
   | "selectedProjectId"
   | "setActiveRun"
-  | "setTerminalRunRefreshIds"
   | "setWorkbenchVerificationRunId"
-  | "terminalRunRefreshIds"
 >
+
+const isTerminal = (status: ExecutionRun["status"]) =>
+  status === "passed" || status === "failed" || status === "cancelled" || status === "interrupted"
 
 export function useRunStreams({
   activeRun,
   activeSection,
   agentSession,
-  callbackRef,
-  loadProjectResources,
   loadRun,
   projectRuns,
   selectedCase,
   selectedProjectId,
   setActiveRun,
-  setTerminalRunRefreshIds,
   setWorkbenchVerificationRunId,
-  terminalRunRefreshIds,
-}: RunStreamParams) {
+}: RunStreamParams, sync: ProjectSync) {
   const warmupRunIdsRef = useRef<Set<string>>(new Set())
+  const projectRunsRef = useRef(projectRuns)
+
+  useEffect(() => {
+    projectRunsRef.current = projectRuns
+  }, [projectRuns])
 
   useEffect(() => {
     if (agentSession?.warmupRunId) {
@@ -85,28 +86,14 @@ export function useRunStreams({
     }
   }, [projectRuns, activeRun, selectedProjectId, setActiveRun])
 
-  useEffect(() => {
-    if (!activeRun) {
-      return undefined
+  const streamTarget = useMemo(() => (activeRun ? streamUrl(apiRoutes.runs.stream(activeRun.id)) : null), [activeRun?.id])
+
+  useEntityStream<ExecutionRun>(streamTarget, (run) => {
+    setActiveRun(run)
+    if (isTerminal(run.status) && selectedProjectId) {
+      sync.onTerminal(run.id)
     }
-
-    const isTerminal = (status: ExecutionRun["status"]) => status === "passed" || status === "failed" || status === "cancelled" || status === "interrupted"
-
-    return connectRetryingEventSource({
-      url: streamUrl(apiRoutes.runs.stream(activeRun.id)),
-      onMessage: (event) => {
-        const run = JSON.parse(event.data) as ExecutionRun
-        setActiveRun(run)
-        if (isTerminal(run.status) && selectedProjectId && !terminalRunRefreshIds.includes(run.id)) {
-          setTerminalRunRefreshIds((current) => [...current, run.id])
-          void loadProjectResources(selectedProjectId)
-          const { loadTestCases: refreshCases, loadAllTestCases: refreshAll } = callbackRef.current
-          void refreshCases(selectedProjectId)
-          void refreshAll()
-        }
-      },
-    })
-  }, [activeRun?.id, selectedProjectId, terminalRunRefreshIds, setActiveRun, setTerminalRunRefreshIds, loadProjectResources, callbackRef])
+  })
 
   useEffect(() => {
     if (!agentSession?.warmupRunId) {
@@ -117,7 +104,7 @@ export function useRunStreams({
       return undefined
     }
 
-    const existingRun = projectRuns.find((item) => item.id === agentSession.warmupRunId)
+    const existingRun = projectRunsRef.current.find((item) => item.id === agentSession.warmupRunId)
     if (existingRun) {
       setActiveRun(existingRun)
       return undefined
@@ -128,5 +115,5 @@ export function useRunStreams({
     }).catch(() => undefined)
 
     return undefined
-  }, [agentSession?.warmupRunId, activeRun?.id, projectRuns, loadRun, setActiveRun])
+  }, [agentSession?.warmupRunId, activeRun?.id, loadRun, setActiveRun])
 }

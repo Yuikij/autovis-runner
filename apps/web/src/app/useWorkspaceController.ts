@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import type {
   AgentSession,
@@ -69,9 +69,6 @@ export function useWorkspaceController() {
   const [busy, setBusy] = useState(false)
   const [agentSession, setAgentSession] = useState<AgentSession | null>(null)
   const [activeTaskAgentSession, setActiveTaskAgentSession] = useState<AgentSession | null>(null)
-  const [terminalRunRefreshIds, setTerminalRunRefreshIds] = useState<string[]>([])
-  const [terminalTaskRunRefreshIds, setTerminalTaskRunRefreshIds] = useState<string[]>([])
-  const [terminalRecorderRefreshIds, setTerminalRecorderRefreshIds] = useState<string[]>([])
   const [copilotPolling, setCopilotPolling] = useState(false)
   const [clock, setClock] = useState(() => Date.now())
   const [lastTargetUrlId, setLastTargetUrlId] = useState(() => {
@@ -250,18 +247,6 @@ export function useWorkspaceController() {
     return result.data
   }, [])
 
-  const callbackRef = useRef({
-    loadTestCases,
-    loadAllTestCases,
-  })
-
-  useEffect(() => {
-    callbackRef.current = {
-      loadTestCases,
-      loadAllTestCases,
-    }
-  }, [loadTestCases, loadAllTestCases])
-
   useEffect(() => {
     Promise.all([loadProjects(), loadLlmSession(), loadAllTestCases()])
       .catch((reason) => setError((reason as Error).message))
@@ -325,12 +310,11 @@ export function useWorkspaceController() {
     selectedProject, lastTargetUrlId, setLastTargetUrlId, selectedTask,
     taskForm, setTaskForm, selectedCase, caseForm, setCaseForm,
     activeRun, setActiveRun, setWorkbenchVerificationRunId, projectRuns,
-    agentSession, loadRun, selectedProjectId, terminalRunRefreshIds,
-    setTerminalRunRefreshIds, loadProjectResources, callbackRef,
-    activeTaskRun, activeTaskAgentSession, setActiveTaskAgentSession, setTaskRuns, taskRuns, terminalTaskRunRefreshIds,
-    setTerminalTaskRunRefreshIds, activeRecorderSession, setRecorderSessions,
-    recorderSessions, selectedCaseId, loadScripts, terminalRecorderRefreshIds,
-    setTerminalRecorderRefreshIds, setAgentSession, setBusy, llmSession,
+    agentSession, loadRun, selectedProjectId, loadProjectResources, loadAllTestCases,
+    activeTaskRun, activeTaskAgentSession, setActiveTaskAgentSession, setTaskRuns, taskRuns,
+    activeRecorderSession, setRecorderSessions,
+    recorderSessions, selectedCaseId, loadScripts,
+    setAgentSession, setBusy, llmSession,
     setClock, copilotPolling, clock, setCopilotPolling, copilotModel,
     loadLlmSession, setError, initialized, activeSection, selectedTaskId,
     parseHash, setActiveSection, setSelectedProjectId, setSelectedTaskId,

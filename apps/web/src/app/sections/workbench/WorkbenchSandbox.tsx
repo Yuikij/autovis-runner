@@ -103,6 +103,25 @@ export function WorkbenchSandbox({
   const [isLogExpanded, setIsLogExpanded] = useState(false)
   const [expandedAgentStepId, setExpandedAgentStepId] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [clockTick, setClockTick] = useState(0)
+
+  const agentRunning = agentSession?.status === "running"
+  useEffect(() => {
+    if (!agentRunning) return undefined
+    const timer = window.setInterval(() => setClockTick((value) => value + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [agentRunning])
+
+  const agentElapsedLabel = useMemo(() => {
+    void clockTick
+    if (!agentRunning || !agentSession?.startedAt) return null
+    const started = new Date(agentSession.startedAt).getTime()
+    if (!Number.isFinite(started)) return null
+    const totalSeconds = Math.max(0, Math.floor((Date.now() - started) / 1000))
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    return minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`
+  }, [agentRunning, agentSession?.startedAt, clockTick])
 
   const verificationRun = useMemo(() => {
     if (!activeRun || activeRun.kind !== "temporary") return null
@@ -204,10 +223,15 @@ export function WorkbenchSandbox({
                       <span className="flex size-2 rounded-full bg-slate-400 shrink-0" />
                     )}
                     <span className="text-sm font-semibold text-foreground truncate max-w-[200px] shrink-0">
-                      {latestAgentStep?.title || "等待生成开始..."}
+                      {latestAgentStep?.title || (agentRunning ? "正在连接生成任务…" : "等待生成开始...")}
                     </span>
+                    {agentElapsedLabel && (
+                      <span className="text-[10px] font-mono text-muted-foreground bg-secondary/40 border border-border/40 rounded px-1.5 py-0.5 shrink-0">
+                        已用时 {agentElapsedLabel}
+                      </span>
+                    )}
                     <span className="text-xs text-muted-foreground truncate hidden sm:block">
-                      {latestAgentStep?.content || ""}
+                      {latestAgentStep?.content || "首次启动浏览器可能较慢，请稍候。"}
                     </span>
                   </div>
                 ) : (

@@ -8,14 +8,23 @@ import { useAgentStreams } from "./streams/useAgentStreams"
 import { useRecorderStreams } from "./streams/useRecorderStreams"
 import { useRunStreams } from "./streams/useRunStreams"
 import { useTaskRunStreams } from "./streams/useTaskRunStreams"
+import { useProjectSync } from "./streams/useProjectSync"
 
 export type WorkspaceEffectParams = WorkspaceEffectsParams
 
 export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
-  useRunStreams(params)
-  useTaskRunStreams(params)
-  useRecorderStreams(params)
-  useAgentStreams(params)
+  // One coordinator owns all post-terminal refreshes (coalesced + single-flight),
+  // replacing the per-stream refresh fan-out and the three terminal-id arrays.
+  const projectSync = useProjectSync({
+    selectedProjectId: params.selectedProjectId,
+    loadProjectResources: params.loadProjectResources,
+    loadAllTestCases: params.loadAllTestCases,
+  })
+
+  useRunStreams(params, projectSync)
+  useTaskRunStreams(params, projectSync)
+  useRecorderStreams(params, projectSync)
+  useAgentStreams(params, projectSync)
 
   const {
     selectedProject, lastTargetUrlId, setLastTargetUrlId, selectedTask,

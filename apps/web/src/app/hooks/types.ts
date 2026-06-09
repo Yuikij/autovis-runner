@@ -1,4 +1,4 @@
-import type { Dispatch, MutableRefObject, SetStateAction } from "react"
+import type { Dispatch, SetStateAction } from "react"
 import type {
   AgentSession,
   ExecutionRun,
@@ -29,11 +29,6 @@ export type Setter<T> = Dispatch<SetStateAction<T>>
 
 export type { WorkspaceSection, ParsedHash }
 
-export interface WorkspaceEffectCallbacks {
-  loadTestCases: (projectId: string) => Promise<TestCase[]>
-  loadAllTestCases: () => Promise<TestCase[]>
-}
-
 export interface WorkspaceEffectsParams {
   selectedProject?: Project
   lastTargetUrlId: string
@@ -51,24 +46,18 @@ export interface WorkspaceEffectsParams {
   agentSession: AgentSession | null
   loadRun: (runId: string) => Promise<ExecutionRun | null>
   selectedProjectId: string | null
-  terminalRunRefreshIds: string[]
-  setTerminalRunRefreshIds: Setter<string[]>
   loadProjectResources: (projectId: string) => Promise<void>
-  callbackRef: MutableRefObject<WorkspaceEffectCallbacks>
+  loadAllTestCases: () => Promise<TestCase[]>
   activeTaskRun: TaskRun | null
   activeTaskAgentSession: AgentSession | null
   setActiveTaskAgentSession: Setter<AgentSession | null>
   setTaskRuns: Setter<TaskRun[]>
   taskRuns: TaskRun[]
-  terminalTaskRunRefreshIds: string[]
-  setTerminalTaskRunRefreshIds: Setter<string[]>
   activeRecorderSession: RecorderSession | null
   setRecorderSessions: Setter<RecorderSession[]>
   recorderSessions: RecorderSession[]
   selectedCaseId: string | null
   loadScripts: (testCaseId: string) => Promise<void>
-  terminalRecorderRefreshIds: string[]
-  setTerminalRecorderRefreshIds: Setter<string[]>
   setAgentSession: Setter<AgentSession | null>
   setBusy: Setter<boolean>
   llmSession: LlmSessionConfig | null

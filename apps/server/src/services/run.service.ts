@@ -49,6 +49,26 @@ export class RunService {
     return run.kind === "temporary"
   }
 
+  /**
+   * 逐项核对运行所需依赖，返回点名缺失项、可指导用户操作的中文错误（而非笼统的
+   * "Run dependencies not found"）。校验通过返回 null。
+   */
+  private describeMissingRunDependencies(input: { projectId: string; testCaseId: string; scriptId: string }): string | null {
+    const project = this.db.getProject(input.projectId)
+    if (!project) {
+      return "无法启动执行：所属项目不存在或已被删除，请刷新页面后重试。"
+    }
+    const testCase = this.db.getTestCase(input.testCaseId)
+    if (!testCase) {
+      return "无法启动执行：测试用例不存在或已被删除，请刷新页面后重新选择用例。"
+    }
+    const script = this.db.getScript(input.scriptId)
+    if (!script) {
+      return `无法启动执行：用例 ${testCase.caseCode} 所选脚本版本不存在或已被删除，请重新生成或选择一个有效的脚本版本。`
+    }
+    return null
+  }
+
   public listActiveRuns(projectId?: string): ExecutionRun[] {
     return this.tasks
       .listByKind("run")
@@ -195,12 +215,17 @@ export class RunService {
       return existing
     }
 
-    const project = this.db.getProject(existing.projectId)
-    const testCase = this.db.getTestCase(existing.testCaseId)
-    const script = this.db.getScript(existing.scriptId)
-    if (!project || !testCase || !script) {
-      throw new Error(`Run ${runId} dependencies not found`)
+    const missing = this.describeMissingRunDependencies({
+      projectId: existing.projectId,
+      testCaseId: existing.testCaseId,
+      scriptId: existing.scriptId,
+    })
+    if (missing) {
+      throw new Error(`无法恢复执行 ${runId}：${missing}`)
     }
+    const project = this.db.getProject(existing.projectId)!
+    const testCase = this.db.getTestCase(existing.testCaseId)!
+    const script = this.db.getScript(existing.scriptId)!
 
     const target = this.resolveTargetUrlOrThrow(existing.projectId, existing.targetUrlId)
     const preconditionPlan = this.suiteService.buildPreconditionPlan(testCase)
@@ -508,18 +533,22 @@ export class RunService {
   }
 
   public async startRun(request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string }) {
-    const project = this.db.getProject(request.projectId)
-    const testCase = this.db.getTestCase(request.testCaseId)
-    const script = this.db.getScript(request.scriptId)
-
-    if (!project || !testCase || !script) {
-      throw new Error("Run dependencies not found")
+    const missing = this.describeMissingRunDependencies({
+      projectId: request.projectId,
+      testCaseId: request.testCaseId,
+      scriptId: request.scriptId,
+    })
+    if (missing) {
+      throw new Error(missing)
     }
+    const project = this.db.getProject(request.projectId)!
+    const testCase = this.db.getTestCase(request.testCaseId)!
+    const script = this.db.getScript(request.scriptId)!
 
     if (!request.taskRunId) {
       const existing = this.tasks.findActiveForCase("run", request.testCaseId)
       if (existing) {
-        const conflict = new Error("当前用例已有进行中的运行任务。") as Error & {
+        const conflict = new Error(`用例 ${testCase.caseCode} 已有一个进行中的运行任务，请等待其结束或先取消后再重试。`) as Error & {
           code?: string
           conflictId?: string
           conflictKind?: string

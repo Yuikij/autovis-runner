@@ -74,22 +74,28 @@ export class AgentDirectService {
     }, "direct")
     this.sessionService.persistAndNotifyAgent(session)
 
-    const taskController = this.sessionService.createManagedController(
-      session,
-      { ...request, mode: "direct", sessionId: session.id },
-      () => ({
-        mode: session.mode,
-        status: session.status,
-        verificationStatus: session.verificationStatus,
-        stepCount: session.steps.length,
-        latestRunId: session.latestRunId ?? null,
-        warmupRunId: session.warmupRunId ?? null,
-        pausedAt: session.pausedAt ?? null,
-      }),
-    )
+    const preparingStepId = `prep_${session.id}`
+    let preparingResolved = false
+    const resolvePreparingStep = () => {
+      if (preparingResolved) return
+      preparingResolved = true
+      this.sessionService.appendOrUpdateStep(session, {
+        id: preparingStepId,
+        type: "thinking",
+        stage: "page",
+        title: "执行环境准备完成",
+        content: "浏览器与前置依赖已就绪，开始执行任务。",
+        status: "completed",
+        timestamp: now(),
+      })
+    }
 
     let warmupRunForDisplay: ExecutionRun | null = null
     const onStep = (step: AgentStep) => {
+      // 第一个真实步骤到达时，把"准备中"步骤收尾，避免两个 running 步骤并存。
+      if (step.id !== preparingStepId) {
+        resolvePreparingStep()
+      }
       this.sessionService.appendOrUpdateStep(session, step)
       if (!warmupRunForDisplay) return
       const runLogParts = [step.title, step.content, step.detail].filter(Boolean)
@@ -106,6 +112,50 @@ export class AgentDirectService {
       }
       this.runService.getRunStateService().saveRunSnapshot(warmupRunForDisplay)
       this.runService.getRunStateService().notifyRun(warmupRunForDisplay)
+    }
+
+    onStep({
+      id: preparingStepId,
+      type: "thinking",
+      stage: "page",
+      title: "正在准备执行环境",
+      content: "已接收执行请求，正在初始化浏览器与前置依赖……首次启动浏览器可能较慢，请稍候。",
+      status: "running",
+      timestamp: now(),
+    })
+
+    let taskController: ReturnType<AgentSessionService["createManagedController"]>
+    try {
+      taskController = this.sessionService.createManagedController(
+        session,
+        { ...request, mode: "direct", sessionId: session.id },
+        () => ({
+          mode: session.mode,
+          status: session.status,
+          verificationStatus: session.verificationStatus,
+          stepCount: session.steps.length,
+          latestRunId: session.latestRunId ?? null,
+          warmupRunId: session.warmupRunId ?? null,
+          pausedAt: session.pausedAt ?? null,
+        }),
+      )
+    } catch (controllerError) {
+      // 控制器/租约创建在主 try 之前，若不收敛会让会话永远停留在 running + 空步骤。
+      const message = controllerError instanceof Error ? controllerError.message : String(controllerError)
+      session.status = "error"
+      session.error = message
+      session.finishedAt = now()
+      onStep({
+        id: preparingStepId,
+        type: "error",
+        stage: "page",
+        title: "无法启动执行任务",
+        content: message,
+        status: "error",
+        timestamp: now(),
+      })
+      this.sessionService.persistAndNotifyAgent(session)
+      throw controllerError
     }
 
     let warmupSession: Awaited<ReturnType<typeof prepareAgentExecutionContext>>["warmupSession"] = null

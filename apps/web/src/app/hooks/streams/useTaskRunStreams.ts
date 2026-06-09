@@ -1,91 +1,78 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 
 import type { TaskRun } from "@autovis/shared"
 
 import { apiRoutes, streamUrl } from "../../apiRoutes"
 import type { WorkspaceEffectsParams } from "../types"
-import { connectRetryingEventSource } from "./eventSource"
+import { useEntityStream } from "./useEntityStream"
+import type { ProjectSync } from "./useProjectSync"
 
 type TaskRunStreamParams = Pick<WorkspaceEffectsParams,
   | "activeRun"
   | "activeTaskRun"
-  | "callbackRef"
-  | "loadProjectResources"
   | "loadRun"
   | "projectRuns"
   | "selectedProjectId"
   | "setActiveRun"
   | "setTaskRuns"
-  | "setTerminalTaskRunRefreshIds"
-  | "terminalTaskRunRefreshIds"
 >
+
+const isTerminal = (status: TaskRun["status"]) =>
+  status === "passed" || status === "failed" || status === "cancelled" || status === "interrupted"
 
 export function useTaskRunStreams({
   activeRun,
   activeTaskRun,
-  callbackRef,
-  loadProjectResources,
   loadRun,
   projectRuns,
   selectedProjectId,
   setActiveRun,
   setTaskRuns,
-  setTerminalTaskRunRefreshIds,
-  terminalTaskRunRefreshIds,
-}: TaskRunStreamParams) {
+}: TaskRunStreamParams, sync: ProjectSync) {
   const activeRunRef = useRef(activeRun)
+  const projectRunsRef = useRef(projectRuns)
 
   useEffect(() => {
     activeRunRef.current = activeRun
   }, [activeRun])
 
   useEffect(() => {
-    if (!activeTaskRun) {
-      return undefined
-    }
+    projectRunsRef.current = projectRuns
+  }, [projectRuns])
 
-    const isTerminal = (status: TaskRun["status"]) => status === "passed" || status === "failed" || status === "cancelled" || status === "interrupted"
+  const streamTarget = useMemo(() => (activeTaskRun ? streamUrl(apiRoutes.taskRuns.stream(activeTaskRun.id)) : null), [activeTaskRun?.id])
 
-    return connectRetryingEventSource({
-      url: streamUrl(apiRoutes.taskRuns.stream(activeTaskRun.id)),
-      onMessage: (event) => {
-        const taskRun = JSON.parse(event.data) as TaskRun
-        setTaskRuns((current) => {
-          const next = current.filter((item) => item.id !== taskRun.id)
-          return [taskRun, ...next]
-        })
-        const currentActiveRun = activeRunRef.current
-        if (!taskRun.currentRunId) {
-          if (currentActiveRun && currentActiveRun.taskRunId !== taskRun.id) {
-            setActiveRun(null)
-          }
-        } else {
-          const isUserInspectingDiffFinishedRun = currentActiveRun
-            && currentActiveRun.id !== taskRun.currentRunId
-            && (currentActiveRun.status === "passed"
-              || currentActiveRun.status === "failed"
-              || currentActiveRun.status === "cancelled"
-              || currentActiveRun.status === "interrupted")
-
-          if (!isUserInspectingDiffFinishedRun) {
-            const currentRun = projectRuns.find((item) => item.id === taskRun.currentRunId)
-            if (currentRun) {
-              setActiveRun(currentRun)
-            } else {
-              void loadRun(taskRun.currentRunId).then((nextRun) => {
-                if (nextRun) setActiveRun(nextRun)
-              }).catch(() => undefined)
-            }
-          }
-        }
-        if (isTerminal(taskRun.status) && selectedProjectId && !terminalTaskRunRefreshIds.includes(taskRun.id)) {
-          setTerminalTaskRunRefreshIds((current) => [...current, taskRun.id])
-          void loadProjectResources(selectedProjectId)
-          const { loadTestCases: refreshCases, loadAllTestCases: refreshAll } = callbackRef.current
-          void refreshCases(selectedProjectId)
-          void refreshAll()
-        }
-      },
+  useEntityStream<TaskRun>(streamTarget, (taskRun) => {
+    setTaskRuns((current) => {
+      const next = current.filter((item) => item.id !== taskRun.id)
+      return [taskRun, ...next]
     })
-  }, [activeTaskRun?.id, selectedProjectId, terminalTaskRunRefreshIds, setTaskRuns, projectRuns, setActiveRun, loadRun, setTerminalTaskRunRefreshIds, loadProjectResources, callbackRef])
+    const currentActiveRun = activeRunRef.current
+    if (!taskRun.currentRunId) {
+      if (currentActiveRun && currentActiveRun.taskRunId !== taskRun.id) {
+        setActiveRun(null)
+      }
+    } else {
+      const isUserInspectingDiffFinishedRun = currentActiveRun
+        && currentActiveRun.id !== taskRun.currentRunId
+        && (currentActiveRun.status === "passed"
+          || currentActiveRun.status === "failed"
+          || currentActiveRun.status === "cancelled"
+          || currentActiveRun.status === "interrupted")
+
+      if (!isUserInspectingDiffFinishedRun) {
+        const currentRun = projectRunsRef.current.find((item) => item.id === taskRun.currentRunId)
+        if (currentRun) {
+          setActiveRun(currentRun)
+        } else {
+          void loadRun(taskRun.currentRunId).then((nextRun) => {
+            if (nextRun) setActiveRun(nextRun)
+          }).catch(() => undefined)
+        }
+      }
+    }
+    if (isTerminal(taskRun.status) && selectedProjectId) {
+      sync.onTerminal(taskRun.id)
+    }
+  })
 }
