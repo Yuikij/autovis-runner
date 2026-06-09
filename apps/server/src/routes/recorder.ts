@@ -61,7 +61,7 @@ export async function recorderRoutes(app: FastifyInstance) {
     const params = z.object({ sessionId: z.string() }).parse(request.params)
     const body = z
       .object({
-        type: z.enum(["navigate", "click", "dblclick", "input", "keydown", "scroll"]),
+        type: z.enum(["navigate", "click", "dblclick", "input", "keydown", "scroll", "pointerdown", "pointermove", "pointerup"]),
         url: z.string().optional(),
         x: z.number().optional(),
         y: z.number().optional(),

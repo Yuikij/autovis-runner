@@ -216,6 +216,16 @@ export class AuthLoginSandboxService {
       }
     } else if (interaction.type === "click" || interaction.type === "dblclick") {
       await page.mouse.click(interaction.x ?? 0, interaction.y ?? 0, { clickCount: interaction.type === "dblclick" ? 2 : 1 })
+    } else if (interaction.type === "pointerdown") {
+      await page.mouse.move(interaction.x ?? 0, interaction.y ?? 0)
+      await page.mouse.down()
+    } else if (interaction.type === "pointermove") {
+      await page.mouse.move(interaction.x ?? 0, interaction.y ?? 0)
+    } else if (interaction.type === "pointerup") {
+      if (interaction.x != null && interaction.y != null) {
+        await page.mouse.move(interaction.x, interaction.y)
+      }
+      await page.mouse.up()
     } else if (interaction.type === "scroll") {
       await page.mouse.wheel(0, interaction.deltaY ?? 0)
     } else if (interaction.type === "keydown") {

@@ -14,6 +14,7 @@ import { Button } from "./ui/button"
 // session.liveViewport.width/height 下发；这里只在尚未拿到时用作兜底。
 const FALLBACK_WIDTH = 1440
 const FALLBACK_HEIGHT = 960
+const POINTER_MOVE_MIN_INTERVAL_MS = 25
 
 // 这些按键作为"命名键"转发（keyboard.press）；其余可打印单字符走 input（keyboard.type）。
 const NAMED_KEYS = new Set([
@@ -58,6 +59,9 @@ export function AuthSandboxModal({
   const sessionIdRef = useRef<string | null>(null)
   const savedRef = useRef(false)
   const socketRef = useRef<WebSocket | null>(null)
+  const draggingPointerIdRef = useRef<number | null>(null)
+  const lastPointerMoveAtRef = useRef(0)
+  const interactionQueueRef = useRef(Promise.resolve())
 
   // 启动会话
   useEffect(() => {
@@ -134,23 +138,73 @@ export function AuthSandboxModal({
   const sendInteraction = useCallback((interaction: RecorderInteractionRequest) => {
     const id = sessionIdRef.current
     if (!id) return
-    void request<AuthLoginSandboxSession>(apiRoutes.authLoginSandbox.interactions(id), {
-      method: "POST",
-      body: JSON.stringify(interaction),
-    })
-      .then((res) => setSession((current) => (current ? { ...current, ...res.data } : res.data)))
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+    interactionQueueRef.current = interactionQueueRef.current
+      .catch(() => undefined)
+      .then(() =>
+        request<AuthLoginSandboxSession>(apiRoutes.authLoginSandbox.interactions(id), {
+          method: "POST",
+          body: JSON.stringify(interaction),
+        }),
+      )
+      .then((res) => {
+        setSession((current) => (current ? { ...current, ...res.data } : res.data))
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err))
+      })
   }, [])
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>, dbl = false) => {
-    const rect = e.currentTarget.getBoundingClientRect()
+  const getCanvasCoordinates = useCallback((canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) return
     const logicalW = session?.liveViewport?.width ?? FALLBACK_WIDTH
     const logicalH = session?.liveViewport?.height ?? FALLBACK_HEIGHT
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * logicalW)
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * logicalH)
+    const x = Math.round(((clientX - rect.left) / rect.width) * logicalW)
+    const y = Math.round(((clientY - rect.top) / rect.height) * logicalH)
+    return { x: Math.max(0, Math.min(logicalW, x)), y: Math.max(0, Math.min(logicalH, y)) }
+  }, [session?.liveViewport?.width, session?.liveViewport?.height])
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0) return
+    const coords = getCanvasCoordinates(e.currentTarget, e.clientX, e.clientY)
+    if (!coords) return
+    e.preventDefault()
     e.currentTarget.focus()
-    sendInteraction({ type: dbl ? "dblclick" : "click", x, y })
+    draggingPointerIdRef.current = e.pointerId
+    lastPointerMoveAtRef.current = 0
+    e.currentTarget.setPointerCapture(e.pointerId)
+    sendInteraction({ type: "pointerdown", ...coords })
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (draggingPointerIdRef.current !== e.pointerId) return
+    const coords = getCanvasCoordinates(e.currentTarget, e.clientX, e.clientY)
+    if (!coords) return
+    e.preventDefault()
+    if (e.timeStamp - lastPointerMoveAtRef.current < POINTER_MOVE_MIN_INTERVAL_MS) return
+    lastPointerMoveAtRef.current = e.timeStamp
+    sendInteraction({ type: "pointermove", ...coords })
+  }
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (draggingPointerIdRef.current !== e.pointerId) return
+    const coords = getCanvasCoordinates(e.currentTarget, e.clientX, e.clientY)
+    draggingPointerIdRef.current = null
+    e.preventDefault()
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+    sendInteraction({ type: "pointerup", ...(coords ?? {}) })
+  }
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (draggingPointerIdRef.current !== e.pointerId) return
+    const coords = getCanvasCoordinates(e.currentTarget, e.clientX, e.clientY)
+    draggingPointerIdRef.current = null
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+    sendInteraction({ type: "pointerup", ...(coords ?? {}) })
   }
 
   // 滚轮需要 passive:false 才能 preventDefault，用原生监听器挂载
@@ -271,11 +325,13 @@ export function AuthSandboxModal({
           <canvas
             ref={canvasRef}
             tabIndex={0}
-            onClick={(e) => handleCanvasClick(e, false)}
-            onDoubleClick={(e) => handleCanvasClick(e, true)}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
             onKeyDown={handleKeyDown}
             onContextMenu={(e) => e.preventDefault()}
-            className="max-h-full max-w-full object-contain rounded-xl border border-border/60 outline-none cursor-crosshair focus:ring-2 focus:ring-primary/60"
+            className="max-h-full max-w-full object-contain rounded-xl border border-border/60 outline-none cursor-crosshair touch-none select-none focus:ring-2 focus:ring-primary/60"
           />
         )}
       </div>

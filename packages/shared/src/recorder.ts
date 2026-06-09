@@ -11,7 +11,16 @@ export type RecorderSessionStatus =
   | "stopping"
   | "completed"
   | "error"
-export type RecorderActionType = "navigate" | "click" | "dblclick" | "input" | "keydown" | "scroll"
+export type RecorderActionType =
+  | "navigate"
+  | "click"
+  | "dblclick"
+  | "input"
+  | "keydown"
+  | "scroll"
+  | "pointerdown"
+  | "pointermove"
+  | "pointerup"
 export type RecorderInteractionType = RecorderActionType
 
 export interface RecorderAction {
