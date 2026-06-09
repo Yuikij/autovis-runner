@@ -91,7 +91,7 @@ export function useRunStreams({
   useEntityStream<ExecutionRun>(streamTarget, (run) => {
     setActiveRun(run)
     if (isTerminal(run.status) && selectedProjectId) {
-      sync.onTerminal(run.id)
+      sync.onTerminal(run.id, ["runs", "cases"])
     }
   })
 

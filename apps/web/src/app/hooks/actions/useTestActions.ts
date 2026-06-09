@@ -78,6 +78,33 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
     loadProjectResources,
   } = params
 
+  // Single path for "the case already has an in-flight task" (HTTP 409). Adopts
+  // the existing entity so the user lands on the live task instead of an error.
+  const adoptAgentConflict = async (
+    reason: unknown,
+    mode: AgentSession["mode"],
+    ctx: { projectId: string; testCaseId: string },
+  ): Promise<boolean> => {
+    const conflict = getStartupConflict(reason)
+    if (conflict?.kind !== "agent") return false
+    const adopted = await request<AgentSession>(apiRoutes.agent.detail(conflict.id))
+      .then((result) => result.data)
+      .catch(() => buildFallbackAgentSession(conflict, { ...ctx, mode }))
+    setAgentSession(adopted)
+    setError(`该用例已有进行中的${mode === "direct" ? "直接执行" : "脚本生成"}任务（${conflict.status}），已自动接管。`)
+    return true
+  }
+
+  const adoptRunConflict = async (reason: unknown): Promise<boolean> => {
+    const conflict = getStartupConflict(reason)
+    if (conflict?.kind !== "run") return false
+    const adoptedRun = await request<ExecutionRun>(apiRoutes.runs.detail(conflict.id)).then((result) => result.data)
+    setActiveRun(adoptedRun)
+    setWorkbenchVerificationRunId(adoptedRun.id)
+    setError(`该用例已有进行中的运行任务（${conflict.status}），已自动接管。`)
+    return true
+  }
+
   const saveTestCase = async () => {
     if (!selectedProject) return false
 
@@ -175,21 +202,11 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
         startedAt: new Date().toISOString(),
       })
     } catch (reason) {
-      const conflict = getStartupConflict(reason)
-      if (conflict?.kind === "agent") {
-        const adopted = await request<AgentSession>(apiRoutes.agent.detail(conflict.id))
-          .then((result) => result.data)
-          .catch(() => buildFallbackAgentSession(conflict, {
-            projectId: selectedProject.id,
-            testCaseId: selectedCase.id,
-            mode: "generate",
-          }))
-        setAgentSession(adopted)
-        setError(`该用例已有进行中的脚本生成任务（${conflict.status}），已自动接管。`)
-      } else {
-        setAgentSession(null)
-        setError((reason as Error).message)
+      if (await adoptAgentConflict(reason, "generate", { projectId: selectedProject.id, testCaseId: selectedCase.id })) {
+        return
       }
+      setAgentSession(null)
+      setError((reason as Error).message)
     } finally {
       setBusy(false)
     }
@@ -258,21 +275,11 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
         startedAt: new Date().toISOString(),
       })
     } catch (reason) {
-      const conflict = getStartupConflict(reason)
-      if (conflict?.kind === "agent") {
-        const adopted = await request<AgentSession>(apiRoutes.agent.detail(conflict.id))
-          .then((result) => result.data)
-          .catch(() => buildFallbackAgentSession(conflict, {
-            projectId: selectedProject.id,
-            testCaseId: selectedCase.id,
-            mode: "direct",
-          }))
-        setAgentSession(adopted)
-        setError(`该用例已有进行中的直接执行任务（${conflict.status}），已自动接管。`)
-      } else {
-        setAgentSession(null)
-        setError((reason as Error).message)
+      if (await adoptAgentConflict(reason, "direct", { projectId: selectedProject.id, testCaseId: selectedCase.id })) {
+        return
       }
+      setAgentSession(null)
+      setError((reason as Error).message)
     } finally {
       setBusy(false)
     }
@@ -304,15 +311,8 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
       setActiveRun(result.data.run)
       setWorkbenchVerificationRunId(result.data.run.id)
     } catch (reason) {
-      const conflict = getStartupConflict(reason)
-      if (conflict?.kind === "run") {
-        const adoptedRun = await request<ExecutionRun>(apiRoutes.runs.detail(conflict.id)).then((result) => result.data)
-        setActiveRun(adoptedRun)
-        setWorkbenchVerificationRunId(adoptedRun.id)
-        setError(`该用例已有进行中的运行任务（${conflict.status}），已自动接管。`)
-      } else {
-        setError((reason as Error).message)
-      }
+      if (await adoptRunConflict(reason)) return
+      setError((reason as Error).message)
     } finally {
       setBusy(false)
     }
@@ -340,15 +340,8 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
       })
       setActiveRun(result.data.run)
     } catch (reason) {
-      const conflict = getStartupConflict(reason)
-      if (conflict?.kind === "run") {
-        const adoptedRun = await request<ExecutionRun>(apiRoutes.runs.detail(conflict.id)).then((result) => result.data)
-        setActiveRun(adoptedRun)
-        setWorkbenchVerificationRunId(adoptedRun.id)
-        setError(`该用例已有进行中的运行任务（${conflict.status}），已自动接管。`)
-      } else {
-        setError((reason as Error).message)
-      }
+      if (await adoptRunConflict(reason)) return
+      setError((reason as Error).message)
     } finally {
       setBusy(false)
     }

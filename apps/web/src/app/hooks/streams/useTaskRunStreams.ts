@@ -72,7 +72,7 @@ export function useTaskRunStreams({
       }
     }
     if (isTerminal(taskRun.status) && selectedProjectId) {
-      sync.onTerminal(taskRun.id)
+      sync.onTerminal(taskRun.id, ["taskRuns", "runs", "tasks", "cases"])
     }
   })
 }

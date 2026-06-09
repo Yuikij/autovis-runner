@@ -39,7 +39,7 @@ export function useRecorderStreams({
       void loadScripts(selectedCaseId)
     }
     if (isTerminal(session.status) && selectedProjectId) {
-      sync.onTerminal(session.id)
+      sync.onTerminal(session.id, ["recorder", "cases"])
     }
   })
 }

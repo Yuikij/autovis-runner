@@ -1,6 +1,6 @@
 {
   "name": "autovis-runner",
-  "version": "0.5.9",
+  "version": "0.6.0",
   "private": true,
   "packageManager": "pnpm@10.20.0",
   "scripts": {
@@ -12,6 +12,7 @@
     "runner:package": "bash scripts/package-runner.sh",
     "runner:docker": "docker build -t autovis/runner:local .",
     "lint": "pnpm -r lint",
-    "check": "pnpm -r check"
+    "check": "pnpm -r check",
+    "acceptance": "node scripts/acceptance-smoke.mjs"
   }
 }

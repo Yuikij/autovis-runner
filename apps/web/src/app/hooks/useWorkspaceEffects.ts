@@ -17,8 +17,7 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
   // replacing the per-stream refresh fan-out and the three terminal-id arrays.
   const projectSync = useProjectSync({
     selectedProjectId: params.selectedProjectId,
-    loadProjectResources: params.loadProjectResources,
-    loadAllTestCases: params.loadAllTestCases,
+    loaders: params.refreshLoaders,
   })
 
   useRunStreams(params, projectSync)

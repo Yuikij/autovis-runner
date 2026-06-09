@@ -24,6 +24,7 @@ import type {
 } from "@autovis/shared"
 import type { WorkspaceSection } from "../constants"
 import type { ParsedHash } from "../hashRouter"
+import type { ProjectRefreshLoaders } from "./streams/useProjectSync"
 
 export type Setter<T> = Dispatch<SetStateAction<T>>
 
@@ -47,7 +48,7 @@ export interface WorkspaceEffectsParams {
   loadRun: (runId: string) => Promise<ExecutionRun | null>
   selectedProjectId: string | null
   loadProjectResources: (projectId: string) => Promise<void>
-  loadAllTestCases: () => Promise<TestCase[]>
+  refreshLoaders: ProjectRefreshLoaders
   activeTaskRun: TaskRun | null
   activeTaskAgentSession: AgentSession | null
   setActiveTaskAgentSession: Setter<AgentSession | null>

@@ -48,13 +48,14 @@
 
 ## 五、分阶段实施（每阶段独立可发布、可回滚）
 
-- **阶段 1（本轮）— 前端流与刷新收束**：新增 `useEntityStream` + `useProjectSync`；把 4 个流 hook 迁移过去；删除 3 个 `terminal*RefreshIds` state 与 `callbackRef` 透传。结果：不变量 1/2/4 成立，请求风暴在结构上消失，删除大量重复代码。
-- **阶段 2 — 冲突/接管收束**：`useTestActions` 里 generate/direct/run/verification 重复的 `getStartupConflict + 接管` 逻辑抽成单一 `adoptOnConflict` 助手。
-- **阶段 3 — 状态分域**：把"上帝 Hook"按域拆为 `useProjectStore / useExecutionStore / useLlmStore` 等，缩小参数面（与阶段 1 的协调器天然契合）。
-- **阶段 4 — 增量刷新**：服务端事件带 `affects` 提示，前端按域增量刷新，淘汰 `loadProjectResources` 全量重拉。
-- **阶段 5 — 确定性验收**：基于已有 `/ready` `/metrics` + 一个最小冒烟脚本，建立"启动→建项目→生成→执行→终态"闭环的可重复验收。
+- **阶段 1 ✅ 前端流与刷新收束**：新增 `useEntityStream` + `useProjectSync`；把 4 个流 hook 迁移过去；删除 3 个 `terminal*RefreshIds` state 与 `callbackRef` 透传。结果：不变量 1/2/4 成立，请求风暴在结构上消失，删除大量重复代码。
+- **阶段 2 ✅ 冲突/接管收束**：`useTestActions` 里 generate/direct/run/verification 重复的 `getStartupConflict + 接管` 逻辑收敛为两个助手 `adoptAgentConflict` / `adoptRunConflict`，四处 catch 块从 ~12 行降为 1 行。
+- **阶段 3 ✅ 状态分域（首切）**：把"上帝 Hook"中的**服务端资源域**（列表 state + 全部 loader + 加载 effect + 派生选择器）抽到 `useWorkspaceData`，控制器组合并原样再导出，**公开 API 与运行时行为不变**。数据获取逻辑从此集中在单一可测模块。执行域 / LLM 域 / UI 域的进一步拆分刻意延后——它们需要触达所有 section、收益偏维护性而非用户侧稳定性，贸然重排风险大于价值。
+- **阶段 4 ✅ 增量刷新（按作用域）**：刷新协调器改为**作用域化**。观察到终态事件的流 hook 最清楚什么数据失效，由它声明 `RefreshScope[]`（如 run→`["runs","cases"]`），`useProjectSync` 折叠这些作用域并只刷新对应的少量接口（新增 `loadProjectRuns/loadProjectTaskRuns/loadProjectRecorderSessions` 等粒度 loader），淘汰每次 9 接口的 `loadProjectResources` 全量重拉。无需改动服务端协议——作用域来源即前端流自身，避免新增跨切面耦合。
+- **阶段 5 ✅ 确定性验收**：新增 `scripts/acceptance-smoke.mjs` 与 `pnpm acceptance`。脚本只读、无副作用：等待 `/ready` 就绪，校验 `/health` `/metrics`，再逐一探测 UI 依赖的核心只读接口（含阶段 4 作用域刷新所命中的 per-project 接口），输出 PASS/FAIL 汇总并以退出码闭环，可重复执行。
 
 ## 六、验证
 
 - 类型检查：`pnpm --filter @autovis/server check` 与 `pnpm --filter @autovis/web check`。
-- 手动回归：跑完一个 run 后停留观察——`/stream` 不再无限重连；9 个资源接口在连续多个终态事件下只被合并刷新一次。
+- 验收冒烟：服务端运行后执行 `pnpm acceptance`（可用 `BASE_URL` / `--base` 指定地址）。
+- 手动回归：跑完一个 run 后停留观察——`/stream` 不再无限重连；终态后只按作用域刷新对应的少量接口（不再连续触发 9 接口全量重拉）。

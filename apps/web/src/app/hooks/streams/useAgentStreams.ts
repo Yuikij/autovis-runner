@@ -73,7 +73,7 @@ export function useAgentStreams({
   useEntityStream<AgentSession>(taskAgentStreamTarget, (session) => {
     setActiveTaskAgentSession(session)
     if (isTerminal(session.status) && selectedProjectId) {
-      sync.onTerminal(session.id)
+      sync.onTerminal(session.id, ["cases", "runs"])
     }
   })
 
@@ -121,7 +121,7 @@ export function useAgentStreams({
     }
     if (isTerminal(session.status) && selectedProjectId) {
       setBusy(false)
-      sync.onTerminal(session.id)
+      sync.onTerminal(session.id, ["cases", "runs"])
     }
   })
 }
