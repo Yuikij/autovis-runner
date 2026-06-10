@@ -3,6 +3,7 @@ import type {
   ApiEnvelope,
   AuthProfile,
   AuthProfileState,
+  ImportAuthProfileStateRequest,
   UpdateAuthProfilePostLoginUrlRequest,
   UpsertAuthProfileRequest,
 } from "@autovis/shared"
@@ -78,6 +79,30 @@ export async function authProfilesRoutes(app: FastifyInstance) {
     const { profileId, targetUrlId } = request.params as { profileId: string; targetUrlId: string }
     const body = (request.body ?? {}) as UpdateAuthProfilePostLoginUrlRequest
     const state = await store.setAuthProfileStatePostLoginUrl(profileId, targetUrlId, body.postLoginUrl ?? null)
+    reply.code(200)
+    return {
+      data: {
+        ...state,
+        storageStateSummary: buildStorageStateSummary(state.storageStateJson),
+        postLoginUrl: state.postLoginUrlOverride ?? state.postLoginUrlAuto,
+      },
+    }
+  })
+
+  // 导入外部采集的登录态：把用户本机真浏览器（含 Chrome 插件）采集到的 storageState 直接写入。
+  app.post("/auth-profiles/:profileId/states/import", async (request, reply): Promise<ApiEnvelope<AuthProfileState>> => {
+    const { profileId } = request.params as { profileId: string }
+    const body = (request.body ?? {}) as ImportAuthProfileStateRequest
+    if (!body.projectId || !body.storageStateJson) {
+      reply.code(400)
+      throw new Error("缺少 projectId 或 storageStateJson")
+    }
+    const state = await store.importAuthProfileState(profileId, {
+      projectId: body.projectId,
+      targetUrlId: body.targetUrlId,
+      storageStateJson: body.storageStateJson,
+      postLoginUrl: body.postLoginUrl,
+    })
     reply.code(200)
     return {
       data: {

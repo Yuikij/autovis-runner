@@ -326,6 +326,22 @@ export interface UpdateAuthProfilePostLoginUrlRequest {
   postLoginUrl: string | null
 }
 
+/**
+ * 外部采集的登录态导入请求：把用户在「自己真浏览器」里采集到的 storageState
+ * （cookies + localStorage，Playwright 兼容格式）直接写入 (profile, targetUrl) 行。
+ * 用于强风控站点（如淘宝详情页）——这些站点对机房 IP / 沙盒环境会触发 punish，
+ * 但对用户本机的住宅 IP + 真实指纹放行，因此在本机采集是最可靠的路径。
+ */
+export interface ImportAuthProfileStateRequest {
+  projectId: Identifier
+  /** 目标 URL 行；省略则落到项目主域名对应的行。 */
+  targetUrlId?: Identifier
+  /** Playwright storageState JSON 字符串（{ cookies, origins }）。 */
+  storageStateJson: string
+  /** 采集时浏览器停留的 URL，会写入 post_login_url_auto，便于后续回放落点。 */
+  postLoginUrl?: string
+}
+
 export interface GenerateValidationScriptResponse {
   taskId: Identifier
 }

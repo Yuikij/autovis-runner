@@ -116,6 +116,11 @@ await app.register(cors, {
       callback(null, true)
       return
     }
+    // 允许 Chrome 扩展（登录态采集插件）跨源调用：插件 popup 的 Origin 形如 chrome-extension://<id>。
+    if (origin.startsWith("chrome-extension://")) {
+      callback(null, true)
+      return
+    }
     callback(null, origin === appOrigin)
   },
   credentials: true,

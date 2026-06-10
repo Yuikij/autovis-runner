@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "AutoVis 登录态采集器",
+  "version": "1.0.0",
+  "description": "在你自己的真浏览器里采集当前站点的登录态（cookies + localStorage），一键导入 AutoVis。专治淘宝详情页等强风控站点。",
+  "permissions": ["cookies", "scripting", "activeTab", "storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "AutoVis 登录态采集器",
+    "default_popup": "popup.html"
+  }
+}

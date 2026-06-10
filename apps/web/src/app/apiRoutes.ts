@@ -173,6 +173,8 @@ export const apiRoutes = {
       api(`${authProfile(profileId)}/refresh-state`),
     setPostLoginUrl: (profileId: string, targetUrlId: string) =>
       api(`${authProfile(profileId)}/states/${enc(targetUrlId)}/post-login-url`),
+    importState: (profileId: string) =>
+      api(`${authProfile(profileId)}/states/import`),
   },
 
   authLoginSandbox: {

@@ -428,6 +428,47 @@ class PersistentStore {
     return this.db.setAuthProfileStatePostLoginUrlOverride(profileId, targetUrlId, trimmed ? trimmed : null)
   }
 
+  /**
+   * 导入外部采集的登录态：把用户在自己真浏览器里采集到的 storageState 写入
+   * (profile, targetUrl) 行。绕开服务端沙盒——对淘宝详情页这类「IP 即原罪」的强风控
+   * 站点，本机采集是唯一可靠路径。写入后业务回放沿用现成 storageState 注入逻辑。
+   */
+  async importAuthProfileState(
+    profileId: string,
+    input: { projectId: string; targetUrlId?: string; storageStateJson: string; postLoginUrl?: string },
+  ) {
+    const profile = this.db.getAuthProfile(profileId)
+    if (!profile) throw new Error("Auth profile not found")
+    if (profile.projectId !== input.projectId) {
+      throw new Error("登录态配置不属于该项目，请刷新页面后重试。")
+    }
+    const resolved = this.db.resolveTargetUrl(input.projectId, input.targetUrlId)
+    if (!resolved?.id) {
+      throw new Error("无法解析目标 URL：请先在项目设置中配置主域名或选择有效的 TargetUrl。")
+    }
+
+    let parsed: { cookies?: unknown[]; origins?: unknown[] }
+    try {
+      parsed = JSON.parse(input.storageStateJson)
+    } catch {
+      throw new Error("storageStateJson 不是合法的 JSON。")
+    }
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.cookies)) {
+      throw new Error("storageState 缺少 cookies 数组：请确认导出的是 Playwright 兼容格式。")
+    }
+    if (parsed.cookies.length === 0 && (!Array.isArray(parsed.origins) || parsed.origins.length === 0)) {
+      throw new Error("storageState 为空（没有任何 cookie / localStorage），请在已登录的页面重新采集。")
+    }
+
+    const postLoginUrl = input.postLoginUrl?.trim()
+    return this.db.upsertAuthProfileState(
+      profileId,
+      resolved.id,
+      input.storageStateJson,
+      postLoginUrl ? postLoginUrl : null,
+    )
+  }
+
   async startRefreshAuthProfileState(profileId: string, targetUrlId: string) {
     const profile = this.db.getAuthProfile(profileId)
     if (!profile) throw new Error("Auth profile not found")

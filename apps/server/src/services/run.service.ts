@@ -413,7 +413,7 @@ export class RunService {
         run.logs.push(`[${new Date().toLocaleTimeString()}] 启动前置用例 ${dependency.testCase.caseCode}...`)
         await onUpdate()
 
-        const stepIndex = run.steps.findIndex((s) => s.statusKind === "target")
+        const stepIndex = run.steps.findIndex((s) => s.kind === "target")
         const newStepIndex = stepIndex === -1 ? run.steps.length - 1 : stepIndex
         run.steps.splice(newStepIndex, 0, createExecutionStep(run.id, run.steps.length + 1, `[前置用例] ${dependency.testCase.caseCode}`, `执行前置用例 ${dependency.testCase.caseCode}`, "precondition_case"))
         await onUpdate()
@@ -444,7 +444,7 @@ export class RunService {
 
       run.orchestrationPhase = "target"
       run.currentPreconditionCaseId = undefined
-      let targetStepIndex = run.steps.findIndex((s) => s.statusKind === "target")
+      let targetStepIndex = run.steps.findIndex((s) => s.kind === "target")
       if (targetStepIndex === -1) targetStepIndex = 1
       await executeScriptInSession({
         run,

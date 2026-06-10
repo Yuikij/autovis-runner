@@ -13,6 +13,12 @@ services:
       APP_ORIGIN: "http://localhost:8787"
       HEADLESS: "false"
       BROWSER_BACKEND: "patchright"
+      # 风控站点（如淘宝详情页）的决定性因素是出口 IP 信誉。机房/被刷过的 IP 会触发 punish 页，
+      # 即便人工滑过滑块也会返回 FWqx。挂一个住宅/干净代理可显著降低触发率。留空则不走代理。
+      BROWSER_PROXY: "${BROWSER_PROXY:-}"
+      BROWSER_PROXY_BYPASS: "${BROWSER_PROXY_BYPASS:-}"
+      BROWSER_PROXY_USERNAME: "${BROWSER_PROXY_USERNAME:-}"
+      BROWSER_PROXY_PASSWORD: "${BROWSER_PROXY_PASSWORD:-}"
       AUTOVIS_AUTH_ENABLED: "${AUTOVIS_AUTH_ENABLED:-false}"
       AUTOVIS_LLM_SCOPE: "${AUTOVIS_LLM_SCOPE:-shared}"
       AUTOVIS_ADMIN_USER: "${AUTOVIS_ADMIN_USER:-admin}"
