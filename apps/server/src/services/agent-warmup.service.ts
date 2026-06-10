@@ -207,6 +207,7 @@ export class AgentWarmupService {
           handoffContext: { scope: "precondition", testCaseId: dependency.testCase.id },
           screenshotFilePrefix: `warmup-${dependency.testCase.caseCode}`,
           runtimeProducer: { testCaseId: dependency.testCase.id, caseCode: dependency.testCase.caseCode, caseName: dependency.testCase.purpose },
+          overrideBaseUrl: dependency.testCase.defaultTargetUrlId ? this.runService.resolveTargetUrlOrThrow(project.id, dependency.testCase.defaultTargetUrlId).url : undefined,
         })
       }
       warmupRuntimeOutputs = warmupRun.runtimeOutputs ?? []

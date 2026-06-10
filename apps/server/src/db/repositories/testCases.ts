@@ -26,7 +26,7 @@ export const upsertTestCase = (db: DatabaseSync, input: UpsertTestCaseRequest & 
   if (existing) {
     db.prepare(`
           UPDATE test_cases
-          SET project_id = ?, case_code = ?, module_name = ?, module_id = ?, purpose = ?, dependency_case_ids = ?, auth_profile_id = ?, steps = ?,
+          SET project_id = ?, case_code = ?, module_name = ?, module_id = ?, purpose = ?, dependency_case_ids = ?, auth_profile_id = ?, target_url_id = ?, steps = ?,
               expected_result = ?, test_type = ?, bug_id = ?, note = ?, ai_script = ?, last_verified_run_id = ?, last_verified_status = ?, last_verified_at = ?, updated_at = ?
           WHERE id = ?
         `).run(
@@ -37,6 +37,7 @@ export const upsertTestCase = (db: DatabaseSync, input: UpsertTestCaseRequest & 
       input.purpose ?? "",
       JSON.stringify(input.dependencyCaseIds ?? []),
       input.authProfileId ?? null,
+      input.defaultTargetUrlId ?? null,
       JSON.stringify(input.steps),
       input.expectedResult,
       input.testType,
@@ -52,9 +53,9 @@ export const upsertTestCase = (db: DatabaseSync, input: UpsertTestCaseRequest & 
   } else {
     db.prepare(`
           INSERT INTO test_cases (
-            id, project_id, case_code, module_name, module_id, purpose, dependency_case_ids, auth_profile_id, steps, expected_result,
+            id, project_id, case_code, module_name, module_id, purpose, dependency_case_ids, auth_profile_id, target_url_id, steps, expected_result,
             test_type, bug_id, note, ai_script, latest_script_id, last_verified_run_id, last_verified_status, last_verified_at, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
       input.id,
       input.projectId,
@@ -64,6 +65,7 @@ export const upsertTestCase = (db: DatabaseSync, input: UpsertTestCaseRequest & 
       input.purpose ?? "",
       JSON.stringify(input.dependencyCaseIds ?? []),
       input.authProfileId ?? null,
+      input.defaultTargetUrlId ?? null,
       JSON.stringify(input.steps),
       input.expectedResult,
       input.testType,

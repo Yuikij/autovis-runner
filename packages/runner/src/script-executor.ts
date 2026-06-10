@@ -315,6 +315,7 @@ export const executeScriptInSession = async ({
   signal,
   waitIfPaused,
   runtimeProducer,
+  overrideBaseUrl,
 }: ExecuteScriptInSessionInput) => {
   if (signal?.aborted) {
     throw new Error("Run cancelled before script execution")
@@ -423,7 +424,7 @@ export const executeScriptInSession = async ({
     },
   }
 
-  const getBaseUrl = () => run.testBaseUrl
+  const getBaseUrl = () => overrideBaseUrl ?? run.testBaseUrl
   const tempValues = new Map<string, unknown>()
   run.runtimeOutputs = run.runtimeOutputs ?? []
 

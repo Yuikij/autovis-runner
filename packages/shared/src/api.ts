@@ -259,6 +259,7 @@ export interface UpsertTestCaseRequest {
   purpose?: string
   dependencyCaseIds: Identifier[]
   authProfileId?: Identifier
+  defaultTargetUrlId?: Identifier
   steps: string[]
   expectedResult: string
   testType: TestCaseType

@@ -44,6 +44,7 @@ export const createBaseSchema = (db: DatabaseSync) => {
       bug_id TEXT,
       note TEXT,
       ai_script TEXT,
+      target_url_id TEXT,
       latest_script_id TEXT,
       last_verified_run_id TEXT,
       last_verified_status TEXT,

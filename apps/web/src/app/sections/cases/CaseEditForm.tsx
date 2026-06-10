@@ -102,6 +102,24 @@ export function CaseEditForm(props: CaseDetailsProps) {
           </p>
         </Field>
 
+        <Field label="归属网站 (Target URL)">
+          <select
+            className={inputClassName}
+            onChange={(event) => setCaseForm((current) => ({ ...current, defaultTargetUrlId: event.target.value || undefined }))}
+            value={caseForm.defaultTargetUrlId ?? ""}
+          >
+            <option value="">跟随项目默认网站</option>
+            {controller.selectedProject?.targetUrls?.map((targetUrl) => (
+              <option key={targetUrl.id} value={targetUrl.id}>
+                {targetUrl.label} ({targetUrl.url})
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+            指定用例执行时的默认域名。若不指定，将使用项目的默认主域名。
+          </p>
+        </Field>
+
         <Field label="测试目的">
           <textarea className={textareaClassName} onChange={(event) => setCaseForm((current) => ({ ...current, purpose: event.target.value }))} value={caseForm.purpose ?? ""} />
         </Field>

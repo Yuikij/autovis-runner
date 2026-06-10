@@ -11,9 +11,22 @@ export interface TestCase {
   moduleName?: string
   moduleId?: Identifier
   purpose: string
-  /** 有序的前置用例：执行本用例前会自动按顺序先跑这些用例（用于登录 / 造数据等可复用前置）。 */
+  /**
+   * The IDs of test cases that must be executed successfully before this case.
+   */
   dependencyCaseIds: Identifier[]
+  /**
+   * Optional AuthProfile ID required for this case to run.
+   */
   authProfileId?: Identifier
+  /**
+   * The TargetUrl ID that this case defaults to executing against.
+   * If not set, it will fallback to the project's default TargetUrl.
+   */
+  defaultTargetUrlId?: Identifier
+  /**
+   * User-provided steps in plain text.
+   */
   steps: string[]
   expectedResult: string
   testType: TestCaseType

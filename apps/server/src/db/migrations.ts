@@ -44,6 +44,13 @@ const migrations: DatabaseMigration[] = [
       ensureColumn(db, "agent_sessions", "direct_result", "TEXT")
     },
   },
+  {
+    version: 5,
+    name: "test_case_target_url_id",
+    run: (db) => {
+      ensureColumn(db, "test_cases", "target_url_id", "TEXT")
+    },
+  },
 ]
 
 const ensureColumn = (db: DatabaseSync, tableName: string, columnName: string, definition: string) => {

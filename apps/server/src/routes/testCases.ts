@@ -36,6 +36,7 @@ export async function testCasesRoutes(app: FastifyInstance) {
         bugId: z.string().optional(),
         note: z.string().optional(),
         aiScript: z.string().optional(),
+        defaultTargetUrlId: z.string().optional(),
       })
       .parse(request.body) as UpsertTestCaseRequest
 

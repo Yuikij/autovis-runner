@@ -80,7 +80,7 @@ export class RunService {
    * 解析 targetUrlId 到 { id, url }；若未提供 id 则回落到项目主域名 TargetUrl。
    * 找不到任何 URL 时抛错。
    */
-  private resolveTargetUrlOrThrow(projectId: string, targetUrlId?: string): { id?: string; url: string } {
+  public resolveTargetUrlOrThrow(projectId: string, targetUrlId?: string): { id?: string; url: string } {
     const resolved = this.db.resolveTargetUrl(projectId, targetUrlId)
     if (!resolved) {
       throw new Error("无法解析目标 URL：请先在项目设置中配置主域名或添加 TargetUrl。")
@@ -410,7 +410,14 @@ export class RunService {
       for (const dependency of preconditionPlan.nodes) {
         run.orchestrationPhase = "preconditions"
         run.currentPreconditionCaseId = dependency.testCase.id
-        const dependencyStepIndex = this.ensureRunStep(run, `[前置用例] ${dependency.testCase.caseCode}`, `执行前置用例 ${dependency.testCase.caseCode}`, "precondition_case")
+        run.logs.push(`[${new Date().toLocaleTimeString()}] 启动前置用例 ${dependency.testCase.caseCode}...`)
+        await onUpdate()
+
+        const stepIndex = run.steps.findIndex((s) => s.statusKind === "target")
+        const newStepIndex = stepIndex === -1 ? run.steps.length - 1 : stepIndex
+        run.steps.splice(newStepIndex, 0, createExecutionStep(run.id, run.steps.length + 1, `[前置用例] ${dependency.testCase.caseCode}`, `执行前置用例 ${dependency.testCase.caseCode}`, "precondition_case"))
+        await onUpdate()
+
         await executeScriptInSession({
           run,
           session,
@@ -418,22 +425,27 @@ export class RunService {
           onUpdate,
           requestHumanInput: handleHumanInput,
           analyzeImage: (analysisRequest) => this.analyzeImageWithCurrentLlm(analysisRequest, llmOwnerKey),
-          stepIndex: dependencyStepIndex,
+          stepIndex: newStepIndex,
           startedLog: `[前置用例 ${dependency.testCase.caseCode}] 开始执行。`,
           completedLog: `[前置用例 ${dependency.testCase.caseCode}] 执行完成。`,
           handoffContext: { scope: "precondition", testCaseId: dependency.testCase.id },
-          screenshotFilePrefix: `precondition-${dependency.testCase.caseCode}`,
+          screenshotFilePrefix: `pre-${dependency.testCase.caseCode}`,
           signal: taskController?.signal,
           waitIfPaused: taskController ? () => taskController.waitIfPaused() : undefined,
           runtimeProducer: { testCaseId: dependency.testCase.id, caseCode: dependency.testCase.caseCode, caseName: dependency.testCase.purpose },
+          overrideBaseUrl: dependency.testCase.defaultTargetUrlId ? this.resolveTargetUrlOrThrow(project.id, dependency.testCase.defaultTargetUrlId).url : undefined,
+          timeoutMs: scriptTimeoutMs,
         })
+
         run.completedPreconditionCaseIds = [...(run.completedPreconditionCaseIds ?? []), dependency.testCase.id]
+        run.logs.push(`[${new Date().toLocaleTimeString()}] 前置用例 ${dependency.testCase.caseCode} 顺利完成。`)
         await onUpdate()
       }
 
       run.orchestrationPhase = "target"
       run.currentPreconditionCaseId = undefined
-      const targetStepIndex = 1
+      let targetStepIndex = run.steps.findIndex((s) => s.statusKind === "target")
+      if (targetStepIndex === -1) targetStepIndex = 1
       await executeScriptInSession({
         run,
         session,
@@ -532,7 +544,7 @@ export class RunService {
     return ctrl.cancel("Run cancelled by user.")
   }
 
-  public async startRun(request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string }) {
+  public async startRun(request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string; skipPreconditions?: boolean }) {
     const missing = this.describeMissingRunDependencies({
       projectId: request.projectId,
       testCaseId: request.testCaseId,
@@ -563,7 +575,7 @@ export class RunService {
       }
     }
 
-    const preconditionPlan = this.suiteService.buildPreconditionPlan(testCase)
+    const preconditionPlan = request.skipPreconditions ? { nodes: [] } : this.suiteService.buildPreconditionPlan(testCase)
     const target = this.resolveTargetUrlOrThrow(request.projectId, request.targetUrlId)
     const run = createExecutionTemplate({
       runId: createId("run"),
@@ -618,11 +630,12 @@ export class RunService {
     const sourceCase = this.db.getTestCase(profile.sourceCaseId)
     if (!sourceCase) throw new Error("登录用例不存在，请重新配置登录态来源。")
     if (!sourceCase.latestScriptId) throw new Error(`登录用例 ${sourceCase.caseCode} 缺少可执行脚本，无法刷新登录态。`)
-    return this.startRun({
+    const run = await this.startRun({
       projectId: profile.projectId,
       testCaseId: sourceCase.id,
       scriptId: sourceCase.latestScriptId,
       targetUrlId,
     })
+    return this.runStateService.waitForRunCompletion(run.id)
   }
 }

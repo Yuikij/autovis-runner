@@ -108,6 +108,7 @@ export interface TestCaseRow {
   bug_id: string | null
   note: string | null
   ai_script: string | null
+  target_url_id: string | null
   latest_script_id: string | null
   last_verified_run_id: string | null
   last_verified_status: string | null
@@ -426,6 +427,7 @@ export const mapTestCase = (row: TestCaseRow): TestCase => ({
   bugId: row.bug_id ?? undefined,
   note: row.note ?? undefined,
   aiScript: row.ai_script ?? undefined,
+  defaultTargetUrlId: row.target_url_id ?? undefined,
   latestScriptId: row.latest_script_id ?? undefined,
   lastVerifiedRunId: row.last_verified_run_id ?? undefined,
   lastVerifiedStatus: (row.last_verified_status as TestCase["lastVerifiedStatus"]) ?? undefined,

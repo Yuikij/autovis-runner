@@ -306,6 +306,7 @@ export class ProjectService {
         purpose: input.purpose ?? "",
         dependencyCaseIds: normalizedDependencyCaseIds,
         authProfileId: input.authProfileId,
+        defaultTargetUrlId: input.defaultTargetUrlId,
         steps: input.steps,
         expectedResult: input.expectedResult,
         testType: input.testType,

@@ -109,6 +109,7 @@ export interface ExecuteScriptInSessionInput {
     caseCode?: string
     caseName?: string
   }
+  overrideBaseUrl?: string
 }
 
 export interface FinalizeRunnerSessionInput {

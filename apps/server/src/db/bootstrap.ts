@@ -37,10 +37,10 @@ export const importState = (db: DatabaseSync, state: PersistedState) => {
   const insertTestCase = db.prepare(`
     INSERT INTO test_cases (
       id, project_id, case_code, module_name, module_id, purpose,
-      dependency_case_ids, auth_profile_id, steps,
+      dependency_case_ids, auth_profile_id, target_url_id, steps,
       expected_result, test_type, bug_id, note, ai_script, latest_script_id, created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertScript = db.prepare(`
     INSERT INTO scripts (id, test_case_id, version, source, provider, prompt, code, created_at)
@@ -107,6 +107,7 @@ export const importState = (db: DatabaseSync, state: PersistedState) => {
         item.purpose,
         JSON.stringify(item.dependencyCaseIds ?? []),
         item.authProfileId ?? null,
+        item.defaultTargetUrlId ?? null,
         JSON.stringify(item.steps),
         item.expectedResult,
         item.testType,

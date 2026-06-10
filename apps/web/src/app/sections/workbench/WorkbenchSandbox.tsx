@@ -125,10 +125,12 @@ export function WorkbenchSandbox({
 
   const verificationRun = useMemo(() => {
     if (!activeRun || activeRun.kind !== "temporary") return null
+    // Allow warmup run to be used as verification run for visualization
+    if (activeRun.id === agentSession?.warmupRunId) return activeRun
     if (!workbenchVerificationRunId || activeRun.id !== workbenchVerificationRunId) return null
     if (activeRun.testCaseId !== selectedCase?.id) return null
     return activeRun
-  }, [activeRun, workbenchVerificationRunId, selectedCase?.id])
+  }, [activeRun, workbenchVerificationRunId, selectedCase?.id, agentSession?.warmupRunId])
 
   const verificationReplayVideo = useMemo(
     () => verificationRun?.artifacts.find((artifact) => artifact.kind === "video")?.url,
@@ -169,7 +171,7 @@ export function WorkbenchSandbox({
       ? latestAgentStepWithImage?.screenshotUrl
       : verificationRun?.currentViewport
 
-  const displayLiveViewport = mode === "generate" && !isShowingAgent
+  const displayLiveViewport = mode === "generate" && (!isShowingAgent || activeRun?.id === agentSession?.warmupRunId)
     ? verificationRun?.liveViewport
     : undefined
 

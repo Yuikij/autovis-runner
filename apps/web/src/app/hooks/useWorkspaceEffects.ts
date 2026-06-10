@@ -87,6 +87,7 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
       bugId: selectedCase.bugId ?? "",
       note: selectedCase.note ?? "",
       aiScript: selectedCase.aiScript ?? "",
+      defaultTargetUrlId: selectedCase.defaultTargetUrlId ?? undefined,
     })
   }, [selectedCase?.id, selectedCase, setCaseForm])
 
