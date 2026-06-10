@@ -59,6 +59,7 @@ export function AuthSandboxModal({
   const sessionIdRef = useRef<string | null>(null)
   const savedRef = useRef(false)
   const socketRef = useRef<WebSocket | null>(null)
+  const controlSocketRef = useRef<WebSocket | null>(null)
   const draggingPointerIdRef = useRef<number | null>(null)
   const lastPointerMoveAtRef = useRef(0)
   const interactionQueueRef = useRef(Promise.resolve())
@@ -125,6 +126,49 @@ export function AuthSandboxModal({
     }
   }, [session?.liveViewport?.url, session?.liveViewport?.mimeType])
 
+  useEffect(() => {
+    const id = session?.id
+    if (!id) return undefined
+
+    let disposed = false
+    const socket = new WebSocket(resolveWebSocketUrl(apiRoutes.authLoginSandbox.control(id)))
+    controlSocketRef.current = socket
+    socket.onmessage = (event) => {
+      if (disposed || typeof event.data !== "string") return
+      try {
+        const payload = JSON.parse(event.data) as
+          | { type: "session"; data: AuthLoginSandboxSession }
+          | { type: "error"; message?: string }
+        if (payload.type === "session") {
+          setSession((current) => (current ? { ...current, ...payload.data } : payload.data))
+        } else if (payload.type === "error" && payload.message) {
+          setError(payload.message)
+        }
+      } catch {
+        // Ignore malformed control-channel messages.
+      }
+    }
+    socket.onclose = () => {
+      if (controlSocketRef.current === socket) {
+        controlSocketRef.current = null
+      }
+    }
+    socket.onerror = () => {
+      if (!disposed && controlSocketRef.current === socket) {
+        controlSocketRef.current = null
+      }
+    }
+    return () => {
+      disposed = true
+      if (controlSocketRef.current === socket) {
+        controlSocketRef.current = null
+      }
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close()
+      }
+    }
+  }, [session?.id])
+
   // 卸载时若未保存，收尾关闭服务端浏览器
   useEffect(() => {
     return () => {
@@ -138,6 +182,11 @@ export function AuthSandboxModal({
   const sendInteraction = useCallback((interaction: RecorderInteractionRequest) => {
     const id = sessionIdRef.current
     if (!id) return
+    const controlSocket = controlSocketRef.current
+    if (controlSocket?.readyState === WebSocket.OPEN) {
+      controlSocket.send(JSON.stringify(interaction))
+      return
+    }
     interactionQueueRef.current = interactionQueueRef.current
       .catch(() => undefined)
       .then(() =>

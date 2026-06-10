@@ -179,6 +179,7 @@ export const apiRoutes = {
     create: () => api("/auth-login-sandbox"),
     detail: (sessionId: string) => api(`/auth-login-sandbox/${enc(sessionId)}`),
     interactions: (sessionId: string) => api(`/auth-login-sandbox/${enc(sessionId)}/interactions`),
+    control: (sessionId: string) => api(`/auth-login-sandbox/${enc(sessionId)}/control`),
     save: (sessionId: string) => api(`/auth-login-sandbox/${enc(sessionId)}/save`),
     cancel: (sessionId: string) => api(`/auth-login-sandbox/${enc(sessionId)}/cancel`),
   },
