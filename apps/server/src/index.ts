@@ -175,13 +175,36 @@ app.route({
 
     const contentType = contentTypeByExt[extname(resolved.filePath).toLowerCase()] ?? "application/octet-stream"
     reply.header("cache-control", "public, max-age=60")
-    reply.header("content-length", String(resolved.fileStat.size))
+    reply.header("accept-ranges", "bytes")
     reply.type(contentType)
 
     if (request.method === "HEAD") {
+      reply.header("content-length", String(resolved.fileStat.size))
       return reply.send()
     }
 
+    const rangeHeader = request.headers.range
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, "").split("-")
+      const start = parseInt(parts[0], 10)
+      let end = parts[1] ? parseInt(parts[1], 10) : resolved.fileStat.size - 1
+
+      if (!isNaN(start) && !isNaN(end)) {
+        if (start >= resolved.fileStat.size) {
+          reply.status(416).header("content-range", `bytes */${resolved.fileStat.size}`).send()
+          return
+        }
+
+        const chunkSize = end - start + 1
+        reply.status(206)
+          .header("content-range", `bytes ${start}-${end}/${resolved.fileStat.size}`)
+          .header("content-length", String(chunkSize))
+        
+        return reply.send(createReadStream(resolved.filePath, { start, end }))
+      }
+    }
+
+    reply.header("content-length", String(resolved.fileStat.size))
     return reply.send(createReadStream(resolved.filePath))
   },
 })
