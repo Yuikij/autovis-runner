@@ -365,11 +365,11 @@ export class AutoVisDatabase {
     return this.targetUrlsRepo.findByUrl(projectId, url) ?? undefined
   }
 
-  createTargetUrl(input: { id: string; projectId: string; label: string; url: string }): TargetUrl {
+  createTargetUrl(input: { id: string; projectId: string; label: string; url: string; needsStealth?: boolean }): TargetUrl {
     return this.targetUrlsRepo.create(input)
   }
 
-  updateTargetUrl(id: string, patch: { label?: string; url?: string }): TargetUrl {
+  updateTargetUrl(id: string, patch: { label?: string; url?: string; needsStealth?: boolean }): TargetUrl {
     return this.targetUrlsRepo.update(id, patch)
   }
 
@@ -611,11 +611,11 @@ export class AutoVisDatabase {
   }
 
   deleteProject(projectId: string) {
-    deleteProject(this.db, projectId)
+    return deleteProject(this.db, projectId)
   }
 
   clearRuns(projectId: string) {
-    clearRuns(this.db, projectId)
+    return clearRuns(this.db, projectId)
   }
 
   deleteRun(runId: string) {
@@ -627,7 +627,7 @@ export class AutoVisDatabase {
   }
 
   deleteTestCase(testCaseId: string) {
-    deleteTestCase(this.db, testCaseId)
+    return deleteTestCase(this.db, testCaseId)
   }
 
   upsertRun(run: ExecutionRun) {

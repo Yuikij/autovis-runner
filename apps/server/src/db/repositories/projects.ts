@@ -159,7 +159,10 @@ export const upsertProjectWorkspace = (
 }
 
 
-export const deleteProject = (db: DatabaseSync, projectId: string) => {
+/** 删除项目及其关联数据，返回被删除的 run / agent session id（用于清理产物目录）。 */
+export const deleteProject = (db: DatabaseSync, projectId: string): string[] => {
+  const runIds = (db.prepare("SELECT id FROM runs WHERE project_id = ?").all(projectId) as Array<{ id: string }>).map((row) => row.id)
+  const agentIds = (db.prepare("SELECT id FROM agent_sessions WHERE project_id = ?").all(projectId) as Array<{ id: string }>).map((row) => row.id)
   db.exec("BEGIN")
   try {
     db.prepare("DELETE FROM agent_steps WHERE session_id IN (SELECT id FROM agent_sessions WHERE project_id = ?)").run(projectId)
@@ -181,6 +184,7 @@ export const deleteProject = (db: DatabaseSync, projectId: string) => {
     db.exec("ROLLBACK")
     throw error
   }
+  return [...runIds, ...agentIds]
 }
 
 

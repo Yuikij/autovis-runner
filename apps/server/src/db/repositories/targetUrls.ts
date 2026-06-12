@@ -24,22 +24,23 @@ export class TargetUrlRepository {
     return row ? mapTargetUrl(row) : null
   }
 
-  public create(input: { id: Identifier; projectId: Identifier; label: string; url: string }): TargetUrl {
+  public create(input: { id: Identifier; projectId: Identifier; label: string; url: string; needsStealth?: boolean }): TargetUrl {
     const timestamp = new Date().toISOString()
     this.db
-      .prepare("INSERT INTO target_urls (id, project_id, label, url, is_primary, created_at, updated_at) VALUES (?, ?, ?, ?, 0, ?, ?)")
-      .run(input.id, input.projectId, input.label, input.url, timestamp, timestamp)
+      .prepare("INSERT INTO target_urls (id, project_id, label, url, is_primary, needs_stealth, created_at, updated_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?)")
+      .run(input.id, input.projectId, input.label, input.url, input.needsStealth ? 1 : 0, timestamp, timestamp)
     return this.getById(input.id)!
   }
 
-  public update(id: Identifier, patch: { label?: string; url?: string }): TargetUrl {
+  public update(id: Identifier, patch: { label?: string; url?: string; needsStealth?: boolean }): TargetUrl {
     const existing = this.getById(id)
     if (!existing) throw new Error(`target_url not found: ${id}`)
     const nextLabel = patch.label ?? existing.label
     const nextUrl = patch.url ?? existing.url
+    const nextNeedsStealth = patch.needsStealth ?? existing.needsStealth ?? false
     const timestamp = new Date().toISOString()
-    this.db.prepare("UPDATE target_urls SET label = ?, url = ?, updated_at = ? WHERE id = ?")
-      .run(nextLabel, nextUrl, timestamp, id)
+    this.db.prepare("UPDATE target_urls SET label = ?, url = ?, needs_stealth = ?, updated_at = ? WHERE id = ?")
+      .run(nextLabel, nextUrl, nextNeedsStealth ? 1 : 0, timestamp, id)
     return this.getById(id)!
   }
 

@@ -84,7 +84,10 @@ export const upsertTestCase = (db: DatabaseSync, input: UpsertTestCaseRequest & 
   return getTestCase(db, input.id)
 }
 
-export const deleteTestCase = (db: DatabaseSync, testCaseId: string) => {
+/** 删除用例及其关联数据，返回被删除的 run / agent session id（用于清理产物目录）。 */
+export const deleteTestCase = (db: DatabaseSync, testCaseId: string): string[] => {
+  const runIds = (db.prepare("SELECT id FROM runs WHERE test_case_id = ?").all(testCaseId) as Array<{ id: string }>).map((row) => row.id)
+  const agentIds = (db.prepare("SELECT id FROM agent_sessions WHERE test_case_id = ?").all(testCaseId) as Array<{ id: string }>).map((row) => row.id)
   db.exec("BEGIN")
   try {
     db.prepare("DELETE FROM agent_steps WHERE session_id IN (SELECT id FROM agent_sessions WHERE test_case_id = ?)").run(testCaseId)
@@ -98,6 +101,7 @@ export const deleteTestCase = (db: DatabaseSync, testCaseId: string) => {
     db.exec("ROLLBACK")
     throw error
   }
+  return [...runIds, ...agentIds]
 }
 
 export const listDependentTestCasesForCase = (db: DatabaseSync, dependencyCaseId: string): TestCase[] => {

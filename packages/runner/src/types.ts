@@ -79,6 +79,11 @@ export interface CreateRunnerSessionInput {
    * 留空则回退到 run.testBaseUrl，保持原有行为。
    */
   landingUrl?: string
+  /**
+   * 是否使用反检测有头模式（真实 Chrome）。由调用方依据站点 / 任务用例级配置解析后显式传入；
+   * 留空则回退到"有登录态即有头"的旧推断。最终仍受 STEALTH_REPLAY / STEALTH_ALWAYS 环境变量钳制。
+   */
+  stealth?: boolean
   /** 是否录制 webm 视频。缺省按 run.kind 决定（temporary 不录），可被环境变量覆盖。 */
   recordVideo?: boolean
   /** 是否开启 Playwright trace（screenshots+snapshots，较重）。缺省同 recordVideo。 */

@@ -147,7 +147,7 @@ export async function executeAgentToolCall(params: {
             }
 
             await browserContext?.close().catch(() => undefined)
-            const replayStealth = shouldStealthReplay(ctx.authStorageStateJson)
+            const replayStealth = shouldStealthReplay(ctx.authStorageStateJson, ctx.stealth)
             browserContext = await recoveryBrowser.newContext({
               viewport: replayStealth ? null : { width: 1440, height: 960 },
               ignoreHTTPSErrors: true,

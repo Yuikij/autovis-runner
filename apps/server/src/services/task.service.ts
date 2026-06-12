@@ -41,7 +41,9 @@ export class TaskService {
           throw new Error(`任务第 ${index + 1} 项的初始 URL 不存在或不属于当前项目。`)
         }
       }
-      return { caseId, targetUrlId }
+      // 首个用例总是全新会话；仅在 index>0 且显式开启时保留续用标记。
+      const continueSession = index > 0 && item.continueSession === true ? true : undefined
+      return { caseId, targetUrlId, continueSession }
     })
   }
 

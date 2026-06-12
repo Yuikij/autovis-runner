@@ -76,6 +76,11 @@ export interface AgentContext {
   /** Playwright storageState JSON：由调用方按当前 run.targetUrlId 解析后注入。 */
   authStorageStateJson?: string
   /**
+   * 反检测有头模式（真实 Chrome）：由调用方按站点 needsStealth + 用例级覆盖解析后注入。
+   * 决定全新启动 / 回放重建浏览器时是否走有头真 Chrome；留空回退到"有登录态即有头"的旧推断。
+   */
+  stealth?: boolean
+  /**
    * 本次生成实际使用的 base URL，来自前端下拉显式选中的 TargetUrl。
    * Agent 的浏览器初始化、recoveryUrl、prompts 里展示给 LLM 的 testBaseUrl、execute_step 的 getBaseUrl()
    * 都用这个值——project.testBaseUrl 不再作为业务 URL 兜底。

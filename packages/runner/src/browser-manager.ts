@@ -84,6 +84,7 @@ export const createRunnerSession = async ({
   initStepIndex = 0,
   storageStateJson,
   landingUrl,
+  stealth: stealthConfig,
   recordVideo,
   trace,
 }: CreateRunnerSessionInput): Promise<RunnerSession> => {
@@ -97,7 +98,7 @@ export const createRunnerSession = async ({
   const shouldRecordVideo = resolveArtifactToggle("RECORD_VIDEO", recordVideo ?? defaultArtifacts)
   const shouldTrace = resolveArtifactToggle("RUN_TRACING", trace ?? defaultArtifacts)
 
-  const stealth = shouldStealthReplay(storageStateJson)
+  const stealth = shouldStealthReplay(storageStateJson, stealthConfig)
   const browser = await launchReplayBrowser({
     stealth,
     headless,

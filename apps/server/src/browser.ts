@@ -114,14 +114,16 @@ export const resolveProxy = (): ProxyConfig | undefined => {
 }
 
 /**
- * 是否对"回放采集的登录态"启用反检测有头模式。
- * - 注入了 storageState 才需要（说明这是登录态回放），且未被 STEALTH_REPLAY=0 关闭；
- * - `STEALTH_ALWAYS=1` 可对无登录态的公网站点（如电商首页/搜索）也强制走真 Chrome 反检测，
- *   降低 headless bundled Chromium 秒撞风控的概率（服务器需配合 xvfb 跑 headed）。
+ * 是否启用反检测有头模式（真实 Chrome）。判定优先级（高→低）：
+ * - `STEALTH_REPLAY=0`：全局强制关闭；
+ * - `STEALTH_ALWAYS=1`：全局强制开启（服务器需配合 xvfb 跑 headed）；
+ * - `explicitStealth`（站点 needsStealth / 任务用例级覆盖解析后的结果）：调用方显式拍板；
+ * - 兜底：注入了 storageState（登录态回放）才走有头，保持未接配置调用点的旧行为。
  */
-export const shouldStealthReplay = (storageStateJson?: string | null): boolean => {
+export const shouldStealthReplay = (storageStateJson?: string | null, explicitStealth?: boolean): boolean => {
   if ((process.env.STEALTH_REPLAY ?? "1").trim() === "0") return false
   if ((process.env.STEALTH_ALWAYS ?? "0").trim() === "1") return true
+  if (explicitStealth !== undefined) return explicitStealth
   return Boolean(storageStateJson)
 }
 

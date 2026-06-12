@@ -51,6 +51,13 @@ const migrations: DatabaseMigration[] = [
       ensureColumn(db, "test_cases", "target_url_id", "TEXT")
     },
   },
+  {
+    version: 6,
+    name: "target_url_needs_stealth",
+    run: (db) => {
+      ensureColumn(db, "target_urls", "needs_stealth", "INTEGER DEFAULT 0")
+    },
+  },
 ]
 
 const ensureColumn = (db: DatabaseSync, tableName: string, columnName: string, definition: string) => {

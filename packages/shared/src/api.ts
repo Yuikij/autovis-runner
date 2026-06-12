@@ -189,6 +189,7 @@ export interface UpsertTargetUrlRequest {
   projectId: Identifier
   label: string
   url: string
+  needsStealth?: boolean
 }
 
 export interface UpsertProjectWorkspaceRequest {

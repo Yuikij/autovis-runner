@@ -32,6 +32,8 @@ export type WarmupOptions = {
   resolvedRunTargetId?: string
   resolvedRunUrl: string
   authStorageStateJson?: string
+  /** 反检测有头模式（真实 Chrome）：由调用方按站点 needsStealth + 用例级覆盖解析后传入。 */
+  stealth?: boolean
   provider: LlmProviderKind
   llmOwnerKey: string
   onStep: (step: AgentStep) => void
@@ -46,7 +48,7 @@ export class AgentWarmupService {
   ) {}
 
   public async executeWarmup(options: WarmupOptions): Promise<ExecuteWarmupResult> {
-    const { sessionId, mode, taskRunId, project, testCase, resolvedRunTargetId, resolvedRunUrl, authStorageStateJson, provider, llmOwnerKey, onStep, updateSession } = options
+    const { sessionId, mode, taskRunId, project, testCase, resolvedRunTargetId, resolvedRunUrl, authStorageStateJson, stealth, provider, llmOwnerKey, onStep, updateSession } = options
 
     let warmupSession: RunnerSession | null = null
     let warmupRunForDisplay: ExecutionRun | null = null
@@ -167,6 +169,7 @@ export class AgentWarmupService {
         },
         initStepIndex: 0,
         storageStateJson: authStorageStateJson,
+        stealth,
       })
 
       if (warmupSession.liveStream) {

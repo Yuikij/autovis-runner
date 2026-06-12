@@ -240,10 +240,12 @@ export function useWorkspaceData(onError: (message: string) => void) {
     () => allCases.filter((item) => selectedCase?.dependencyCaseIds.includes(item.id)),
     [allCases, selectedCase],
   )
-  const passCount = useMemo(() => projectRuns.filter((item) => item.status === "passed").length, [projectRuns])
-  const failCount = useMemo(() => projectRuns.filter((item) => item.status === "failed").length, [projectRuns])
-  const activeCount = useMemo(() => projectRuns.filter((item) => item.status === "queued" || item.status === "running").length, [projectRuns])
-  const executionRate = projectRuns.length ? Math.round((passCount / projectRuns.length) * 100) : 0
+  // 统计口径保持「正式运行」：projectRuns 现在包含临时运行（执行记录页可见可管理），统计时剔除。
+  const formalRuns = useMemo(() => projectRuns.filter((item) => item.kind !== "temporary"), [projectRuns])
+  const passCount = useMemo(() => formalRuns.filter((item) => item.status === "passed").length, [formalRuns])
+  const failCount = useMemo(() => formalRuns.filter((item) => item.status === "failed").length, [formalRuns])
+  const activeCount = useMemo(() => formalRuns.filter((item) => item.status === "queued" || item.status === "running").length, [formalRuns])
+  const executionRate = formalRuns.length ? Math.round((passCount / formalRuns.length) * 100) : 0
 
   const refreshLoaders = useMemo(() => ({
     loadProjectResources,

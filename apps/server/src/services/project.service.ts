@@ -1,6 +1,6 @@
 import { AutoVisDatabase } from "../db.js"
 import { WorkspaceService } from "../workspace.js"
-import { createId, now } from "./common.js"
+import { createId, now, removeArtifactDirs } from "./common.js"
 import { type SuiteService } from "./suite.service.js"
 import { type LlmConfigService } from "./llm-config.service.js"
 import {
@@ -279,11 +279,13 @@ export class ProjectService {
 
   public async deleteProject(projectId: string) {
     await this.workspace.removeWorkspace(projectId)
-    this.db.deleteProject(projectId)
+    const artifactIds = this.db.deleteProject(projectId)
+    await removeArtifactDirs(artifactIds)
   }
 
   public async clearRuns(projectId: string) {
-    this.db.clearRuns(projectId)
+    const deletedRunIds = this.db.clearRuns(projectId)
+    await removeArtifactDirs(deletedRunIds)
   }
 
   public async saveTestCase(input: UpsertTestCaseRequest) {
@@ -336,7 +338,8 @@ export class ProjectService {
       throw new Error(`该测试用例已被以下用例作为依赖用例引用，无法删除：${dependentCases.map((item) => item.caseCode).join(", ")}`)
     }
 
-    this.db.deleteTestCase(testCaseId)
+    const artifactIds = this.db.deleteTestCase(testCaseId)
+    await removeArtifactDirs(artifactIds)
   }
 
   public async listModules(projectId: string) {

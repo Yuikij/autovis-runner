@@ -63,7 +63,7 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
       id: selectedTask.id,
       name: selectedTask.name,
       description: selectedTask.description ?? "",
-      items: selectedTask.items.map((item) => ({ caseId: item.caseId, targetUrlId: item.targetUrlId })),
+      items: selectedTask.items.map((item) => ({ caseId: item.caseId, targetUrlId: item.targetUrlId, continueSession: item.continueSession })),
       executionMode: selectedTask.executionMode ?? { kind: "oneshot" },
     })
   }, [selectedTask?.id, selectedTask, setTaskForm])

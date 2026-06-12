@@ -216,13 +216,13 @@ export async function projectsRoutes(app: FastifyInstance) {
 
   app.post("/projects/:projectId/target-urls", async (request) => {
     const params = z.object({ projectId: z.string() }).parse(request.params)
-    const body = z.object({ label: z.string().min(1), url: z.string().min(1) }).parse(request.body)
-    return { data: await store.createTargetUrl({ projectId: params.projectId, label: body.label, url: body.url }) }
+    const body = z.object({ label: z.string().min(1), url: z.string().min(1), needsStealth: z.boolean().optional() }).parse(request.body)
+    return { data: await store.createTargetUrl({ projectId: params.projectId, label: body.label, url: body.url, needsStealth: body.needsStealth }) }
   })
 
   app.patch("/target-urls/:targetUrlId", async (request) => {
     const params = z.object({ targetUrlId: z.string() }).parse(request.params)
-    const body = z.object({ label: z.string().optional(), url: z.string().optional() }).parse(request.body)
+    const body = z.object({ label: z.string().optional(), url: z.string().optional(), needsStealth: z.boolean().optional() }).parse(request.body)
     return { data: await store.updateTargetUrl(params.targetUrlId, body) }
   })
 

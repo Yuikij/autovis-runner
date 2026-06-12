@@ -20,16 +20,19 @@ export function TargetUrlsSection({ controller }: Props) {
   const [showCreate, setShowCreate] = useState(false)
   const [createLabel, setCreateLabel] = useState("")
   const [createUrl, setCreateUrl] = useState("")
+  const [createNeedsStealth, setCreateNeedsStealth] = useState(false)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState("")
   const [editUrl, setEditUrl] = useState("")
+  const [editNeedsStealth, setEditNeedsStealth] = useState(false)
 
   const handleCreate = async () => {
     if (!createLabel.trim() || !createUrl.trim()) return
-    await createTargetUrl(createLabel.trim(), createUrl.trim())
+    await createTargetUrl(createLabel.trim(), createUrl.trim(), createNeedsStealth)
     setCreateLabel("")
     setCreateUrl("")
+    setCreateNeedsStealth(false)
     setShowCreate(false)
   }
 
@@ -37,11 +40,12 @@ export function TargetUrlsSection({ controller }: Props) {
     setEditingId(tu.id)
     setEditLabel(tu.label)
     setEditUrl(tu.url)
+    setEditNeedsStealth(Boolean(tu.needsStealth))
   }
 
   const handleUpdate = async () => {
     if (!editingId || !editLabel.trim() || !editUrl.trim()) return
-    await updateTargetUrl(editingId, { label: editLabel.trim(), url: editUrl.trim() })
+    await updateTargetUrl(editingId, { label: editLabel.trim(), url: editUrl.trim(), needsStealth: editNeedsStealth })
     setEditingId(null)
   }
 
@@ -106,6 +110,20 @@ export function TargetUrlsSection({ controller }: Props) {
                 创建
               </Button>
             </div>
+            <label className="mt-3 flex items-start gap-2 text-xs text-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-3.5 cursor-pointer accent-primary"
+                checked={createNeedsStealth}
+                onChange={(e) => setCreateNeedsStealth(e.target.checked)}
+              />
+              <span>
+                使用真实浏览器（反检测有头回放）
+                <span className="block text-[10px] text-muted-foreground mt-0.5">
+                  仅京东等反检测敏感站点需要开启；内网/普通站点保持关闭即可后台无头执行。任务编排里可对单个用例单独覆盖。
+                </span>
+              </span>
+            </label>
           </CardContent>
         </Card>
       ) : null}
@@ -161,6 +179,20 @@ export function TargetUrlsSection({ controller }: Props) {
                           取消
                         </Button>
                       </div>
+                      <label className="sm:col-span-3 flex items-start gap-2 text-xs text-foreground cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 size-3.5 cursor-pointer accent-primary"
+                          checked={editNeedsStealth}
+                          onChange={(e) => setEditNeedsStealth(e.target.checked)}
+                        />
+                        <span>
+                          使用真实浏览器（反检测有头回放）
+                          <span className="block text-[10px] text-muted-foreground mt-0.5">
+                            仅京东等反检测敏感站点需要开启；内网/普通站点保持关闭即可后台无头执行。
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -171,6 +203,9 @@ export function TargetUrlsSection({ controller }: Props) {
                             <strong className="text-sm font-semibold text-foreground">{tu.label}</strong>
                             {tu.isPrimary ? (
                               <Badge tone="info" className="text-[9px]">主域名</Badge>
+                            ) : null}
+                            {tu.needsStealth ? (
+                              <Badge tone="warning" className="text-[9px]">真实浏览器</Badge>
                             ) : null}
                           </div>
                           <p className="text-xs font-mono text-muted-foreground truncate mt-0.5" title={tu.url}>{tu.url}</p>

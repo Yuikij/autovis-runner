@@ -43,7 +43,18 @@ export function RunsSection({ controller }: RunsSectionProps) {
 
   const runCaseMap = useMemo(() => new Map(allCases.map((item) => [item.id, item])), [allCases])
   const taskMap = useMemo(() => new Map(tasks.map((item) => [item.id, item])), [tasks])
-  const executionRuns = useMemo(() => projectRuns.filter((run) => run.kind !== "verification"), [projectRuns])
+  const executionRuns = useMemo(() => projectRuns.filter((run) => run.kind !== "verification" && run.kind !== "temporary"), [projectRuns])
+  const temporaryRuns = useMemo(() => {
+    // 用 activeRun 的实时流数据覆盖列表中的同一条记录；刚启动还没进列表的在线运行也补进来。
+    const list = projectRuns
+      .filter((run) => run.kind === "temporary")
+      .map((run) => (activeRun && run.id === activeRun.id ? activeRun : run))
+    const activeIsLive = activeRun && activeRun.status !== "passed" && activeRun.status !== "failed" && activeRun.status !== "cancelled" && activeRun.status !== "interrupted"
+    if (activeRun?.kind === "temporary" && activeIsLive && !list.some((run) => run.id === activeRun.id)) {
+      list.unshift(activeRun)
+    }
+    return list
+  }, [projectRuns, activeRun])
   const taskRunsWithCurrentRun = useMemo(() => {
     return taskRuns.map((taskRun) => ({
       taskRun,
@@ -199,6 +210,12 @@ export function RunsSection({ controller }: RunsSectionProps) {
     setViewMode("detail")
   }
 
+  const handleOpenTemporaryRun = (run: ExecutionRun) => {
+    setActiveTaskRunId(null)
+    setActiveRun(run)
+    setViewMode("detail")
+  }
+
   const groupedSteps = useMemo(() => {
     if (!executionActiveRun?.steps) return []
     const groups: { parent: ExecutionStep, children: ExecutionStep[] }[] = []
@@ -230,6 +247,8 @@ export function RunsSection({ controller }: RunsSectionProps) {
         hasActiveExecution={hasActiveExecution}
         onClearRuns={() => clearRuns(selectedProject.id)}
         onOpenTask={handleOpenTask}
+        onOpenTemporaryRun={handleOpenTemporaryRun}
+        temporaryRuns={temporaryRuns}
         projectControlCommands={projectControlCommands}
         projectControlCommandsError={projectControlCommandsError}
         projectControlCommandsLoading={projectControlCommandsLoading}

@@ -56,7 +56,7 @@ export class AgentDirectService {
     }
   }
 
-  public async runDirectAgent(request: StartDirectAgentRequest & { sessionId: string } & LlmOwned) {
+  public async runDirectAgent(request: StartDirectAgentRequest & { sessionId: string; stealthOverride?: boolean } & LlmOwned) {
     const ownerKey = getOwnerKey(request)
     const { state, current } = this.llmService.getActiveLlmConfigBundle(undefined, ownerKey)
     const { project, testCase } = ensureProjectAndTestCase(this.db, request.projectId, request.testCaseId)
@@ -226,6 +226,7 @@ export class AgentDirectService {
           producer: { testCaseId: testCase.id, caseCode: testCase.caseCode, caseName: testCase.purpose },
         },
         authStorageStateJson: prepared.authStorageStateJson,
+        stealth: prepared.stealth,
       })
 
       session.directResult = this.buildDirectResult(session.steps)
@@ -316,6 +317,7 @@ export class AgentDirectService {
     testCaseId: string
     targetUrlId?: string
     taskRunId: string
+    stealth?: boolean
   }): Promise<AgentSession> {
     const testCase = this.db.getTestCase(opts.testCaseId)
     if (!testCase) throw new Error(`用例 ${opts.testCaseId} 不存在`)
@@ -338,6 +340,7 @@ export class AgentDirectService {
       prompt,
       runTargetUrlId: opts.targetUrlId,
       taskRunId: opts.taskRunId,
+      stealthOverride: opts.stealth,
     })
 
     for (let index = 0; index < 40; index += 1) {

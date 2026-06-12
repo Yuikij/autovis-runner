@@ -7,7 +7,7 @@ const typedRows = <TRow>(rows: Record<string, SQLOutputValue>[]): TRow[] => rows
 const typedRow = <TRow>(row: Record<string, SQLOutputValue> | undefined): TRow | undefined => row as TRow | undefined
 
 export const listRuns = (db: DatabaseSync, projectId: string): ExecutionRun[] => {
-  const rows = typedRows<RunRow>(db.prepare("SELECT * FROM runs WHERE project_id = ? AND kind != 'temporary' ORDER BY started_at DESC").all(projectId))
+  const rows = typedRows<RunRow>(db.prepare("SELECT * FROM runs WHERE project_id = ? ORDER BY started_at DESC").all(projectId))
   return rows.map(mapRun)
 }
 
@@ -65,7 +65,11 @@ export const upsertRun = (db: DatabaseSync, run: ExecutionRun) => {
     )
 }
 
-export const clearRuns = (db: DatabaseSync, projectId: string): void => {
-  db.prepare("DELETE FROM runs WHERE project_id = ? AND status IN ('passed', 'failed')").run(projectId)
-  db.prepare("DELETE FROM task_runs WHERE project_id = ? AND status IN ('passed', 'failed')").run(projectId)
+/** 清空已完成（终态）的执行记录，返回被删除的 run id 列表供上层清理产物目录。 */
+export const clearRuns = (db: DatabaseSync, projectId: string): string[] => {
+  const terminal = "('passed', 'failed', 'cancelled', 'interrupted')"
+  const rows = db.prepare(`SELECT id FROM runs WHERE project_id = ? AND status IN ${terminal}`).all(projectId) as Array<{ id: string }>
+  db.prepare(`DELETE FROM runs WHERE project_id = ? AND status IN ${terminal}`).run(projectId)
+  db.prepare(`DELETE FROM task_runs WHERE project_id = ? AND status IN ${terminal}`).run(projectId)
+  return rows.map((row) => row.id)
 }

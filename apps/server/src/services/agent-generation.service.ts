@@ -320,6 +320,7 @@ ${promptSummary || "// Prompt summary: (empty)"}`
           producer: { testCaseId: testCase.id, caseCode: testCase.caseCode, caseName: testCase.purpose },
         },
         authStorageStateJson: prepared.authStorageStateJson,
+        stealth: prepared.stealth,
       })
 
       const script = this.createScriptArtifact(testCase.id, current.session.provider, request.prompt, finalCode)

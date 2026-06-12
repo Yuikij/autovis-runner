@@ -29,6 +29,8 @@ const taskModeSchema = z.union([
 const taskItemSchema = z.object({
   caseId: z.string().min(1),
   targetUrlId: z.string().optional(),
+  continueSession: z.boolean().optional(),
+  stealth: z.boolean().optional(),
 })
 
 export async function tasksRoutes(app: FastifyInstance) {

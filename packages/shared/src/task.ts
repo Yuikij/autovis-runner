@@ -51,6 +51,18 @@ export interface TaskItem {
   caseId: Identifier
   /** 该用例的初始 URL（必须为项目下 TargetUrl 的 id）；省略则使用项目主域名。 */
   targetUrlId?: Identifier
+  /**
+   * 续用上一个用例的会话：以上一用例结束时的登录态（storage state）与停留页面作为本用例的起点，
+   * 并继承执行链中已产出的 outputs。仅当上一用例执行通过时生效；首个用例忽略该配置。
+   */
+  continueSession?: boolean
+  /**
+   * 本用例是否使用反检测有头模式（真实 Chrome）的覆盖开关：
+   * - `undefined`（默认）：继承所用 TargetUrl 的 needsStealth；
+   * - `true` / `false`：忽略站点默认，强制开 / 关（演示等特殊场景灵活配置）。
+   * 最终仍受 STEALTH_REPLAY / STEALTH_ALWAYS 环境变量钳制。
+   */
+  stealth?: boolean
 }
 
 /**

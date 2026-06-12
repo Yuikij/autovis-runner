@@ -147,6 +147,7 @@ export interface TargetUrlRow {
   label: string
   url: string
   is_primary: number
+  needs_stealth: number | null
   created_at: string
   updated_at: string
 }
@@ -346,6 +347,7 @@ export const mapTargetUrl = (row: TargetUrlRow): TargetUrl => ({
   label: row.label,
   url: row.url,
   isPrimary: row.is_primary === 1,
+  needsStealth: row.needs_stealth === 1,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 })

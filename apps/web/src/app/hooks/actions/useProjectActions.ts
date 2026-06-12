@@ -312,14 +312,14 @@ export function useProjectActions(params: WorkspaceActionParams) {
     return result.data
   }
 
-  const createTargetUrl = async (label: string, url: string): Promise<TargetUrl | null> => {
+  const createTargetUrl = async (label: string, url: string, needsStealth?: boolean): Promise<TargetUrl | null> => {
     if (!selectedProject) return null
     setBusy(true)
     setError(null)
     try {
       const result = await request<TargetUrl>(apiRoutes.projects.targetUrls(selectedProject.id), {
         method: "POST",
-        body: JSON.stringify({ label, url }),
+        body: JSON.stringify({ label, url, needsStealth }),
       })
       await refreshWorkspace(selectedProject.id)
       return result.data
@@ -331,7 +331,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
     }
   }
 
-  const updateTargetUrl = async (id: string, patch: { label?: string; url?: string }): Promise<TargetUrl | null> => {
+  const updateTargetUrl = async (id: string, patch: { label?: string; url?: string; needsStealth?: boolean }): Promise<TargetUrl | null> => {
     setBusy(true)
     setError(null)
     try {

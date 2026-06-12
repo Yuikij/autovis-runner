@@ -64,7 +64,7 @@ export function TaskEditor({
           <div className="flex items-center justify-between">
             <div>
               <span className="text-sm font-medium text-foreground block">有序用例编排</span>
-              <span className="text-xs text-muted-foreground">任务运行将严格按照此顺序依次执行用例</span>
+              <span className="text-xs text-muted-foreground">任务运行将严格按照此顺序依次执行用例；执行时跳过用例自带前置，任一用例失败即快速失败终止</span>
             </div>
             <span className="text-xs font-semibold bg-secondary px-2.5 py-1 rounded-full text-muted-foreground border border-border">
               共 {taskForm.items.length} 个步骤
@@ -133,6 +133,41 @@ export function TaskEditor({
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[11px] font-semibold text-muted-foreground">真实浏览器（反检测有头）</span>
+                      <select
+                        className={`${inputClassName} !h-9 text-xs bg-secondary/15 border-border/70`}
+                        value={item.stealth === undefined ? "inherit" : item.stealth ? "on" : "off"}
+                        onChange={(event) => {
+                          const next = event.target.value
+                          updateItem(index, { stealth: next === "inherit" ? undefined : next === "on" })
+                        }}
+                      >
+                        <option value="inherit">继承站点设置</option>
+                        <option value="on">强制开启（有头真实 Chrome）</option>
+                        <option value="off">强制关闭（后台无头）</option>
+                      </select>
+                      <span className="text-[10px] text-muted-foreground">置空（继承）时跟随该站点的「使用真实浏览器」开关；演示等场景可在此单独覆盖。</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 sm:col-span-2">
+                      <span className="text-[11px] font-semibold text-muted-foreground">会话衔接</span>
+                      <select
+                        className={`${inputClassName} !h-9 text-xs bg-secondary/15 border-border/70`}
+                        disabled={index === 0}
+                        value={index > 0 && item.continueSession ? "continue" : "fresh"}
+                        onChange={(event) => updateItem(index, { continueSession: event.target.value === "continue" || undefined })}
+                      >
+                        <option value="fresh">全新会话（按上方初始 URL 打开新浏览器会话）</option>
+                        <option value="continue">续用上一个用例的会话（承接登录态、停留页面与执行输出）</option>
+                      </select>
+                      {index === 0 ? (
+                        <span className="text-[10px] text-muted-foreground">首个用例总是以全新会话启动。</span>
+                      ) : item.continueSession ? (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400">续用会话时初始页面承接上一个用例的停留位置；上方初始 URL 仅作为脚本 baseUrl 使用。上一个用例失败时整个任务将快速失败。</span>
+                      ) : null}
                     </div>
                   </div>
                 </div>

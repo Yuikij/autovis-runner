@@ -31,6 +31,11 @@ export interface TargetUrl {
   url: string
   /** 主域名（与 project.testBaseUrl 同步）只能改不能删。 */
   isPrimary?: boolean
+  /**
+   * 该站点回放/执行时是否默认使用反检测有头模式（真实 Chrome）。默认 false（headless）。
+   * 仅反检测敏感站点（如风控登录态）才需要开启；任务用例级可单独覆盖。
+   */
+  needsStealth?: boolean
   createdAt: string
   updatedAt: string
 }

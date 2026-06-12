@@ -6,6 +6,7 @@ import { inputClassName } from "../../components/ui/field"
 import { formatDateTime, formatDuration, translateStatus, translateTestType, resolveUrl } from "../../utils"
 import { BrowserFrame } from "../../components/browser-frame"
 import { LogPanel } from "../../components/log-panel"
+import { RunStatusBar } from "../../components/run-status-bar"
 import { TaskControlBar } from "../../components/TaskControlBar"
 
 const translateRunPhase = (phase?: any) => {
@@ -169,6 +170,15 @@ export function CaseDetails(props: CaseDetailsProps) {
                 className="w-full bg-transparent"
                 contentClassName="min-h-[18rem] md:min-h-[24rem]"
                 imageClassName="max-h-[28rem] w-full object-contain"
+                fullscreenExtras={
+                  <RunStatusBar
+                    status={temporaryRun.status}
+                    title={selectedCase.caseCode}
+                    subtitle={temporaryRun.steps.at(-1)?.title}
+                    logs={temporaryRun.logs.join("\n")}
+                    controls={<TaskControlBar kind="run" id={temporaryRun.id} status={temporaryRun.status} />}
+                  />
+                }
               />
 
               <div className="grid gap-4 xl:grid-cols-2 grid-cols-1">

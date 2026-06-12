@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
@@ -105,6 +105,26 @@ export function WorkbenchSandbox({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [clockTick, setClockTick] = useState(0)
 
+  // 沙盒整体真全屏：连同中间的可折叠状态栏一起进入浏览器原生全屏。
+  const sandboxRef = useRef<HTMLDivElement | null>(null)
+  const [isSandboxFullscreen, setIsSandboxFullscreen] = useState(false)
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsSandboxFullscreen(document.fullscreenElement === sandboxRef.current)
+    }
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
+  }, [])
+
+  const toggleSandboxFullscreen = useCallback(() => {
+    if (document.fullscreenElement === sandboxRef.current) {
+      void document.exitFullscreen().catch(() => undefined)
+    } else {
+      void sandboxRef.current?.requestFullscreen?.().catch(() => undefined)
+    }
+  }, [])
+
   const agentRunning = agentSession?.status === "running"
   useEffect(() => {
     if (!agentRunning) return undefined
@@ -183,7 +203,7 @@ export function WorkbenchSandbox({
   const latestAction = activeRecorderSession?.actions.at(-1)
 
   return (
-    <div className="relative flex flex-col h-[40rem] border-t border-border bg-slate-100 dark:bg-slate-950 overflow-hidden">
+    <div ref={sandboxRef} className="relative flex flex-col h-[40rem] border-t border-border bg-slate-100 dark:bg-slate-950 overflow-hidden">
       {/* 实时浏览占全部 */}
       <div className="absolute inset-0 z-0 flex items-center justify-center p-4">
         <BrowserFrame
@@ -198,6 +218,7 @@ export function WorkbenchSandbox({
           contentClassName="flex-1 h-full flex items-center justify-center p-0 bg-transparent"
           imageClassName="max-h-full max-w-full object-contain"
           onImageClick={mode === "record" ? handleImageClick : undefined}
+          onRequestFullscreen={toggleSandboxFullscreen}
         />
         {/* Top-left corner small status indicator for last pointer */}
         {lastPointer && mode === "record" && (
@@ -278,6 +299,15 @@ export function WorkbenchSandbox({
               {mode === "record" && activeRecorderSession?.id && (
                 <TaskControlBar kind="recorder" id={activeRecorderSession.id} status={activeRecorderSession.status} />
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 rounded-full size-8 p-0 hover:bg-muted"
+                title={isSandboxFullscreen ? "退出全屏 (Esc)" : "全屏沙盒"}
+                onClick={(e) => { e.stopPropagation(); toggleSandboxFullscreen() }}
+              >
+                <span className="material-symbols-outlined text-base">{isSandboxFullscreen ? "fullscreen_exit" : "fullscreen"}</span>
+              </Button>
               {isLogExpanded ? (
                 <Button variant="ghost" size="sm" className="ml-2 shrink-0 rounded-full size-8 p-0 hover:bg-muted" onClick={(e) => { e.stopPropagation(); setIsLogExpanded(false); }}>
                   <span className="material-symbols-outlined text-base">close</span>

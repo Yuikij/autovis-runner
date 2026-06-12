@@ -3,6 +3,7 @@ import type { ExecutionRun, ExecutionStep, PersistedTaskControlCommand, Task, Ta
 import { BrowserFrame } from "../../components/browser-frame"
 import { EmptyState } from "../../components/empty-state"
 import { LogPanel } from "../../components/log-panel"
+import { RunStatusBar } from "../../components/run-status-bar"
 import { TaskControlBar } from "../../components/TaskControlBar"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
@@ -260,6 +261,15 @@ export function RunDetail({
                 className="w-full h-full flex flex-col bg-transparent border-0 shadow-none"
                 contentClassName="flex-1 min-h-[25rem] flex items-center justify-center p-0 bg-transparent"
                 imageClassName="max-h-[28rem] w-full object-contain"
+                fullscreenExtras={executionActiveRun ? (
+                  <RunStatusBar
+                    status={executionActiveRun.status}
+                    title={currentCase ? currentCase.caseCode : `#${executionActiveRun.id.slice(0, 8)}`}
+                    subtitle={executionActiveRun.steps.at(-1)?.title}
+                    logs={executionActiveRun.logs.join("\n")}
+                    controls={<TaskControlBar kind="run" id={executionActiveRun.id} status={executionActiveRun.status} onSettled={onControlSettled} />}
+                  />
+                ) : undefined}
               />
             </div>
 

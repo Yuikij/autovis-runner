@@ -9,7 +9,15 @@ import type {
   TaskRun,
   StartTaskRunRequest,
   AgentSession,
+  RuntimeOutput,
 } from "@autovis/shared"
+
+/** 任务链中跨用例传递的会话状态：登录态 + 停留页面 + 已产出的 outputs。 */
+interface TaskChainState {
+  storageStateJson?: string
+  landingUrl?: string
+  runtimeOutputs: RuntimeOutput[]
+}
 
 function describeTaskMode(mode: TaskModeConfig): string {
   switch (mode.kind) {
@@ -28,7 +36,7 @@ export class TaskRunService {
   private readonly taskRunSubscribers = new Map<string, Set<(taskRun: TaskRun) => void>>()
 
   /** 注入后由 AgentService 填充，用于任务中无脚本用例的 AI 直接执行路径。 */
-  public runDirectAgentForTask: ((opts: { projectId: string; testCaseId: string; targetUrlId?: string; taskRunId: string }) => Promise<AgentSession>) | null = null
+  public runDirectAgentForTask: ((opts: { projectId: string; testCaseId: string; targetUrlId?: string; taskRunId: string; stealth?: boolean }) => Promise<AgentSession>) | null = null
   /** 注入后由 Store 填充，用于把子 run 的取消也记入 command log。 */
   public cancelRunCallback: ((runId: string) => boolean) | null = null
   /** 注入后由 AgentService 填充，用于取消正在运行的 agent。 */
@@ -195,6 +203,18 @@ export class TaskRunService {
     taskRun.logs.push(`${testCaseCode} AI 直接执行失败。`)
   }
 
+  /** 快速失败：某个用例失败后终止任务，剩余未执行的用例全部计入 skipped。 */
+  private failFastSkipRemaining(taskRun: TaskRun, remainingCount: number, failedCaseCode: string) {
+    if (remainingCount > 0) {
+      taskRun.skippedCount += remainingCount
+      taskRun.queuedCount = 0
+      taskRun.logs.push(`快速失败：${failedCaseCode} 执行失败，跳过剩余 ${remainingCount} 个用例并终止任务。`)
+    } else {
+      taskRun.logs.push(`快速失败：${failedCaseCode} 执行失败，终止任务。`)
+    }
+    this.persistAndNotifyTaskRun(taskRun)
+  }
+
   private async executeTaskRunLoop(
     task: Task,
     taskRun: TaskRun,
@@ -216,6 +236,9 @@ export class TaskRunService {
         taskRun.status = "running"
         this.persistAndNotifyTaskRun(taskRun)
       }
+      // 任务编排即显式执行链：用例自带前置一律跳过（前置仅服务于脚本生成与用例独立运行）。
+      // chainState 在「续用会话」的相邻用例间传递登录态、停留页面与 outputs；快速失败时终止整条链。
+      let chainState: TaskChainState | null = null
       try {
         for (let index = startIndex; index < resolvedItems.length; index += 1) {
           const { item, testCase } = resolvedItems[index]
@@ -227,6 +250,7 @@ export class TaskRunService {
             taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
             taskRun.logs.push(`跳过第 ${index + 1} 项：引用的用例不存在。`)
             this.persistAndNotifyTaskRun(taskRun)
+            chainState = null
             continue
           }
 
@@ -236,12 +260,14 @@ export class TaskRunService {
               taskRun.runningCount = 1
               taskRun.logs.push(`开始 AI 直接执行 ${testCase.caseCode}（无脚本）。`)
               this.persistAndNotifyTaskRun(taskRun)
+              let agentFailed = false
               try {
                 const agentSession = await this.runDirectAgentForTask({
                   projectId: opts.projectId,
                   testCaseId: testCase.id,
                   targetUrlId: item.targetUrlId,
                   taskRunId: taskRun.id,
+                  stealth: item.stealth,
                 })
                 taskRun.currentAgentId = agentSession.id
                 taskRun.lastAgentId = agentSession.id
@@ -249,22 +275,39 @@ export class TaskRunService {
                 this.persistAndNotifyTaskRun(taskRun)
                 const finishedAgent = await this.waitForAgentCompletion(agentSession.id)
                 this.applyAgentResult(taskRun, testCase.caseCode, finishedAgent.status)
+                agentFailed = finishedAgent.status !== "completed"
               } catch (agentErr) {
                 taskRun.runningCount = 0
                 taskRun.currentRunId = undefined
                 taskRun.currentAgentId = undefined
                 taskRun.failedCount += 1
                 taskRun.logs.push(`${testCase.caseCode} AI 直接执行异常: ${(agentErr as Error).message}`)
+                agentFailed = true
               }
               this.persistAndNotifyTaskRun(taskRun)
+              // AI 直接执行在独立沙盒中进行，无法向后续用例传递会话。
+              chainState = null
+              if (agentFailed && !taskController.signal.aborted) {
+                this.failFastSkipRemaining(taskRun, resolvedItems.length - index - 1, testCase.caseCode)
+                break
+              }
             } else {
               taskRun.skippedCount += 1
               taskRun.queuedCount = Math.max(0, taskRun.queuedCount - 1)
               taskRun.logs.push(`跳过 ${testCase.caseCode}：缺少最新脚本。`)
               this.persistAndNotifyTaskRun(taskRun)
+              chainState = null
             }
             continue
           }
+
+          const wantsContinue = index > 0 && item.continueSession === true
+          if (wantsContinue && !chainState) {
+            taskRun.logs.push(`${testCase.caseCode} 配置了续用上一个用例的会话，但上游会话状态不可用（上一项非脚本执行或任务恢复后状态丢失），将以全新会话执行。`)
+          }
+          const activeChain = wantsContinue ? chainState : null
+          // 仅当下一项配置了续用会话时才在本次 run 结束前捕获会话状态，避免无谓的 storage state 序列化。
+          const nextWantsContinue = resolvedItems[index + 1]?.item.continueSession === true
 
           const run = await this.runService.startRun({
             projectId: opts.projectId,
@@ -274,17 +317,41 @@ export class TaskRunService {
             taskRunId: taskRun.id,
             batchOrder: index + 1,
             scriptTimeoutMs: opts.scriptTimeoutMs,
+            skipPreconditions: true,
+            stealthOverride: item.stealth,
+            chain: {
+              initialStorageStateJson: activeChain?.storageStateJson,
+              initialLandingUrl: activeChain?.landingUrl,
+              initialRuntimeOutputs: activeChain?.runtimeOutputs,
+              captureChainState: nextWantsContinue,
+            },
           })
           taskRun.runIds.push(run.id)
           taskRun.currentRunId = run.id
           taskRun.queuedCount = Math.max(0, taskRun.totalCount - taskRun.runIds.length - taskRun.skippedCount)
           taskRun.runningCount = 1
-          taskRun.logs.push(`开始执行 ${testCase.caseCode}。`)
+          taskRun.logs.push(`开始执行 ${testCase.caseCode}${activeChain ? "（续用上一个用例的会话）" : ""}。`)
           this.persistAndNotifyTaskRun(taskRun)
 
           const finishedRun = await this.runService.getRunStateService().waitForRunCompletion(run.id)
           this.applyRunResult(taskRun, testCase.caseCode, finishedRun.status)
           this.persistAndNotifyTaskRun(taskRun)
+
+          if (finishedRun.status === "passed") {
+            const captured = this.runService.consumeChainState(run.id)
+            chainState = {
+              storageStateJson: captured?.storageStateJson,
+              landingUrl: captured?.landingUrl,
+              runtimeOutputs: finishedRun.runtimeOutputs ?? [],
+            }
+          } else {
+            chainState = null
+            this.runService.consumeChainState(run.id)
+            if (!taskController.signal.aborted && finishedRun.status === "failed") {
+              this.failFastSkipRemaining(taskRun, resolvedItems.length - index - 1, testCase.caseCode)
+              break
+            }
+          }
         }
 
         if (taskController.signal.aborted) {
@@ -382,7 +449,12 @@ export class TaskRunService {
       }
     }
 
-    const startIndex = taskRun.passedCount + taskRun.failedCount + taskRun.skippedCount
+    let startIndex = taskRun.passedCount + taskRun.failedCount + taskRun.skippedCount
+    // 快速失败语义在恢复路径同样生效：已有失败则不再继续剩余用例。
+    if (taskRun.failedCount > 0 && startIndex < resolvedItems.length) {
+      this.failFastSkipRemaining(taskRun, resolvedItems.length - startIndex, "恢复前的用例")
+      startIndex = resolvedItems.length
+    }
     if (previousStatus === "paused") {
       taskController.pause()
       taskRun.status = "paused"
@@ -677,6 +749,7 @@ export class TaskRunService {
       attemptNo: opts.attemptNo ?? 1,
       parentTaskRunId: opts.parentTaskRunId ?? null,
     })
+    taskRun.logs.push("任务执行链：跳过用例自带前置；任一用例失败即快速失败终止。")
     if (opts.attemptNo && opts.attemptNo > 1) {
       taskRun.logs.push(`polling · 第 ${opts.attemptNo} 轮（上一轮: ${opts.parentTaskRunId ?? "?"}）。`)
     }

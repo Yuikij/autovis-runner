@@ -2,6 +2,7 @@ import type { ExecutionRun, PersistedTaskControlCommand, Task, TaskRun, TestCase
 
 import { EmptyState } from "../../components/empty-state"
 import { PageHeader } from "../../components/page-header"
+import { TaskControlBar } from "../../components/TaskControlBar"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
@@ -22,6 +23,8 @@ type RunsListProps = {
   hasActiveExecution: boolean
   onClearRuns: () => void
   onOpenTask: (taskRunId: string, run?: ExecutionRun | null) => void
+  onOpenTemporaryRun: (run: ExecutionRun) => void
+  temporaryRuns: ExecutionRun[]
   projectControlCommands: PersistedTaskControlCommand[]
   projectControlCommandsError: string | null
   projectControlCommandsLoading: boolean
@@ -42,6 +45,8 @@ export function RunsList({
   hasActiveExecution,
   onClearRuns,
   onOpenTask,
+  onOpenTemporaryRun,
+  temporaryRuns,
   projectControlCommands,
   projectControlCommandsError,
   projectControlCommandsLoading,
@@ -112,6 +117,69 @@ export function RunsList({
           </CardContent>
         </Card>
       </div>
+
+      {temporaryRuns.length > 0 ? (
+        <Card className="border-amber-500/30 bg-amber-500/5 backdrop-blur-md shadow-sm overflow-hidden rounded-2xl">
+          <CardHeader className="border-b border-amber-500/20 bg-amber-500/5 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <span className="material-symbols-outlined text-base text-amber-500">bolt</span>
+                临时运行
+              </CardTitle>
+              <CardDescription className="text-xs">从用例页发起的临时运行。可在此停止、暂停、继续，点击记录查看实时画面与日志。已结束的临时运行会保留 24 小时。</CardDescription>
+            </div>
+            <Badge tone="warning">{temporaryRuns.length} 条</Badge>
+          </CardHeader>
+          <CardContent className="p-6 space-y-3">
+            {temporaryRuns.map((run) => {
+              const caseObj = runCaseMap.get(run.testCaseId)
+              const isLive = run.status === "queued" || run.status === "running" || run.status === "awaiting_human" || run.status === "paused" || run.status === "cancelling"
+              return (
+                <div
+                  key={run.id}
+                  className={`w-full rounded-2xl border p-4 flex flex-col gap-3 transition-all duration-300 ${
+                    isLive ? "border-amber-500/40 bg-card/70 ring-1 ring-amber-500/20" : "border-border/60 bg-card/50"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => onOpenTemporaryRun(run)}
+                      className="flex items-center gap-2 flex-wrap text-left cursor-pointer group"
+                    >
+                      <strong className="font-mono text-sm tracking-wide text-foreground group-hover:text-primary transition-colors">
+                        {caseObj?.caseCode ?? `#${run.id.slice(0, 8)}`}
+                      </strong>
+                      <Badge tone={run.status === "passed" ? "success" : run.status === "failed" ? "danger" : "warning"}>
+                        {translateStatus(run.status)}
+                      </Badge>
+                      {run.status === "awaiting_human" ? <Badge tone="warning" className="animate-pulse">等待人工输入</Badge> : null}
+                      {isLive ? <span className="flex size-2 rounded-full bg-amber-500 animate-ping" /> : null}
+                      <span className="text-xs text-muted-foreground truncate max-w-[260px]">{caseObj?.purpose ?? run.testCaseId}</span>
+                    </button>
+                    <div className="flex items-center gap-3 flex-wrap" onClick={(event) => event.stopPropagation()}>
+                      <div className="text-right text-[11px] text-muted-foreground font-mono">
+                        <p>{formatDateTime(run.startedAt)}</p>
+                        <p className="mt-0.5 font-sans font-medium text-foreground/80">
+                          {run.finishedAt ? `耗时: ${formatDuration(run.startedAt, run.finishedAt)}` : "进行中…"}
+                        </p>
+                      </div>
+                      <TaskControlBar kind="run" id={run.id} status={run.status} />
+                      <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs cursor-pointer" onClick={() => onOpenTemporaryRun(run)}>
+                        查看详情
+                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground opacity-90 line-clamp-1 italic font-mono bg-black/5 dark:bg-black/25 px-2 py-1 rounded border border-border/20">
+                    {run.logs.at(-1) ?? "等待执行反馈。"}
+                  </p>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-border bg-card/20 backdrop-blur-md shadow-sm overflow-hidden rounded-2xl">
         <CardHeader className="border-b border-border bg-secondary/15 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">

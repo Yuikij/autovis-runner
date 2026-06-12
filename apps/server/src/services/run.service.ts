@@ -14,6 +14,7 @@ import {
 } from "@autovis/runner"
 import {
   type ExecutionRun,
+  type RuntimeOutput,
   type ScriptArtifact,
   type StartRunRequest,
   type TestCase,
@@ -23,7 +24,39 @@ import { log } from "../log.js"
 import { TaskControlRegistry, type TaskController } from "./task-control.js"
 import type { RunStateService } from "./run-state.service.js"
 
+/** 任务编排中"续用会话"的链式执行选项（仅服务内部使用，不进 API schema）。 */
+export interface RunChainOptions {
+  /** 以该 storage state 启动浏览器上下文（续用上一个用例的登录态）。 */
+  initialStorageStateJson?: string
+  /** 初始打开的页面（上一个用例结束时停留的 URL）。 */
+  initialLandingUrl?: string
+  /** 继承执行链中已产出的 outputs，供 inputs.get / guard.ownedData 消费。 */
+  initialRuntimeOutputs?: RuntimeOutput[]
+  /** 目标脚本成功后捕获会话状态（storage state + 当前 URL），供下一个用例续用。 */
+  captureChainState?: boolean
+}
+
+export interface RunChainState {
+  storageStateJson?: string
+  landingUrl?: string
+}
+
+type StartRunOptions = StartRunRequest & {
+  scriptTimeoutMs?: number
+  llmOwnerKey?: string
+  skipPreconditions?: boolean
+  chain?: RunChainOptions
+  /**
+   * 反检测有头模式（真实 Chrome）覆盖开关：任务用例级配置（TaskItem.stealth）透传至此。
+   * undefined 表示继承所用 TargetUrl 的 needsStealth；true/false 强制开关。
+   */
+  stealthOverride?: boolean
+}
+
 export class RunService {
+  /** run 结束时捕获的会话状态（内存态，供任务链下一用例续用，消费即删）。 */
+  private readonly chainStates = new Map<string, RunChainState>()
+
   constructor(
     private readonly db: AutoVisDatabase,
     private readonly suiteService: SuiteService,
@@ -31,6 +64,13 @@ export class RunService {
     private readonly tasks: TaskControlRegistry,
     private readonly runStateService: RunStateService,
   ) {}
+
+  /** 取出并清除某个 run 捕获的链式会话状态；未捕获（失败/未开启捕获/进程重启）时返回 undefined。 */
+  public consumeChainState(runId: string): RunChainState | undefined {
+    const state = this.chainStates.get(runId)
+    this.chainStates.delete(runId)
+    return state
+  }
 
   public getRunStateService(): RunStateService {
     return this.runStateService
@@ -136,8 +176,10 @@ export class RunService {
 
   private createManagedRunController(
     run: ExecutionRun,
-    request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string },
+    request: StartRunOptions,
   ) {
+    // chain 里可能含整份 storage state，体积大且为内存态语义，不进 lease 持久化。
+    const { chain: _chain, ...leaseRequest } = request
     return this.tasks.create({
       kind: "run",
       id: run.id,
@@ -145,7 +187,7 @@ export class RunService {
       testCaseId: run.testCaseId,
       recoveryPolicy: "restart",
       request: {
-        ...request,
+        ...leaseRequest,
         scriptTimeoutMs: request.scriptTimeoutMs,
         llmOwnerKey: request.llmOwnerKey,
       },
@@ -182,7 +224,7 @@ export class RunService {
     testCase: TestCase,
     script: ScriptArtifact,
     preconditionPlan: ReturnType<SuiteService["buildPreconditionPlan"]>,
-    request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string },
+    request: StartRunOptions,
   ) {
     const taskController = this.createManagedRunController(run, request)
     if (run.status === "paused") {
@@ -198,8 +240,9 @@ export class RunService {
       targetUrl: run.testBaseUrl,
       preconditionCount: preconditionPlan.nodes.length,
       scriptTimeoutMs: request.scriptTimeoutMs ?? null,
+      chained: Boolean(request.chain?.initialStorageStateJson),
     })
-    void this.executeRunWithPreconditions(run, project, testCase, script, preconditionPlan, taskController, request.scriptTimeoutMs, request.llmOwnerKey)
+    void this.executeRunWithPreconditions(run, project, testCase, script, preconditionPlan, taskController, request.scriptTimeoutMs, request.llmOwnerKey, request.chain, request.stealthOverride)
   }
 
   public async recoverRun(runId: string) {
@@ -263,7 +306,8 @@ export class RunService {
       batchOrder: run.batchOrder,
       scriptTimeoutMs: typeof leaseRequest.scriptTimeoutMs === "number" ? leaseRequest.scriptTimeoutMs : undefined,
       llmOwnerKey: typeof leaseRequest.llmOwnerKey === "string" ? leaseRequest.llmOwnerKey : undefined,
-    } satisfies StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string }
+      stealthOverride: typeof leaseRequest.stealthOverride === "boolean" ? leaseRequest.stealthOverride : undefined,
+    } satisfies StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string; stealthOverride?: boolean }
 
     this.runStateService.saveRunSnapshot(run)
     this.runStateService.notifyRun(run)
@@ -283,6 +327,8 @@ export class RunService {
     taskController?: TaskController,
     scriptTimeoutMs?: number,
     llmOwnerKey = "shared",
+    chain?: RunChainOptions,
+    stealthOverride?: boolean,
   ) {
     if (!project) throw new Error("Project not found")
     const onUpdate = async () => {
@@ -344,7 +390,13 @@ export class RunService {
       run.orchestrationPhase = preconditionPlan.nodes.length > 0 ? "preconditions" : "target"
       await onUpdate()
 
-      if (targetTestCase.authProfileId) {
+      if (chain?.initialStorageStateJson) {
+        // 任务链续用会话：上一用例已带着登录态结束，直接以其状态与页面为起点，跳过鉴权配置流程。
+        targetStorageStateJson = chain.initialStorageStateJson
+        landingUrl = chain.initialLandingUrl
+        run.logs.push(`[${new Date().toLocaleTimeString()}] 续用上一个用例的会话状态${landingUrl ? `，起始页面 ${landingUrl}` : ""}。`)
+        await onUpdate()
+      } else if (targetTestCase.authProfileId) {
         const authProfile = this.db.getAuthProfile(targetTestCase.authProfileId)
         if (authProfile) {
           const runTargetUrlId = run.targetUrlId
@@ -392,6 +444,11 @@ export class RunService {
         }
       }
 
+      // 反检测有头模式（真实 Chrome）按配置解析：任务用例级覆盖 > 站点 needsStealth > 默认 false。
+      // 解析为显式布尔后交给 runner，不再让其按"有无登录态"自行推断（env 仍是最终钳制）。
+      const targetUrlNeedsStealth = run.targetUrlId ? this.db.getTargetUrl(run.targetUrlId)?.needsStealth : undefined
+      const effectiveStealth = stealthOverride ?? targetUrlNeedsStealth ?? false
+
       session = await createRunnerSession({
         run,
         artifactsDir,
@@ -401,6 +458,7 @@ export class RunService {
         initStepIndex: 0,
         storageStateJson: targetStorageStateJson,
         landingUrl,
+        stealth: effectiveStealth,
       })
 
       if (session.liveStream) {
@@ -478,6 +536,18 @@ export class RunService {
         }
       }
 
+      if (chain?.captureChainState && session) {
+        // 下一个用例配置了续用会话：在关闭浏览器前捕获登录态与停留页面。
+        const state = await session.context.storageState().catch(() => undefined)
+        const rawUrl = session.page.url()
+        this.chainStates.set(run.id, {
+          storageStateJson: state ? JSON.stringify(state) : undefined,
+          landingUrl: rawUrl && rawUrl !== "about:blank" ? rawUrl : undefined,
+        })
+        run.logs.push(`[${new Date().toLocaleTimeString()}] 已捕获会话状态，供下一个用例续用${rawUrl && rawUrl !== "about:blank" ? `（停留页面 ${rawUrl}）` : ""}。`)
+        await onUpdate()
+      }
+
       run.orchestrationPhase = "archive"
       await finalizeRunnerSession({
         run,
@@ -544,7 +614,7 @@ export class RunService {
     return ctrl.cancel("Run cancelled by user.")
   }
 
-  public async startRun(request: StartRunRequest & { scriptTimeoutMs?: number; llmOwnerKey?: string; skipPreconditions?: boolean }) {
+  public async startRun(request: StartRunOptions) {
     const missing = this.describeMissingRunDependencies({
       projectId: request.projectId,
       testCaseId: request.testCaseId,
@@ -576,6 +646,7 @@ export class RunService {
     }
 
     const preconditionPlan = request.skipPreconditions ? { nodes: [] } : this.suiteService.buildPreconditionPlan(testCase)
+    const chain = request.chain
     const target = this.resolveTargetUrlOrThrow(request.projectId, request.targetUrlId)
     const run = createExecutionTemplate({
       runId: createId("run"),
@@ -596,7 +667,8 @@ export class RunService {
     }
     run.orchestrationPhase = preconditionPlan.nodes.length > 0 ? "preconditions" : "target"
     run.completedPreconditionCaseIds = []
-    run.runtimeOutputs = []
+    // 续用会话时继承执行链中已产出的 outputs，使 inputs.get / guard.ownedData 能引用前序用例的数据。
+    run.runtimeOutputs = chain?.initialRuntimeOutputs ? [...chain.initialRuntimeOutputs] : []
     run.preconditionSummary = preconditionPlan.nodes.map((entry) => `前置用例 ${entry.testCase.caseCode}`)
 
     this.runStateService.saveRunSnapshot(run)

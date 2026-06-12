@@ -1,6 +1,6 @@
 import { AutoVisDatabase } from "./db.js"
 import { WorkspaceService } from "./workspace.js"
-import { appOrigin, createId, dataDir, now } from "./services/common.js"
+import { appOrigin, createId, dataDir, now, removeArtifactDirs } from "./services/common.js"
 import { SuiteService } from "./services/suite.service.js"
 import { TaskService } from "./services/task.service.js"
 import { LlmConfigService } from "./services/llm-config.service.js"
@@ -106,7 +106,8 @@ class PersistentStore {
 
   private scheduleTemporaryRunCleanup() {
     const intervalMs = 30 * 60 * 1000
-    const maxAgeMs = 2 * 60 * 60 * 1000
+    // 临时运行在执行记录页可见，保留 24 小时再自动回收（含产物目录）。
+    const maxAgeMs = 24 * 60 * 60 * 1000
     const cleanup = () => {
       const cutoff = Date.now() - maxAgeMs
       for (const run of this.db.listAllRuns()) {
@@ -118,6 +119,7 @@ class PersistentStore {
         if (Number.isFinite(ts) && ts < cutoff) {
           try {
             this.db.deleteRun(run.id)
+            void removeArtifactDirs([run.id])
           } catch (err) {
             log.warn("store.temp_run_cleanup.failed", { runId: run.id, error: err })
           }
@@ -492,12 +494,14 @@ class PersistentStore {
       projectId: input.projectId,
       label: input.label.trim(),
       url,
+      needsStealth: input.needsStealth,
     })
   }
-  async updateTargetUrl(id: string, patch: { label?: string; url?: string }) {
-    const cleaned: { label?: string; url?: string } = {}
+  async updateTargetUrl(id: string, patch: { label?: string; url?: string; needsStealth?: boolean }) {
+    const cleaned: { label?: string; url?: string; needsStealth?: boolean } = {}
     if (patch.label !== undefined) cleaned.label = patch.label.trim()
     if (patch.url !== undefined) cleaned.url = patch.url.trim()
+    if (patch.needsStealth !== undefined) cleaned.needsStealth = patch.needsStealth
     if (cleaned.url) {
       const existing = this.db.getTargetUrl(id)
       if (existing) {

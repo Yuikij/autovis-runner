@@ -101,8 +101,8 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
         } else if (browserContext) {
           ownedBrowser = browserContext.browser() ?? null
         } else {
-          // 全新启动：注入了登录态就用反检测有头真 Chrome，指纹与采集时一致，避免被风控跳回登录。
-          const stealth = shouldStealthReplay(ctx.authStorageStateJson)
+          // 全新启动：按站点/用例级配置决定是否走反检测有头真 Chrome（env 仍是最终钳制）。
+          const stealth = shouldStealthReplay(ctx.authStorageStateJson, ctx.stealth)
           ownedBrowser = await launchReplayBrowser({ stealth, headless: true })
           browserContext = await ownedBrowser.newContext({
             viewport: stealth ? null : { width: 1440, height: 960 },

@@ -20,6 +20,8 @@ type ActiveLlmCurrent = ActiveLlmBundle["current"]
 export type AgentExecutionRequest = Pick<GenerateScriptRequest, "projectId" | "testCaseId" | "runTargetUrlId"> & {
   sessionId: string
   taskRunId?: string
+  /** 反检测有头模式覆盖（任务用例级 TaskItem.stealth）：undefined 继承站点 needsStealth。 */
+  stealthOverride?: boolean
 }
 
 export function getOwnerKey(request: LlmOwned) {
@@ -95,6 +97,7 @@ export async function prepareAgentExecutionContext(params: {
   resolvedRunTargetId?: string
   resolvedRunUrl: string
   authStorageStateJson?: string
+  stealth: boolean
 }> {
   const {
     mode,
@@ -128,6 +131,10 @@ export async function prepareAgentExecutionContext(params: {
     throw new Error(`所选的目标 URL 不存在或已被删除（targetUrlId=${request.runTargetUrlId}）。请刷新页面后重新选择。`)
   }
   const resolvedRunUrl = resolvedRunTarget.url
+
+  // 反检测有头模式按配置解析：用例级覆盖 > 站点 needsStealth > 默认 false（与脚本执行路径一致）。
+  const targetNeedsStealth = resolvedRunTarget.id ? db.getTargetUrl(resolvedRunTarget.id)?.needsStealth : undefined
+  const stealth = request.stealthOverride ?? targetNeedsStealth ?? false
 
   let authStorageStateJson: string | undefined
   if (testCase.authProfileId && resolvedRunTarget.id) {
@@ -168,6 +175,7 @@ export async function prepareAgentExecutionContext(params: {
       resolvedRunTargetId: resolvedRunTarget.id,
       resolvedRunUrl,
       authStorageStateJson,
+      stealth,
       provider: current.session.provider,
       llmOwnerKey: ownerKey,
       onStep,
@@ -180,6 +188,7 @@ export async function prepareAgentExecutionContext(params: {
       resolvedRunTargetId: resolvedRunTarget.id,
       resolvedRunUrl,
       authStorageStateJson,
+      stealth,
     }
   } catch (error) {
     if (session.warmupRunId) {

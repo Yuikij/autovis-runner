@@ -103,6 +103,7 @@ export class AgentService {
     testCaseId: string
     targetUrlId?: string
     taskRunId: string
+    stealth?: boolean
   }): Promise<AgentSession> {
     return this.directService.startDirectAgentForTask(opts)
   }
