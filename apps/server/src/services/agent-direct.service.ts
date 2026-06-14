@@ -36,6 +36,24 @@ export class AgentDirectService {
     private readonly sessionService: AgentSessionService,
   ) {}
 
+  /** 从 agent 步骤里提取 save_report 工具产生的报告卡片（payloadJson 里的 savedReport）。 */
+  private collectReportCards(steps: AgentStep[]): Array<{ reportUrl: string; title: string; category?: string; summary?: string }> {
+    const cards: Array<{ reportUrl: string; title: string; category?: string; summary?: string }> = []
+    for (const step of steps) {
+      if (step.toolName !== "save_report" || !step.payloadJson) continue
+      try {
+        const parsed = JSON.parse(step.payloadJson) as { savedReport?: { reportUrl?: string; title?: string; category?: string; summary?: string } }
+        const r = parsed.savedReport
+        if (r?.reportUrl && r.title && !cards.some((c) => c.reportUrl === r.reportUrl)) {
+          cards.push({ reportUrl: r.reportUrl, title: r.title, category: r.category, summary: r.summary })
+        }
+      } catch {
+        // 忽略无法解析的 payload
+      }
+    }
+    return cards
+  }
+
   private buildDirectResult(steps: AgentStep[]): DirectExecutionResult {
     const operationSteps: DirectOperationStep[] = steps
       .filter((step) => step.type === "tool_call" && step.toolName !== "execute_step")
@@ -213,11 +231,13 @@ export class AgentDirectService {
         browser: prepared.warmupSession?.browser,
         browserContext: prepared.warmupSession?.context,
         page: prepared.warmupSession?.page,
+        runDir: prepared.warmupSession?.runDir,
         preconditionSummary: session.preconditionSummary,
         preconditionReport: prepared.preconditionReport,
         initialPageState: prepared.initialPageState,
         hasWorkspace: prepared.hasWorkspace,
         analyzeImage: (input) => this.runService.analyzeImageWithCurrentLlm(input, ownerKey),
+        generateText: (prompt, systemPrompt) => this.runService.generateTextWithCurrentLlm({ prompt, systemPrompt }, ownerKey),
         signal: taskController.signal,
         waitIfPaused: () => taskController.waitIfPaused(),
         runtimeContext: {
@@ -243,6 +263,29 @@ export class AgentDirectService {
           },
           archiveStepIndex: displayRun.steps.length - 1,
         })
+        // save_report 工具产生的报告 HTML 已被 finalize 扫描进 displayRun.artifacts（kind:report）；
+        // 这里把它们转成 runtimeOutputs，「产出收件箱」才会出卡片（无 output 的 run 不产生卡片）。
+        const cards = this.collectReportCards(session.steps)
+        if (cards.length) {
+          displayRun.runtimeOutputs = displayRun.runtimeOutputs ?? []
+          for (const card of cards) {
+            displayRun.runtimeOutputs.push({
+              id: createId("rt_out"),
+              runId: displayRun.id,
+              testCaseId: testCase.id,
+              caseCode: testCase.caseCode,
+              caseName: testCase.purpose,
+              description: card.title,
+              value: { reportUrl: card.reportUrl },
+              createdAt: now(),
+              category: card.category,
+              title: card.title,
+              summary: card.summary,
+            })
+          }
+          this.runService.getRunStateService().saveRunSnapshot(displayRun)
+          this.runService.getRunStateService().notifyRun(displayRun)
+        }
         session.latestRunId = displayRun.id
         warmupSession = null
       }

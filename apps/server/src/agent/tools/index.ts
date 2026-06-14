@@ -6,12 +6,16 @@ import { executeInspectPage, executeNavigateTo, pageNavigationTools } from "./pa
 import { executeCaptureScreenshot, executeGetElementHtml, executeQueryElements, executeWaitForPageState, pageQueryTools, executeAnalyzeImage, executeAnalyzeCurrentPage } from "./page-query.js"
 import { executeGlobWorkspacePaths, executeListWorkspaceTree, executeReadWorkspaceFile, executeSearchWorkspaceCode, workspaceTools } from "./workspace.js"
 import { executeStepTools } from "./execute-step.js"
+import { executeSaveReport, saveReportTools } from "./report.js"
+import { executeTranslateDocument, translateDocumentTools } from "./translate.js"
 
 export const AGENT_TOOLS: ToolDefinition[] = [
   ...workspaceTools,
   ...pageNavigationTools,
   ...pageInteractionTools,
   ...pageQueryTools,
+  ...saveReportTools,
+  ...translateDocumentTools,
   ...executeStepTools,
 ]
 
@@ -31,6 +35,8 @@ const TOOL_STAGE_MAP: Record<string, AgentStage> = {
   capture_screenshot: "page",
   analyze_image: "page",
   analyze_current_page: "page",
+  save_report: "page",
+  translate_document: "page",
   execute_step: "generation",
 }
 
@@ -92,6 +98,11 @@ export async function executeTool(
     case "analyze_current_page":
       if (!ctx.page) return { stage: "page", content: "浏览器未初始化，无法分析页面。" }
       return executeAnalyzeCurrentPage(ctx.page, args as { prompt: string; fullPage?: boolean }, ctx)
+    case "save_report":
+      return executeSaveReport(ctx, args as { title: string; html: string; category?: string; summary?: string })
+    case "translate_document":
+      if (!ctx.page) return { stage: "page", content: "浏览器未初始化，无法翻译页面。" }
+      return executeTranslateDocument(ctx, args as { url?: string; title?: string; targetLang?: string; maxSections?: number; includeInsight?: boolean; category?: string; summary?: string })
     case "execute_step":
       return { stage: "generation", content: "execute_step 应由 agent loop 直接处理。" }
     default:

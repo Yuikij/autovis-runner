@@ -47,7 +47,7 @@ export interface ExecutionStep {
 }
 
 export interface RunArtifact {
-  kind: "trace" | "video" | "screenshot"
+  kind: "trace" | "video" | "screenshot" | "report"
   name: string
   url: string
 }
@@ -71,6 +71,27 @@ export interface RuntimeOutput {
   value: unknown
   meta?: Record<string, unknown>
   createdAt: string
+  /** 「产出收件箱」展示用字段：脚本通过 outputs.add 的 meta 传入，运行时提升到这里。 */
+  category?: string
+  attention?: boolean
+  title?: string
+  summary?: string
+}
+
+/** 「产出收件箱」聚合项：跨 run 把 runtimeOutputs 摊平成可分类、可快速查看的卡片。 */
+export interface OutboxItem {
+  id: Identifier
+  runId: Identifier
+  createdAt: string
+  category: string
+  attention: boolean
+  title: string
+  summary?: string
+  source?: string
+  /** run 内首个 report 产物（HTML 报告），用于 iframe 预览。 */
+  reportUrl?: string
+  /** run 最终截图，用于「看截图」。 */
+  screenshotUrl?: string
 }
 
 export interface ExecutionRun {

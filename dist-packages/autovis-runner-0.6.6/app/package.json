@@ -1,0 +1,18 @@
+{
+  "name": "autovis-runner",
+  "version": "0.6.6",
+  "private": true,
+  "packageManager": "pnpm@10.20.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @autovis/web --filter @autovis/server dev",
+    "dev:web": "pnpm --filter @autovis/web dev",
+    "dev:server": "pnpm --filter @autovis/server dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter @autovis/server start",
+    "runner:package": "bash scripts/package-runner.sh",
+    "runner:docker": "docker build -t autovis/runner:local .",
+    "lint": "pnpm -r lint",
+    "check": "pnpm -r check",
+    "acceptance": "node scripts/acceptance-smoke.mjs"
+  }
+}

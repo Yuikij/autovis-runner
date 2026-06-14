@@ -46,6 +46,7 @@ export const sectionUrlPolicy: Record<WorkspaceSection, ReadonlyArray<HashKey>> 
   authProfiles: ["projectId"],
   workbench: ["projectId", "caseId", "agentSessionId", "runId"],
   runs: ["projectId", "runId", "taskRunId", "recorderSessionId"],
+  outbox: [],
 }
 
 export const sectionAllows = (section: WorkspaceSection, key: HashKey) =>

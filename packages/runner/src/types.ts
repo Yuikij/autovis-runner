@@ -51,6 +51,8 @@ export interface ExecutePlaywrightRunInput {
     mimeType: string
     prompt: string
   }) => Promise<string>
+  /** 运行时文本生成：暴露给生成脚本的 ai.generate。缺省时脚本调用会抛出明确错误。 */
+  generateText?: (prompt: string, systemPrompt?: string) => Promise<string>
 }
 
 export interface RunnerSession {
@@ -97,6 +99,7 @@ export interface ExecuteScriptInSessionInput {
   onUpdate: () => Promise<void> | void
   requestHumanInput: ExecutePlaywrightRunInput["requestHumanInput"]
   analyzeImage: ExecutePlaywrightRunInput["analyzeImage"]
+  generateText?: ExecutePlaywrightRunInput["generateText"]
   stepIndex: number
   startedLog: string
   completedLog: string

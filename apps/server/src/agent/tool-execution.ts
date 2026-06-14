@@ -272,6 +272,8 @@ export async function executeAgentToolCall(params: {
         project: effectiveProject,
         agentSessionId,
         artifactsDir,
+        runDir: ctx.runDir,
+        generateText: ctx.generateText,
         hasWorkspace: ctx.hasWorkspace,
         listWorkspaceTree: ctx.listWorkspaceTree,
         globWorkspacePaths: ctx.globWorkspacePaths,

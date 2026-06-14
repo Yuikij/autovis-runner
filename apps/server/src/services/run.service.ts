@@ -19,7 +19,7 @@ import {
   type StartRunRequest,
   type TestCase,
 } from "@autovis/shared"
-import { analyzeImageWithLlm } from "../llm.js"
+import { analyzeImageWithLlm, generateTextWithLlm } from "../llm.js"
 import { log } from "../log.js"
 import { TaskControlRegistry, type TaskController } from "./task-control.js"
 import type { RunStateService } from "./run-state.service.js"
@@ -142,6 +142,23 @@ export class RunService {
     current.session.lastError = undefined
     this.llmService.saveLlmConfigState(state, llmOwnerKey)
     return result.text.trim()
+  }
+
+  public async generateTextWithCurrentLlm(input: { prompt: string; systemPrompt?: string }, llmOwnerKey = "shared") {
+    const { state, current } = this.llmService.getActiveLlmConfigBundle(undefined, llmOwnerKey)
+    if (current.session.connectionStatus !== "connected" && !current.secrets.apiKey) {
+      throw new Error("当前未启用已连接的 AI 配置，无法执行文本生成。")
+    }
+    const text = await generateTextWithLlm({
+      prompt: input.prompt,
+      systemPrompt: input.systemPrompt,
+      session: current.session,
+      secrets: current.secrets,
+    })
+    current.session.lastSyncedAt = now()
+    current.session.lastError = undefined
+    this.llmService.saveLlmConfigState(state, llmOwnerKey)
+    return text.trim()
   }
 
   public buildRepairPrompt(testCase: TestCase, run: ExecutionRun, originalPrompt: string) {
@@ -483,6 +500,7 @@ export class RunService {
           onUpdate,
           requestHumanInput: handleHumanInput,
           analyzeImage: (analysisRequest) => this.analyzeImageWithCurrentLlm(analysisRequest, llmOwnerKey),
+          generateText: (prompt, systemPrompt) => this.generateTextWithCurrentLlm({ prompt, systemPrompt }, llmOwnerKey),
           stepIndex: newStepIndex,
           startedLog: `[前置用例 ${dependency.testCase.caseCode}] 开始执行。`,
           completedLog: `[前置用例 ${dependency.testCase.caseCode}] 执行完成。`,
@@ -511,6 +529,7 @@ export class RunService {
         onUpdate,
         requestHumanInput: handleHumanInput,
         analyzeImage: (analysisRequest) => this.analyzeImageWithCurrentLlm(analysisRequest, llmOwnerKey),
+        generateText: (prompt, systemPrompt) => this.generateTextWithCurrentLlm({ prompt, systemPrompt }, llmOwnerKey),
         stepIndex: targetStepIndex,
         startedLog: "[目标脚本] 开始执行生成后的 Playwright 脚本。",
         completedLog: "[目标脚本] Playwright 脚本执行完成。",

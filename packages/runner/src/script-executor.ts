@@ -1,8 +1,9 @@
-import { readFile } from "node:fs/promises"
+import { readFile, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import * as ts from "typescript"
 import { expect, type Page } from "@playwright/test"
 import type { ExecutionRun, HumanHandoffReason, HumanHandoffRequest, RuntimeOutput } from "@autovis/shared"
-import { markRunStep, artifactUrlToFilePath, inferMimeTypeFromPath, formatRuntimeValue, createRuntimeOutputId, isRuntimeOwnedData, matchesProducer, now, normalizeRuntimeMatch } from "./utils.js"
+import { markRunStep, artifactUrlToFilePath, inferMimeTypeFromPath, formatRuntimeValue, createRuntimeOutputId, isRuntimeOwnedData, matchesProducer, now, normalizeRuntimeMatch, toPublicArtifactUrl } from "./utils.js"
 import { captureElementScreenshot, captureStepScreenshot } from "./browser-manager.js"
 import { detectRiskControl, isRiskControlError, RISK_CONTROL_ERROR_PREFIX, type RiskControlSignal } from "./risk-control.js"
 import type { ExecutePlaywrightRunInput, ExecuteScriptInSessionInput, RunnerSession } from "./types.js"
@@ -28,6 +29,8 @@ interface AiAnalyzeImageOptions {
 
 interface AiRuntime {
   analyzeImage: (options: AiAnalyzeImageOptions) => Promise<string>
+  /** 运行时文本生成：把抓到的内容交给 LLM 做总结/改写/抽取。可选 systemPrompt 指定角色或输出格式。 */
+  generate: (prompt: string, systemPrompt?: string) => Promise<string>
   withImageRetry: (options: {
     imageSelector?: string
     selector?: string
@@ -92,6 +95,18 @@ interface RiskRuntime {
   assertClear: (label?: string) => Promise<void>
 }
 
+/**
+ * 富产物输出运行时。把脚本生成的长内容（中英对照全文、HTML 解读报告、Markdown 等）落盘成
+ * run 产物，注册进 `run.artifacts`，通过 /artifacts/{runId}/{name} 在浏览器直接查看。
+ * 适合"论文/早报收集 → 总结翻译 → 出一份能读的报告"这类场景，比 outputs.add（结构化小值）更适合长文。
+ */
+interface ReportRuntime {
+  /** 落盘一份 HTML 报告并注册为可查看产物，返回可访问 URL。传入完整文档或片段皆可（片段会自动补 utf-8 与可读样式）。 */
+  html: (title: string, html: string) => Promise<string>
+  /** 落盘一份纯文本/Markdown 产物（按扩展名 .md/.txt 等渲染或下载），返回可访问 URL。 */
+  text: (name: string, content: string) => Promise<string>
+}
+
 interface LoopRuntime {
   /** 反复执行 predicate，直到返回真值即返回该值；可设置间隔、上限耗时、上限轮次、每多少轮打一行日志。 */
   until: <T>(predicate: () => Promise<T | false | null | undefined> | T | false | null | undefined, options: {
@@ -128,6 +143,7 @@ type ScriptExecutor = (
   retry: RetryRuntime,
   http: HttpRuntime,
   risk: RiskRuntime,
+  report: ReportRuntime,
 ) => Promise<void>
 
 const AsyncExecutor = Object.getPrototypeOf(async function () {
@@ -306,6 +322,7 @@ export const executeScriptInSession = async ({
   onUpdate,
   requestHumanInput,
   analyzeImage,
+  generateText,
   stepIndex,
   startedLog,
   completedLog,
@@ -389,6 +406,17 @@ export const executeScriptInSession = async ({
 
   const ai: AiRuntime = {
     analyzeImage: analyzeImageFromPage,
+    generate: async (prompt, systemPrompt) => {
+      if (!generateText) {
+        throw new Error("TEXT_GENERATION_UNAVAILABLE: 当前运行环境未启用文本生成能力（ai.generate 不可用）")
+      }
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 文本生成 · ai.generate(${prompt.slice(0, 40)}${prompt.length > 40 ? "…" : ""})`)
+      await onUpdate()
+      const text = await generateText(prompt, systemPrompt)
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 文本生成结果 · ${text.slice(0, 80)}${text.length > 80 ? "…" : ""}`)
+      await onUpdate()
+      return text
+    },
     withImageRetry: async (options) => {
       const maxRetries = Math.max(1, options.maxRetries ?? 1)
       let lastText = ""
@@ -455,6 +483,8 @@ export const executeScriptInSession = async ({
 
   const outputs: OutputsRuntime = {
     add: async (description, value, meta) => {
+      // 收件箱展示字段从 meta 提升到顶层（脚本可在 meta 里传 category/attention/title/summary）。
+      const asStr = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined)
       const output: RuntimeOutput = {
         id: createRuntimeOutputId(run.id),
         runId: run.id,
@@ -465,6 +495,10 @@ export const executeScriptInSession = async ({
         value,
         meta,
         createdAt: now(),
+        category: asStr(meta?.category),
+        attention: meta?.attention === true,
+        title: asStr(meta?.title),
+        summary: asStr(meta?.summary),
       }
       run.runtimeOutputs = [...(run.runtimeOutputs ?? []), output]
       run.logs.push(`[${new Date().toLocaleTimeString()}] 输出结果 · ${runtimeProducer?.caseName || runtimeProducer?.caseCode || output.testCaseId || "当前节点"} · ${description}: ${formatRuntimeValue(value)}`)
@@ -707,10 +741,49 @@ export const executeScriptInSession = async ({
     }
   }
 
-  const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", "http", "risk", body)
+  let reportSeq = 0
+  const slugify = (raw: string) =>
+    (raw || "report")
+      .trim()
+      .replace(/[\/\\?%*:|"<>\s]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80) || "report"
+  const writeArtifactFile = async (fileName: string, content: string, logLabel: string) => {
+    await writeFile(join(session.runDir, fileName), content, "utf-8")
+    const url = toPublicArtifactUrl(run.id, fileName)
+    run.artifacts = run.artifacts ?? []
+    if (!run.artifacts.find((item) => item.name === fileName)) {
+      run.artifacts.push({ kind: "report", name: fileName, url })
+    }
+    run.logs.push(`[${new Date().toLocaleTimeString()}] ${logLabel} · ${fileName} → ${url}`)
+    await onUpdate()
+    return url
+  }
+  const report: ReportRuntime = {
+    html: async (title, html) => {
+      reportSeq += 1
+      const fileName = `report-${reportSeq}-${slugify(title)}.html`
+      const hasDoc = /<!doctype|<html[\s>]/i.test(html)
+      const doc = hasDoc
+        ? html
+        : `<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>` +
+          `<style>body{max-width:860px;margin:2rem auto;padding:0 1rem;font:16px/1.7 -apple-system,Segoe UI,Roboto,"Helvetica Neue",sans-serif;color:#1a1a1a}h1,h2,h3{line-height:1.3}pre,code{background:#f5f5f5;border-radius:4px}pre{padding:1rem;overflow:auto}blockquote{border-left:3px solid #ddd;margin:0;padding:.2rem 1rem;color:#555}</style>` +
+          `</head><body>${html}</body></html>`
+      return writeArtifactFile(fileName, doc, "报告产物")
+    },
+    text: async (name, content) => {
+      reportSeq += 1
+      const safe = slugify(name)
+      const fileName = /\.[a-z0-9]{1,8}$/i.test(name) ? safe : `${safe}.txt`
+      return writeArtifactFile(fileName, content, "文本产物")
+    },
+  }
+
+  const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", "http", "risk", "report", body)
 
   const scriptExecution = async () => {
-    await executor(instrumentedPage, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry, http, risk)
+    await executor(instrumentedPage, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry, http, risk, report)
     await testChain
   }
 

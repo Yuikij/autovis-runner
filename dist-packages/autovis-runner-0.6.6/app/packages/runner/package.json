@@ -1,0 +1,23 @@
+{
+  "name": "@autovis/runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@autovis/shared": "workspace:*",
+    "@playwright/test": "^1.60.0",
+    "patchright": "^1.60.0",
+    "playwright": "^1.60.0",
+    "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.0"
+  }
+}

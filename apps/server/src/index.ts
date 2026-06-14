@@ -4,6 +4,7 @@ import { recorderRoutes } from "./routes/recorder.js"
 import { agentRoutes } from "./routes/agent.js"
 import { llmRoutes } from "./routes/llm.js"
 import { runsRoutes } from "./routes/runs.js"
+import { outboxRoutes } from "./routes/outbox.js"
 import { tasksRoutes } from "./routes/tasks.js"
 import { testCasesRoutes } from "./routes/testCases.js"
 import { projectsRoutes } from "./routes/projects.js"
@@ -89,6 +90,9 @@ const contentTypeByExt: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
   ".log": "text/plain; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".htm": "text/html; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
 }
 
 const resolveArtifactFile = async (relativePath: string) => {
@@ -298,6 +302,7 @@ await app.register(async (api) => {
   await api.register(testCasesRoutes)
   await api.register(tasksRoutes)
   await api.register(runsRoutes)
+  await api.register(outboxRoutes)
   await api.register(llmRoutes)
   await api.register(agentRoutes)
   await api.register(recorderRoutes)

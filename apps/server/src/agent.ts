@@ -186,7 +186,7 @@ export async function runAgentLoop(ctx: AgentContext): Promise<string> {
         ? AGENT_TOOLS.filter((tool) => tool.function.name !== "execute_step")
         : AGENT_TOOLS.filter((tool) => ["list_workspace_tree", "glob_workspace_paths", "search_workspace_code", "read_workspace_file"].includes(tool.function.name)))
       : (hasBrowser
-        ? AGENT_TOOLS
+        ? AGENT_TOOLS.filter((tool) => !["save_report", "translate_document"].includes(tool.function.name))
         : AGENT_TOOLS.filter((tool) => ["list_workspace_tree", "glob_workspace_paths", "search_workspace_code", "read_workspace_file"].includes(tool.function.name)))
 
     let consecutiveTextOnly = 0

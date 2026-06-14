@@ -54,6 +54,8 @@ export interface AgentContext {
   secrets: LlmSecretState
   agentSessionId: string
   artifactsDir: string
+  /** 当前 run 的产物目录（direct 模式下来自 warmupSession.runDir）。save_report 写到这里，finalize 扫描后注册为 report 产物。 */
+  runDir?: string
   onStep: (step: AgentStep) => void
   listWorkspaceTree: (path?: string) => Promise<WorkspaceTreeEntry[]>
   globWorkspacePaths: (pattern: string) => Promise<string[]>
@@ -67,6 +69,8 @@ export interface AgentContext {
   initialPageState?: InitialPageState
   hasWorkspace?: boolean
   analyzeImage?: (input: { dataUrl: string; mimeType: string; prompt: string }) => Promise<string>
+  /** 运行时文本生成。direct 模式由 AgentDirectService 接 run.service 的 generateTextWithCurrentLlm。translate_document 等工具用它逐段翻译。 */
+  generateText?: (prompt: string, systemPrompt?: string) => Promise<string>
   requestHumanInput?: (request: { reason: string; instruction: string; inputLabel?: string; placeholder?: string; confirmText?: string; imageUrl?: string }) => Promise<string>
   signal?: AbortSignal
   waitIfPaused?: () => Promise<void>
@@ -103,12 +107,15 @@ export interface ToolRuntimeContext {
   project: Project
   agentSessionId: string
   artifactsDir: string
+  /** 当前 run 产物目录，save_report 写报告 HTML 到这里。 */
+  runDir?: string
   hasWorkspace?: boolean
   listWorkspaceTree: AgentContext["listWorkspaceTree"]
   globWorkspacePaths: AgentContext["globWorkspacePaths"]
   searchWorkspaceCode: AgentContext["searchWorkspaceCode"]
   readWorkspaceFile: AgentContext["readWorkspaceFile"]
   analyzeImage?: AgentContext["analyzeImage"]
+  generateText?: AgentContext["generateText"]
 }
 
 export interface LocatorQuery {

@@ -34,7 +34,8 @@
         color: #cbd5e1;
         margin: 8px 0 3px;
       }
-      input {
+      input,
+      select {
         width: 100%;
         box-sizing: border-box;
         padding: 7px 9px;
@@ -46,8 +47,12 @@
         outline: none;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       }
-      input:focus {
+      input:focus,
+      select:focus {
         border-color: #6366f1;
+      }
+      select:disabled {
+        opacity: 0.5;
       }
       button {
         width: 100%;
@@ -68,11 +73,23 @@
       button:hover:not(:disabled) {
         background: #4f46e5;
       }
+      button.secondary {
+        margin-top: 0;
+        width: auto;
+        padding: 7px 12px;
+        background: #334155;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      button.secondary:hover:not(:disabled) {
+        background: #475569;
+      }
       .row {
         display: flex;
         gap: 8px;
+        align-items: flex-end;
       }
-      .row > div {
+      .row > .grow {
         flex: 1;
       }
       #status {
@@ -110,29 +127,39 @@
   <body>
     <h1>🔐 AutoVis 登录态采集器</h1>
     <p class="hint">
-      先在本浏览器里登录目标站点（如淘宝）并打开要采集的页面，再点下方按钮采集 cookies + localStorage 并导入
-      AutoVis。
+      在本浏览器登录目标站点（如 epicgames）→ 连接 AutoVis → 选项目/Profile → 一键采集导入。
     </p>
 
     <label for="runnerUrl">AutoVis 运行机地址</label>
-    <input id="runnerUrl" placeholder="http://172.23.31.219:8787" />
+    <div class="row">
+      <div class="grow">
+        <input id="runnerUrl" placeholder="http://172.23.31.219:8787" />
+      </div>
+      <button id="connect" class="secondary">连接</button>
+    </div>
 
-    <label for="projectId">Project ID</label>
-    <input id="projectId" placeholder="project-xxxx" />
-
-    <label for="profileId">Auth Profile ID</label>
-    <input id="profileId" placeholder="authprofile-xxxx" />
-
-    <label for="targetUrlId">Target URL ID（留空＝项目主域名）</label>
-    <input id="targetUrlId" placeholder="target-url-xxxx" />
-
-    <label for="cookieDomains">采集 cookie 的域名（逗号分隔）</label>
-    <input id="cookieDomains" placeholder="taobao.com,tmall.com" />
-
-    <label for="token">会话 Token（仅当 AutoVis 开启鉴权时填）</label>
+    <label for="token">会话 Token（开鉴权时填；或先在本浏览器登录 AutoVis 即免填）</label>
     <input id="token" placeholder="可留空" />
 
-    <button id="capture">采集当前页面登录态并导入</button>
+    <label for="projectId">项目</label>
+    <select id="projectId" disabled>
+      <option value="">— 先点「连接」加载 —</option>
+    </select>
+
+    <label for="profileId">登录状态 Profile</label>
+    <select id="profileId" disabled>
+      <option value="">— 选项目后加载 —</option>
+    </select>
+
+    <label for="targetUrlId">目标网址（留空＝项目主域名）</label>
+    <select id="targetUrlId" disabled>
+      <option value="">（项目主域名）</option>
+    </select>
+
+    <label for="cookieDomains">采集 cookie 的域名（逗号分隔，已按当前页自动填）</label>
+    <input id="cookieDomains" placeholder="epicgames.com" />
+
+    <button id="capture" disabled>采集当前页面登录态并导入</button>
     <div id="status"></div>
 
     <script src="popup.js"></script>

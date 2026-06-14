@@ -13,6 +13,7 @@ const ProjectsSection = lazy(async () => ({ default: (await import("./sections/P
 const CasesSection = lazy(async () => ({ default: (await import("./sections/CasesSection")).CasesSection }))
 const WorkbenchSection = lazy(async () => ({ default: (await import("./sections/WorkbenchSection")).WorkbenchSection }))
 const RunsSection = lazy(async () => ({ default: (await import("./sections/RunsSection")).RunsSection }))
+const OutboxSection = lazy(async () => ({ default: (await import("./sections/OutboxSection")).OutboxSection }))
 const AuthProfilesSection = lazy(async () => ({ default: (await import("./sections/auth-profiles")).AuthProfilesSection }))
 const TargetUrlsSection = lazy(async () => ({ default: (await import("./sections/TargetUrlsSection")).TargetUrlsSection }))
 const TasksSection = lazy(async () => ({ default: (await import("./sections/TasksSection")).TasksSection }))
@@ -27,6 +28,7 @@ const sectionCopy: Record<string, { title: string; description: string }> = {
   authProfiles: { title: "登录状态管理", description: "管理需要在用例中注入的持久化身份鉴权状态。" },
   workbench: { title: "AI 工作台", description: "生成脚本、手动录制、查看历史脚本并在工作台内直接验证。" },
   runs: { title: "执行记录", description: "查看任务执行历史、实时浏览器回放与执行产物。" },
+  outbox: { title: "产出收件箱", description: "聚合各任务产出，按分类快速查看双语报告、签到、账单等结果。" },
   llmConnections: { title: "大模型中心", description: "管理 AI 模型配置、API Keys 与 Copilot 授权状态。" },
 }
 
@@ -172,6 +174,7 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
                 {activeSection === "authProfiles" ? <AuthProfilesSection controller={controller} /> : null}
                 {activeSection === "workbench" ? <WorkbenchSection controller={controller} /> : null}
                 {activeSection === "runs" ? <RunsSection controller={controller} /> : null}
+                {activeSection === "outbox" ? <OutboxSection controller={controller} /> : null}
                 {activeSection === "llmConnections" ? <LlmConnectionsSection controller={controller} /> : null}
               </Suspense>
             </FrontendErrorBoundary>

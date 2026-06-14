@@ -1,4 +1,4 @@
-export type WorkspaceSection = "dashboard" | "projects" | "cases" | "tasks" | "targetUrls" | "authProfiles" | "workbench" | "runs" | "llmConnections"
+export type WorkspaceSection = "dashboard" | "projects" | "cases" | "tasks" | "targetUrls" | "authProfiles" | "workbench" | "runs" | "outbox" | "llmConnections"
 
 const runtimeApiBase = typeof window === "undefined"
   ? undefined
@@ -21,4 +21,5 @@ export const navItems: Array<{ id: WorkspaceSection; label: string; icon: string
   { id: "authProfiles", label: "登录状态", icon: "key" },
   { id: "workbench", label: "AI 工作台", icon: "terminal" },
   { id: "runs", label: "执行记录", icon: "play_circle" },
+  { id: "outbox", label: "产出收件箱", icon: "inbox" },
 ]

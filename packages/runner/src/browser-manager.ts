@@ -1,13 +1,34 @@
 import { mkdir, readdir } from "node:fs/promises"
-import { basename, join } from "node:path"
+import { basename, extname, join } from "node:path"
 import type { Page } from "@playwright/test"
-import type { ExecutionRun } from "@autovis/shared"
+import type { ExecutionRun, RunArtifact } from "@autovis/shared"
 import { launchReplayBrowser, shouldStealthReplay } from "./browser.js"
 import { createCdpLiveStreamer } from "./live-streamer.js"
 import { markRunStep, toPublicArtifactUrl, now } from "./utils.js"
 import type { CreateRunnerSessionInput, FinalizeRunnerSessionInput, RunnerSession } from "./types.js"
 
 const SLOW_MO_MS = 50
+
+/** 按扩展名把 runDir 里的文件归类为产物类型；未知扩展名返回 null（不计入产物）。 */
+const ARTIFACT_KIND_BY_EXT: Record<string, RunArtifact["kind"]> = {
+  ".png": "screenshot",
+  ".jpg": "screenshot",
+  ".jpeg": "screenshot",
+  ".zip": "trace",
+  ".webm": "video",
+  ".mp4": "video",
+  ".html": "report",
+  ".htm": "report",
+  ".md": "report",
+  ".txt": "report",
+}
+const scanArtifacts = (runId: string, fileNames: string[]): RunArtifact[] =>
+  fileNames
+    .map((fileName) => {
+      const kind = ARTIFACT_KIND_BY_EXT[extname(fileName).toLowerCase()]
+      return kind ? { kind, name: fileName, url: toPublicArtifactUrl(runId, fileName) } : null
+    })
+    .filter((item): item is RunArtifact => item !== null)
 
 export const captureStepScreenshot = async (page: Page, runId: string, runDir: string, fileName: string) => {
   const path = join(runDir, fileName)
@@ -163,13 +184,7 @@ export const finalizeRunnerSession = async ({ run, session, onUpdate, archiveSte
   await session.browser.close()
 
   const artifacts = await readdir(session.runDir)
-  run.artifacts = artifacts
-    .filter((fileName: string) => fileName.endsWith(".png") || fileName.endsWith(".zip") || fileName.endsWith(".webm"))
-    .map((fileName: string) => ({
-      kind: fileName.endsWith(".zip") ? "trace" : fileName.endsWith(".webm") ? "video" : "screenshot",
-      name: fileName,
-      url: toPublicArtifactUrl(run.id, fileName),
-    }))
+  run.artifacts = scanArtifacts(run.id, artifacts)
 
   if (session.video) {
     const videoPath = await session.video.path().catch(() => undefined)
@@ -208,10 +223,6 @@ export const failRunnerSession = async (
   await session.context.close().catch(() => undefined)
   await session.browser.close().catch(() => undefined)
   const artifacts = await readdir(session.runDir).catch(() => [])
-  run.artifacts = artifacts.map((fileName: string) => ({
-    kind: fileName.endsWith(".zip") ? "trace" : fileName.endsWith(".webm") ? "video" : "screenshot",
-    name: fileName,
-    url: toPublicArtifactUrl(run.id, fileName),
-  }))
+  run.artifacts = scanArtifacts(run.id, artifacts)
   await onUpdate()
 }

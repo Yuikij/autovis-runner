@@ -39,6 +39,7 @@ export const apiRoutes = {
   },
 
   dashboard: () => api("/dashboard"),
+  outbox: () => api("/outbox"),
 
   projects: {
     list: () => api("/projects"),

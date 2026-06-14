@@ -1,4 +1,5 @@
 import { AutoVisDatabase } from "./db.js"
+import { buildOutboxItems } from "./outbox.js"
 import { WorkspaceService } from "./workspace.js"
 import { appOrigin, createId, dataDir, now, removeArtifactDirs } from "./services/common.js"
 import { SuiteService } from "./services/suite.service.js"
@@ -540,6 +541,7 @@ class PersistentStore {
   async listTestCases(projectId: string) { return this.db.listTestCases(projectId) }
   async listAllTestCases() { return this.db.listAllTestCases() }
   async listRuns(projectId: string) { return this.db.listRuns(projectId) }
+  getOutbox(limit = 60) { return buildOutboxItems(this.db.listAllRuns(), limit) }
   async listTaskRuns(projectId: string) { return this.db.listTaskRuns(projectId) }
   async getTaskRun(taskRunId: string) { return this.db.getTaskRun(taskRunId) }
   async listRecorderSessions(projectId: string) { return this.db.listRecorderSessions(projectId) }

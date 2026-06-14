@@ -89,6 +89,7 @@ export const executePlaywrightRun = async ({
   onLiveViewportEvent,
   requestHumanInput,
   analyzeImage,
+  generateText,
 }: ExecutePlaywrightRunInput) => {
   let session = null
   try {
@@ -108,6 +109,7 @@ export const executePlaywrightRun = async ({
       onUpdate,
       requestHumanInput,
       analyzeImage,
+      generateText,
       stepIndex: 1,
       startedLog: "开始执行生成后的 Playwright 脚本。",
       completedLog: "Playwright 脚本执行完成。",
