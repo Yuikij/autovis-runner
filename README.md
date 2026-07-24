@@ -54,7 +54,7 @@ boot, restarts on crash, and rotates logs. Useful options:
 powershell -ExecutionPolicy Bypass -File install.ps1 -FromSource
 
 # Pin a specific release:
-powershell -ExecutionPolicy Bypass -File install.ps1 -Version 0.9.0
+powershell -ExecutionPolicy Bypass -File install.ps1 -Version 0.9.1
 
 # Custom install directory:
 powershell -ExecutionPolicy Bypass -File install.ps1 -InstallDir D:\my-autovis
@@ -67,7 +67,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1 -SkipService
 
 ```shell
 # Pin a specific release:
-curl -fsSL .../install.sh | sudo bash -s -- --version 0.9.0
+curl -fsSL .../install.sh | sudo bash -s -- --version 0.9.1
 
 # Build and install from a source checkout:
 ./install.sh --from-source
@@ -196,7 +196,7 @@ AUTOVIS_ADMIN_USER=admin
 AUTOVIS_ADMIN_PASSWORD=<strong-password>
 ```
 
-In production, the runner now refuses to start without authentication when
+In production, the runner refuses to start without authentication when
 `APP_ORIGIN` is not localhost unless you explicitly set:
 
 ```shell
@@ -230,6 +230,17 @@ Multiple users can be seeded with:
 
 ```shell
 AUTOVIS_USERS=alice:password:admin,bob:password:user
+```
+
+## Development
+
+Requires Node.js 25+ and pnpm 10:
+
+```shell
+pnpm install
+pnpm dev        # web UI + server in watch mode
+pnpm build      # build all workspaces
+pnpm start      # run the built server
 ```
 
 ## Release
