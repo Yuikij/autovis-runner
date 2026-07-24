@@ -1,0 +1,15 @@
+.DS_Store
+*.log
+dist/
+tmp/
+node_modules/
+.vite/
+*.tsbuildinfo
+data/
+*.db
+*.db-shm
+*.db-wal
+dist-packages/
+last-llm-curl.sh
+screenshots/
+login-*.png

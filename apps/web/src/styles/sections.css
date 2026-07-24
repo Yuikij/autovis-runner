@@ -1,0 +1,321 @@
+/* --- Runs / Queue Section Details --- */
+.queue-panel {
+  min-width: 0;
+}
+
+.queue-list {
+  overflow-y: auto;
+  max-height: 400px;
+  padding-right: 4px;
+}
+
+.queue-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  border-radius: 10px;
+}
+
+.queue-item div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.queue-item strong,
+.run-table-row strong,
+.case-table-row strong,
+.artifact-item strong,
+.stack-card strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.queue-icon {
+  color: var(--accent-blue);
+  font-size: 20px;
+}
+
+.queue-icon.spinning {
+  animation: spin 1.5s linear infinite;
+  color: var(--tone-warning);
+}
+
+/* --- Project Management Section Details --- */
+.project-list-actions,
+.project-detail-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.project-detail-panel {
+  gap: 20px;
+}
+
+.project-id-chip {
+  max-width: min(100%, 320px);
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+}
+
+.delete-project-button {
+  color: var(--tone-danger) !important;
+  border-color: var(--tone-danger-border) !important;
+  background: var(--tone-danger-bg) !important;
+  padding: 6px 12px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.delete-project-button:hover {
+  background: var(--tone-danger) !important;
+  color: #ffffff !important;
+  border-color: var(--tone-danger) !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4) !important;
+  transform: translateY(-1px);
+}
+
+.project-delete-icon {
+  font-size: 18px;
+}
+
+.project-detail-summary-grid {
+  gap: 16px;
+}
+
+.project-detail-card {
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.project-detail-card strong.project-detail-value {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: var(--font-mono);
+  font-weight: 550;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.project-detail-card-url {
+  grid-column: 1 / -1;
+}
+
+.project-detail-url {
+  color: var(--accent-blue);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.project-detail-url:hover {
+  color: #60a5fa;
+}
+
+.project-detail-status {
+  margin-top: 10px;
+}
+
+.project-detail-actions-grid {
+  align-items: start;
+}
+
+/* --- AI Workbench Section --- */
+.workbench-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  height: calc(100vh - 120px);
+  animation: modalFadeIn 200ms ease-out;
+}
+
+.workbench-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(16px);
+  flex-shrink: 0;
+}
+
+.workbench-selectors {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workbench-selector-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workbench-select {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 13px;
+  min-width: 160px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.workbench-select:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.workbench-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 16px;
+  background: rgba(13, 20, 38, 0.25);
+  border: 1px dashed var(--border-glass-bright);
+}
+
+.workbench-panels {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.workbench-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workbench-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 14px;
+  background: #020409;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.workbench-case-header {
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glass);
+  flex-shrink: 0;
+}
+
+.workbench-prompt-section {
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.04);
+  border: 1px solid rgba(139, 92, 246, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.workbench-prompt {
+  width: 100%;
+  min-height: 120px;
+  max-height: 200px;
+  resize: vertical;
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.workbench-prompt:focus {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.workbench-steps-section {
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glass);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workbench-steps-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.workbench-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  transition: background 200ms;
+}
+
+.workbench-step:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.workbench-script-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.workbench-script-console {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  min-height: 0;
+}
+
+.workbench-script-console pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.8;
+  color: #a5b4fc;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist-packages/
+.git/
+.github/
+.vscode/
+data/

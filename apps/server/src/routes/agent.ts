@@ -1,0 +1,214 @@
+import type { FastifyInstance } from "fastify"
+import { z } from "zod"
+import type {
+  ApiEnvelope,
+  ConflictTaskResponse,
+  CopilotPollDeviceFlowRequest,
+  CopilotSessionResponse,
+  CopilotStartDeviceFlowRequest,
+  CreateScriptVersionRequest,
+  CreateScriptVersionResponse,
+  ExecutionRun,
+  GenerateScriptRequest,
+  GenerateScriptResponse,
+  GitAuthProfile,
+  ImportLocalWorkspaceRequest,
+  LlmState,
+  LlmSessionConfig,
+  UpsertLlmConfigRequest,
+  Module,
+  Project,
+  ProjectWorkspace,
+  RecorderInteractionRequest,
+  RecorderSession,
+  ScriptArtifact,
+  StartRecorderSessionRequest,
+  StartRunRequest,
+  StartRunResponse,
+  StartVerificationRequest,
+  StartVerificationResponse,
+  StopRecorderSessionRequest,
+  SyncProjectWorkspaceRequest,
+  TestCase,
+  ActivateLlmConfigRequest,
+  UpsertGitAuthProfileRequest,
+  UpsertModuleRequest,
+  UpsertProjectRequest,
+  UpsertProjectWorkspaceRequest,
+  UpsertTestCaseRequest,
+  WorkspaceFileContent,
+  WorkspaceSearchMatch,
+  WorkspaceTreeEntry,
+} from "@autovis/shared"
+import { store } from "../store.js"
+import { getRequestLlmOwnerKey } from "../auth.js"
+import { createSseStream } from "../sse.js"
+import { buildTaskConflictResponse } from "./conflicts.js"
+
+const AGENT_TERMINAL_STATUSES = new Set(["completed", "error", "cancelled", "interrupted"])
+
+type AgentStartupConflictResponse = ConflictTaskResponse & {
+  sessionId: string
+}
+
+const buildAgentConflict = (sessionId: string, status: string): AgentStartupConflictResponse =>
+  ({
+    ...buildTaskConflictResponse({
+      code: "TASK_CONFLICT",
+      conflictId: sessionId,
+      conflictKind: "agent",
+      conflictStatus: status,
+      name: "Error",
+      message: "Agent startup conflict",
+    }),
+    sessionId,
+  })
+
+export async function agentRoutes(app: FastifyInstance) {
+  app.post("/scripts/generate", async (request, reply): Promise<ApiEnvelope<GenerateScriptResponse | AgentStartupConflictResponse> | void> => {
+    const body = z
+      .object({
+        projectId: z.string(),
+        testCaseId: z.string(),
+        prompt: z.string(),
+        runTargetUrlId: z.string().min(1, "必须从下拉框选择一个目标 URL"),
+        baseScriptId: z.string().optional(),
+      })
+      .parse(request.body) as GenerateScriptRequest
+
+    const existing = store.findActiveAgentForCase(body.testCaseId)
+    if (existing) {
+      const status = existing.status
+      reply.code(409)
+      return {
+        data: buildAgentConflict(existing.id, status),
+      }
+    }
+
+    const sessionId = `agent_${Math.random().toString(36).slice(2, 10)}`
+    void store.runScriptAgent({ ...body, sessionId, llmOwnerKey: getRequestLlmOwnerKey(request) }).catch((err: any) => {
+      if (err?.code === "TASK_CONFLICT") {
+        // The case got beat by a concurrent request; nothing to do here as the conflict
+        // response was already returned for the racing client.
+        return
+      }
+      console.error("[agent] runScriptAgent failed:", err)
+    })
+
+    return {
+      data: {
+        sessionId,
+      },
+    }
+  })
+
+  const rewriteBodySchema = z.object({
+    projectId: z.string(),
+    testCaseId: z.string(),
+    baseScriptId: z.string().optional(),
+    messages: z
+      .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
+      .min(1, "至少需要一条对话消息"),
+  })
+
+  app.post("/scripts/rewrite/chat", async (request): Promise<ApiEnvelope<{ reply: string }>> => {
+    const body = rewriteBodySchema.parse(request.body)
+    const reply = await store.rewriteScriptChat({ ...body, llmOwnerKey: getRequestLlmOwnerKey(request) })
+    return { data: { reply } }
+  })
+
+  app.post("/scripts/rewrite/plan", async (request): Promise<ApiEnvelope<{ plan: string }>> => {
+    const body = rewriteBodySchema.parse(request.body)
+    const plan = await store.rewriteScriptPlan({ ...body, llmOwnerKey: getRequestLlmOwnerKey(request) })
+    return { data: { plan } }
+  })
+
+  app.post("/scripts/direct-execute", async (request, reply): Promise<ApiEnvelope<GenerateScriptResponse | AgentStartupConflictResponse> | void> => {
+    const body = z
+      .object({
+        projectId: z.string(),
+        testCaseId: z.string(),
+        prompt: z.string(),
+        runTargetUrlId: z.string().min(1, "必须从下拉框选择一个目标 URL"),
+      })
+      .parse(request.body)
+
+    const existing = store.findActiveAgentForCase(body.testCaseId)
+    if (existing) {
+      const status = existing.status
+      reply.code(409)
+      return {
+        data: buildAgentConflict(existing.id, status),
+      }
+    }
+
+    const sessionId = `agent_${Math.random().toString(36).slice(2, 10)}`
+    void store.runDirectAgent({ ...body, sessionId, llmOwnerKey: getRequestLlmOwnerKey(request) }).catch((err: any) => {
+      if (err?.code === "TASK_CONFLICT") {
+        return
+      }
+      console.error("[agent] runDirectAgent failed:", err)
+    })
+
+    return {
+      data: {
+        sessionId,
+      },
+    }
+  })
+
+  app.get("/agent/:sessionId", async (request, reply) => {
+    const params = z.object({ sessionId: z.string() }).parse(request.params)
+    const session = store.getAgentSession(params.sessionId)
+    if (!session) {
+      reply.code(404)
+      return { message: "Agent session not found" }
+    }
+    return { data: session }
+  })
+
+  app.get("/agent/:sessionId/stream", async (request, reply) => {
+    const params = z.object({ sessionId: z.string() }).parse(request.params)
+    const session = store.getAgentSession(params.sessionId)
+
+    return createSseStream({
+      streamName: "agent",
+      request,
+      reply,
+      initialData: session,
+      subscribe: (listener) => store.subscribeAgent(params.sessionId, listener),
+      isDone: (agentSession) => AGENT_TERMINAL_STATUSES.has(agentSession.status),
+    })
+  })
+
+  app.post("/agent/:sessionId/pause", async (request, reply) => {
+    const params = z.object({ sessionId: z.string() }).parse(request.params)
+    const ok = store.pauseAgent(params.sessionId)
+    if (!ok) {
+      reply.code(409)
+      return { message: "Agent session not pausable" }
+    }
+    return { data: { kind: "agent", id: params.sessionId, status: "paused" } }
+  })
+
+  app.post("/agent/:sessionId/resume", async (request, reply) => {
+    const params = z.object({ sessionId: z.string() }).parse(request.params)
+    const ok = store.resumeAgent(params.sessionId)
+    if (!ok) {
+      reply.code(409)
+      return { message: "Agent session not resumable" }
+    }
+    return { data: { kind: "agent", id: params.sessionId, status: "running" } }
+  })
+
+  app.post("/agent/:sessionId/cancel", async (request, reply) => {
+    const params = z.object({ sessionId: z.string() }).parse(request.params)
+    const ok = store.cancelAgent(params.sessionId)
+    if (!ok) {
+      reply.code(409)
+      return { message: "Agent session not cancellable" }
+    }
+    return { data: { kind: "agent", id: params.sessionId, status: "cancelling" } }
+  })
+
+}

@@ -1,0 +1,1067 @@
+import { readFile, writeFile } from "node:fs/promises"
+import { join } from "node:path"
+import * as ts from "typescript"
+import { expect, type Page } from "@playwright/test"
+import type { DataTableScriptApi, ExecutionRun, HumanHandoffReason, HumanHandoffRequest, KnowledgeScriptApi, RuntimeOutput } from "@autovis/shared"
+import { markRunStep, artifactUrlToFilePath, inferMimeTypeFromPath, formatRuntimeValue, createRuntimeOutputId, isRuntimeOwnedData, matchesProducer, now, normalizeRuntimeMatch, toPublicArtifactUrl } from "./utils.js"
+import { captureElementScreenshot, captureStepScreenshot } from "./browser-manager.js"
+import { detectRiskControl, isRiskControlError, RISK_CONTROL_ERROR_PREFIX, type RiskControlSignal } from "./risk-control.js"
+import type { ExecutePlaywrightRunInput, ExecuteScriptInSessionInput, RunnerSession } from "./types.js"
+
+interface HumanInputOptions {
+  reason: HumanHandoffReason
+  instruction: string
+  inputLabel?: string
+  placeholder?: string
+  confirmText?: string
+  imageSelector?: string
+}
+
+interface HumanRuntime {
+  input: (options: HumanInputOptions) => Promise<string>
+}
+
+interface AiAnalyzeImageOptions {
+  prompt: string
+  imageSelector?: string
+  selector?: string
+}
+
+interface AiRuntime {
+  analyzeImage: (options: AiAnalyzeImageOptions) => Promise<string>
+  /** 运行时文本生成：把抓到的内容交给 LLM 做总结/改写/抽取。可选 systemPrompt 指定角色或输出格式。 */
+  generate: (prompt: string, systemPrompt?: string) => Promise<string>
+  withImageRetry: (options: {
+    imageSelector?: string
+    selector?: string
+    prompt: string
+    maxRetries?: number
+    validate?: (text: string) => boolean | Promise<boolean>
+    retry?: (retryTimes: number, lastText: string) => Promise<void> | void
+    fallback?: () => Promise<string> | string
+  }) => Promise<string>
+}
+
+interface TestRuntime {
+  step: <T>(title: string, body: () => Promise<T>) => Promise<T>
+}
+
+interface StepRuntime {
+  <T>(title: string, purpose: string, body: () => Promise<T>): Promise<T>
+}
+
+interface OutputsRuntime {
+  add: (description: string, value: unknown, meta?: Record<string, unknown>) => Promise<unknown>
+}
+
+interface InputsRuntime {
+  get: (options?: { from?: string; description?: string }) => Promise<any>
+}
+
+/**
+ * 外部 API 入参运行时。读取「外部调用方传入、已按 contract 校验」的参数。
+ * 新开命名空间，**不复用 `inputs`**——`inputs` 是上游用例 output（链路内部），
+ * `params` 是外部契约入参，语义不同必须分开。
+ */
+interface ParamsRuntime {
+  /** 读取某个入参；缺失时返回 undefined（必填项已在网关校验拦截）。 */
+  get: <T = unknown>(name: string) => T
+  /** 读取全部入参（只读副本）。 */
+  all: () => Record<string, unknown>
+}
+
+/**
+ * 外部 API 响应运行时。声明返回给调用方的结构化响应体（按 contract.response 校验）。
+ * 区别于 `outputs.add`（链路传递 + UI 展示）。
+ */
+interface ResultRuntime {
+  /** 设置单个响应字段。 */
+  set: (key: string, value: unknown) => void
+  /** 一次性合并多个响应字段。 */
+  setAll: (values: Record<string, unknown>) => void
+}
+
+/**
+ * 文件运行时（B 方案原语）。`download(url)` 把远程文件下载到本次运行目录并返回本地绝对路径，
+ * 配合 `page.setInputFiles(selector, path)` 完成发图文/视频等需要文件上传的写操作。
+ * 比让 LLM 自己拼 http + 写盘更稳。
+ */
+interface FilesRuntime {
+  download: (url: string, fileName?: string) => Promise<string>
+}
+
+/**
+ * 项目级数据表运行时。提供跨运行的持久状态：脚本可记录 / 查询 / 去重业务数据
+ * （如「这篇论文是否已分析过」）。表 / 列不存在时 insert / upsert 会自动创建。
+ */
+type TablesRuntime = DataTableScriptApi
+
+/**
+ * 项目级知识库运行时。把采集/整理的内容沉淀为跟项目走的多层级 Markdown 树
+ * （write / read / mkdir / list / saveAsset / remove），前端知识库视图可直接浏览渲染。
+ */
+type KnowledgeRuntime = KnowledgeScriptApi
+
+interface TempRuntime {
+  store: <T>(description: string, key: string, body: () => Promise<T> | T) => Promise<T>
+  get: <T = unknown>(key: string) => Promise<T>
+}
+
+interface GuardRuntime {
+  ownedData: <T>(record: unknown, action: () => Promise<T> | T) => Promise<T>
+}
+
+/**
+ * 长跑/抢购等场景常用的脚本运行时方法。三个方法都会响应任务取消（throw "Task cancelled"）与暂停（等待恢复），
+ * 不依赖外层 5 分钟超时也能稳定运行（具体单次脚本超时由调用方 timeoutMs 控制）。
+ */
+interface ScheduleRuntime {
+  /** 等到目标时刻（ISO 字符串、Date 或毫秒时间戳）。可在等待中被 cancel 中断、被 pause 卡住。 */
+  waitUntil: (target: string | number | Date, options?: { pollMs?: number; logEverySec?: number }) => Promise<void>
+}
+
+interface HttpRuntime {
+  get: (url: string, options?: { headers?: Record<string, string>; params?: Record<string, string> }) => Promise<any>
+  post: (url: string, options?: { headers?: Record<string, string>; data?: any }) => Promise<any>
+}
+
+/**
+ * 风控/反自动化拦截运行时方法。比"靠提示词让 LLM 小心"更可靠：脚本在进入强风控环节
+ * （详情页/下单等）后调用，命中即抛出标准化的 `RISK_CONTROL_BLOCKED` 错误——
+ * retry 默认不会重试这类错误（重试只会让风控更严），上层也能据此把 run 标成"风控拦截"而非脚本 bug。
+ */
+interface RiskRuntime {
+  /** 返回当前页面的风控判定（blocked/kind/reason），不抛错。 */
+  check: () => Promise<RiskControlSignal>
+  /** 当前页面是否被风控拦截（check 的便捷布尔版）。 */
+  blocked: () => Promise<boolean>
+  /** 若当前页面被风控拦截则抛 `RISK_CONTROL_BLOCKED` 错误；clear 时静默返回。进入详情页/下单后调用。 */
+  assertClear: (label?: string) => Promise<void>
+}
+
+/**
+ * 富产物输出运行时。把脚本生成的长内容（中英对照全文、HTML 解读报告、Markdown 等）落盘成
+ * run 产物，注册进 `run.artifacts`，通过 /artifacts/{runId}/{name} 在浏览器直接查看。
+ * 适合"论文/早报收集 → 总结翻译 → 出一份能读的报告"这类场景，比 outputs.add（结构化小值）更适合长文。
+ */
+interface ReportRuntime {
+  /** 落盘一份 HTML 报告并注册为可查看产物，返回可访问 URL。传入完整文档或片段皆可（片段会自动补 utf-8 与可读样式）。 */
+  html: (title: string, html: string) => Promise<string>
+  /** 落盘一份纯文本/Markdown 产物（按扩展名 .md/.txt 等渲染或下载），返回可访问 URL。 */
+  text: (name: string, content: string) => Promise<string>
+}
+
+interface LoopRuntime {
+  /** 反复执行 predicate，直到返回真值即返回该值；可设置间隔、上限耗时、上限轮次、每多少轮打一行日志。**条件在期限内未满足会抛错**（用于"必须等到某条件成立"）。 */
+  until: <T>(predicate: () => Promise<T | false | null | undefined> | T | false | null | undefined, options: {
+    intervalMs: number
+    timeoutMs?: number
+    maxRounds?: number
+    description?: string
+    logEveryRound?: number
+  }) => Promise<T>
+  /**
+   * 在 ms 毫秒内按间隔反复执行 fn，**跑满不抛错、直接返回**。fn 返回真值即提前结束并返回该值，跑满返回 undefined。
+   * 单轮 fn 抛错会被吞掉并继续下一轮（best-effort）。适合"固定时长内反复尝试、成不成功都行"的抢购连点——
+   * 退出靠时间、不靠成功，真实断言放在循环之后。
+   */
+  forDuration: <T>(ms: number, fn: () => Promise<T | false | null | undefined> | T | false | null | undefined, options?: {
+    intervalMs?: number
+    description?: string
+    logEveryRound?: number
+  }) => Promise<T | undefined>
+  /** 固定执行 n 轮，**跑满不抛错、直接返回**。fn 返回真值即提前结束并返回该值，跑满 n 轮返回 undefined。单轮抛错吞掉续跑。 */
+  times: <T>(n: number, fn: (round: number) => Promise<T | false | null | undefined> | T | false | null | undefined, options?: {
+    intervalMs?: number
+    description?: string
+    logEveryRound?: number
+  }) => Promise<T | undefined>
+}
+
+type RetryRuntime = <T>(fn: (attempt: number) => Promise<T> | T, options?: {
+  times?: number
+  backoffMs?: number
+  backoffFactor?: number
+  description?: string
+  shouldRetry?: (error: unknown, attempt: number) => boolean | Promise<boolean>
+}) => Promise<T>
+
+type ScriptExecutor = (
+  page: Page,
+  expectValue: typeof expect,
+  human: HumanRuntime,
+  ai: AiRuntime,
+  test: TestRuntime,
+  getBaseUrl: () => string,
+  step: StepRuntime,
+  outputs: OutputsRuntime,
+  inputs: InputsRuntime,
+  temp: TempRuntime,
+  guard: GuardRuntime,
+  schedule: ScheduleRuntime,
+  loop: LoopRuntime,
+  retry: RetryRuntime,
+  http: HttpRuntime,
+  risk: RiskRuntime,
+  report: ReportRuntime,
+  params: ParamsRuntime,
+  result: ResultRuntime,
+  files: FilesRuntime,
+  tables: TablesRuntime,
+  knowledge: KnowledgeRuntime,
+) => Promise<void>
+
+const AsyncExecutor = Object.getPrototypeOf(async function () {
+  return undefined
+}).constructor as new (...args: string[]) => ScriptExecutor
+
+export const extractScriptBody = (code: string) => {
+  const trimmed = code.trim()
+
+  const sourceFile = ts.createSourceFile("temp.ts", trimmed, ts.ScriptTarget.Latest, true)
+  const unwrapExpression = (expression: ts.Expression): ts.Expression => {
+    let current = expression
+    while (
+      ts.isParenthesizedExpression(current)
+      || ts.isAsExpression(current)
+      || ts.isTypeAssertionExpression(current)
+      || ts.isSatisfiesExpression(current)
+      || ts.isNonNullExpression(current)
+    ) {
+      current = current.expression
+    }
+    return current
+  }
+
+  let bodyNode: ts.Block | null = null
+  if (sourceFile.statements.length === 1) {
+    const [statement] = sourceFile.statements
+    if (ts.isFunctionDeclaration(statement) && statement.body) {
+      bodyNode = statement.body
+    } else if (ts.isExpressionStatement(statement)) {
+      const expression = unwrapExpression(statement.expression)
+      if ((ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) && ts.isBlock(expression.body)) {
+        bodyNode = expression.body
+      }
+    } else if (ts.isVariableStatement(statement) && statement.declarationList.declarations.length === 1) {
+      const [declaration] = statement.declarationList.declarations
+      const initializer = declaration.initializer ? unwrapExpression(declaration.initializer) : null
+      if (initializer && (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) && ts.isBlock(initializer.body)) {
+        bodyNode = initializer.body
+      }
+    } else if (ts.isExportAssignment(statement)) {
+      const expression = unwrapExpression(statement.expression)
+      if ((ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) && ts.isBlock(expression.body)) {
+        bodyNode = expression.body
+      }
+    }
+  }
+
+  if (bodyNode) {
+    const text = bodyNode.getText(sourceFile)
+    return text.substring(1, text.length - 1).trim()
+  }
+
+  const lines = trimmed.split("\n")
+  const hasImports = lines.some((line) => /^\s*(import\s|const\s.*=\s*require\()/.test(line))
+  if (hasImports) {
+    const bodyLines = lines.filter((line) => !/^\s*import\s/.test(line) && !/^\s*const\s.*=\s*require\(/.test(line))
+    const joined = bodyLines.join("\n").trim()
+    if (joined) return joined
+  }
+
+  if (trimmed) {
+    return trimmed
+  }
+
+  throw new Error("Unsupported Playwright script format")
+}
+
+export const instrumentPageActions = (
+  page: Page,
+  run: ExecutionRun,
+  onUpdate: () => Promise<void> | void,
+  guard?: { waitIfPaused?: () => Promise<void>; signal?: AbortSignal },
+) => {
+  const debugAccessedProps = new Set<string>()
+  const appendActionLog = async (message: string) => {
+    console.log(`[Runner Action] ${message}`)
+    run.logs.push(`[${new Date().toLocaleTimeString()}] ${message}`)
+    await onUpdate()
+  }
+
+  const beforeAction = async () => {
+    if (guard?.signal?.aborted) {
+      throw new Error("Run cancelled")
+    }
+    if (guard?.waitIfPaused) {
+      await guard.waitIfPaused()
+    }
+  }
+
+  const logAccess = async (name: string) => {
+    if (debugAccessedProps.has(name)) {
+      return
+    }
+    debugAccessedProps.add(name)
+    await appendActionLog(`调试 · 访问 ${name}`)
+  }
+
+  const instrumentedMouse = new Proxy(page.mouse, {
+    get(target, prop, receiver) {
+      if (prop === "click") {
+        return async (...args: Parameters<typeof page.mouse.click>) => {
+          await beforeAction()
+          await logAccess("page.mouse.click")
+          await appendActionLog(`脚本动作 · mouse.click(${args[0]}, ${args[1]})`)
+          return target.click(...args)
+        }
+      }
+      const value = Reflect.get(target, prop, receiver)
+      return typeof value === "function" ? value.bind(target) : value
+    },
+  })
+
+  const instrumentedKeyboard = new Proxy(page.keyboard, {
+    get(target, prop, receiver) {
+      if (prop === "type") {
+        return async (...args: Parameters<typeof page.keyboard.type>) => {
+          await beforeAction()
+          await logAccess("page.keyboard.type")
+          await appendActionLog(`脚本动作 · keyboard.type(${JSON.stringify(args[0] ?? "")})`)
+          return target.type(...args)
+        }
+      }
+      if (prop === "press") {
+        return async (...args: Parameters<typeof page.keyboard.press>) => {
+          await beforeAction()
+          await logAccess("page.keyboard.press")
+          await appendActionLog(`脚本动作 · keyboard.press(${String(args[0] ?? "")})`)
+          return target.press(...args)
+        }
+      }
+      const value = Reflect.get(target, prop, receiver)
+      return typeof value === "function" ? value.bind(target) : value
+    },
+  })
+
+  return new Proxy(page, {
+    get(target, prop, receiver) {
+      if (prop === "goto") {
+        return async (url: string, options?: Parameters<Page["goto"]>[1]) => {
+          await beforeAction()
+          await logAccess("page.goto")
+          await appendActionLog(`脚本动作 · goto(${String(url ?? "")})`)
+          const opts = { waitUntil: "domcontentloaded" as const, ...options }
+          try {
+            return await target.goto(url, opts)
+          } catch (err) {
+            if (err instanceof Error && err.message.includes("interrupted by another navigation")) {
+              await target.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined)
+              return null
+            }
+            throw err
+          }
+        }
+      }
+      if (prop === "mouse") {
+        void logAccess("page.mouse")
+        return instrumentedMouse
+      }
+      if (prop === "keyboard") {
+        void logAccess("page.keyboard")
+        return instrumentedKeyboard
+      }
+      const value = Reflect.get(target, prop, receiver)
+      return typeof value === "function" ? value.bind(target) : value
+    },
+  }) as Page
+}
+
+const DEFAULT_SCRIPT_TIMEOUT_MS = 5 * 60 * 1000
+
+export const executeScriptInSession = async ({
+  run,
+  session,
+  script,
+  onUpdate,
+  requestHumanInput,
+  analyzeImage,
+  generateText,
+  stepIndex,
+  startedLog,
+  completedLog,
+  handoffContext,
+  screenshotFilePrefix = "script",
+  timeoutMs = DEFAULT_SCRIPT_TIMEOUT_MS,
+  signal,
+  waitIfPaused,
+  runtimeProducer,
+  overrideBaseUrl,
+  deadlineWaitUntil,
+  apiParams,
+  dataTables,
+  knowledge,
+}: ExecuteScriptInSessionInput) => {
+  if (signal?.aborted) {
+    throw new Error("Run cancelled before script execution")
+  }
+  if (waitIfPaused) {
+    await waitIfPaused()
+  }
+  await markRunStep(run, stepIndex, "running", onUpdate, startedLog)
+  const rawBody = extractScriptBody(script.code)
+  const transpileResult = ts.transpileModule(rawBody, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  })
+  const body = transpileResult.outputText
+  run.logs.push(`[${new Date().toLocaleTimeString()}] 调试 · 提取脚本正文并转译为 JS:\n${body}`)
+  await onUpdate()
+
+  const instrumentedPage = instrumentPageActions(session.page, run, onUpdate, { waitIfPaused, signal })
+  const human: HumanRuntime = {
+    input: async (options) => {
+      if (signal?.aborted) {
+        throw new Error("Run cancelled before human input")
+      }
+      if (waitIfPaused) {
+        await waitIfPaused()
+      }
+      const imageUrl = options.imageSelector
+        ? await captureElementScreenshot(session.page, run.id, session.runDir, options.imageSelector, `${screenshotFilePrefix}-human-element-${Date.now()}.png`).catch(() => undefined)
+        : undefined
+      const viewportUrl = await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-human-page-${Date.now()}.png`).catch(() => undefined)
+      if (viewportUrl) {
+        run.currentViewport = viewportUrl
+      }
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 等待人工输入 · ${options.instruction}`)
+      await onUpdate()
+      return requestHumanInput({
+        reason: options.reason,
+        instruction: options.instruction,
+        inputLabel: options.inputLabel,
+        placeholder: options.placeholder,
+        confirmText: options.confirmText,
+        imageUrl: imageUrl ?? viewportUrl,
+        scope: handoffContext?.scope,
+        suiteId: handoffContext?.suiteId,
+        testCaseId: handoffContext?.testCaseId,
+      })
+    },
+  }
+
+  const analyzeImageFromPage = async (options: AiAnalyzeImageOptions) => {
+      const targetSelector = options.imageSelector || options.selector
+      const artifactUrl = targetSelector
+        ? await captureElementScreenshot(session.page, run.id, session.runDir, targetSelector, `${screenshotFilePrefix}-ai-image-${Date.now()}.png`)
+        : await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-ai-page-${Date.now()}.png`)
+      const filePath = artifactUrlToFilePath(session.runDir, artifactUrl)
+      const mimeType = inferMimeTypeFromPath(filePath)
+      const bytes = await readFile(filePath)
+      const dataUrl = `data:${mimeType};base64,${bytes.toString("base64")}`
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 图片分析 · ${options.prompt}`)
+      console.log(`[Runner AI] 开始图片分析，URL长度: ${dataUrl.length}`)
+      await onUpdate()
+      const aiResult = await analyzeImage({
+        dataUrl,
+        mimeType,
+        prompt: options.prompt,
+      })
+      console.log(`[Runner AI] 图片分析结果: ${aiResult}`)
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 图片分析结果 · ${aiResult}`)
+      await onUpdate()
+      return aiResult
+  }
+
+  const ai: AiRuntime = {
+    analyzeImage: analyzeImageFromPage,
+    generate: async (prompt, systemPrompt) => {
+      if (!generateText) {
+        throw new Error("TEXT_GENERATION_UNAVAILABLE: 当前运行环境未启用文本生成能力（ai.generate 不可用）")
+      }
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 文本生成 · ai.generate(${prompt.slice(0, 40)}${prompt.length > 40 ? "…" : ""})`)
+      await onUpdate()
+      const text = await generateText(prompt, systemPrompt)
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 文本生成结果 · ${text.slice(0, 80)}${text.length > 80 ? "…" : ""}`)
+      await onUpdate()
+      return text
+    },
+    withImageRetry: async (options) => {
+      const maxRetries = Math.max(1, options.maxRetries ?? 1)
+      let lastText = ""
+      for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+        lastText = await analyzeImageFromPage(options)
+        const valid = options.validate ? await options.validate(lastText) : Boolean(lastText.trim())
+        if (valid) {
+          return lastText
+        }
+        if (attempt < maxRetries && options.retry) {
+          await options.retry(attempt, lastText)
+        }
+      }
+      if (options.fallback) {
+        return await options.fallback()
+      }
+      throw new Error(`IMAGE_RETRY_FAILED: 图片理解结果未通过校验，最后结果：${lastText}`)
+    },
+  }
+
+  let testChain: Promise<any> = Promise.resolve()
+
+  const test: TestRuntime = {
+    step: (title, body) => {
+      const p = testChain.then(async () => {
+        run.logs.push(`[${new Date().toLocaleTimeString()}] 测试步骤 · ${title}`)
+        await onUpdate()
+        return body()
+      })
+      testChain = p
+      p.catch(() => {}) // Prevent UnhandledPromiseRejectionWarning
+      return p
+    },
+  }
+
+  const getBaseUrl = () => overrideBaseUrl ?? run.testBaseUrl
+  const tempValues = new Map<string, unknown>()
+  run.runtimeOutputs = run.runtimeOutputs ?? []
+
+  const step: StepRuntime = async (title, purpose, fn) => {
+    run.logs.push(`[${new Date().toLocaleTimeString()}] 业务步骤 · ${title} · ${purpose}`)
+    const { createExecutionStep } = await import("./utils.js")
+    
+    const archiveIndex = run.steps.findIndex(s => s.kind === "archive")
+    const insertIndex = archiveIndex !== -1 ? archiveIndex : run.steps.length
+
+    const businessStep = createExecutionStep(run.id, insertIndex + 1, title, purpose, "business_step")
+    run.steps.splice(insertIndex, 0, businessStep)
+    
+    run.steps[insertIndex].status = "running"
+    await onUpdate()
+    
+    try {
+      const result = await fn()
+      const businessShot = await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-step-${insertIndex}-${Date.now()}.png`).catch(() => undefined)
+      await markRunStep(run, insertIndex, "passed", onUpdate, `步骤完成：${purpose}`, businessShot)
+      return result
+    } catch (err) {
+      const failShot = await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-step-fail-${insertIndex}-${Date.now()}.png`).catch(() => undefined)
+      await markRunStep(run, insertIndex, "failed", onUpdate, `步骤失败：${err instanceof Error ? err.message : String(err)}`, failShot)
+      throw err
+    }
+  }
+
+  const outputs: OutputsRuntime = {
+    add: async (description, value, meta) => {
+      // 收件箱展示字段从 meta 提升到顶层（脚本可在 meta 里传 category/attention/title/summary）。
+      const asStr = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined)
+      const output: RuntimeOutput = {
+        id: createRuntimeOutputId(run.id),
+        runId: run.id,
+        testCaseId: runtimeProducer?.testCaseId ?? handoffContext?.testCaseId,
+        caseCode: runtimeProducer?.caseCode,
+        caseName: runtimeProducer?.caseName,
+        description,
+        value,
+        meta,
+        createdAt: now(),
+        category: asStr(meta?.category),
+        attention: meta?.attention === true,
+        title: asStr(meta?.title),
+        summary: asStr(meta?.summary),
+      }
+      run.runtimeOutputs = [...(run.runtimeOutputs ?? []), output]
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 输出结果 · ${runtimeProducer?.caseName || runtimeProducer?.caseCode || output.testCaseId || "当前节点"} · ${description}: ${formatRuntimeValue(value)}`)
+      await onUpdate()
+      return value
+    },
+  }
+
+  const inputs: InputsRuntime = {
+    get: async (options = {}) => {
+      let candidates = [...(run.runtimeOutputs ?? [])]
+      if (options.from) {
+        candidates = candidates.filter((item) => matchesProducer(item, options.from!))
+      }
+      if (options.description) {
+        const description = normalizeRuntimeMatch(options.description)
+        candidates = candidates.filter((item) => normalizeRuntimeMatch(item.description) === description)
+      }
+      if (candidates.length === 1) {
+        run.logs.push(`[${new Date().toLocaleTimeString()}] 读取输入 · ${candidates[0].caseName || candidates[0].caseCode || candidates[0].testCaseId || "上游节点"} · ${candidates[0].description}`)
+        await onUpdate()
+        return candidates[0].value
+      }
+      if (candidates.length === 0) {
+        throw new Error(`INPUT_OUTPUT_MISSING: 未找到匹配的上游输出。from=${options.from ?? ""} description=${options.description ?? ""}`)
+      }
+      throw new Error(`INPUT_OUTPUT_AMBIGUOUS: 匹配到多个上游输出，请指定 from 或 description。候选：${candidates.map((item) => `${item.caseName || item.caseCode || item.testCaseId || "unknown"}:${item.description}`).join("；")}`)
+    },
+  }
+
+  const temp: TempRuntime = {
+    store: async (description, key, fn) => {
+      const value = await fn()
+      tempValues.set(key, value)
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 临时存储 · ${key} · ${description}: ${formatRuntimeValue(value)}`)
+      await onUpdate()
+      return value
+    },
+    get: async (key) => {
+      if (!tempValues.has(key)) {
+        throw new Error(`TEMP_VALUE_MISSING: 未找到临时值 ${key}`)
+      }
+      return tempValues.get(key) as any
+    },
+  }
+
+  const guard: GuardRuntime = {
+    ownedData: async (record, action) => {
+      if (!isRuntimeOwnedData(record, run.runtimeOutputs ?? [], tempValues)) {
+        throw new Error(`OWNED_DATA_REQUIRED: 破坏性操作目标不在本次执行链输出或临时数据中：${formatRuntimeValue(record)}`)
+      }
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 数据保护 · 已确认 owned data: ${formatRuntimeValue(record)}`)
+      await onUpdate()
+      return await action()
+    },
+  }
+
+  const ensureNotCancelled = () => {
+    if (signal?.aborted) throw new Error("Task cancelled")
+  }
+  const sleepCancellable = async (ms: number) => {
+    if (ms <= 0) return
+    const startMs = Date.now()
+    while (Date.now() - startMs < ms) {
+      ensureNotCancelled()
+      if (waitIfPaused) await waitIfPaused()
+      const remaining = ms - (Date.now() - startMs)
+      const slice = Math.min(Math.max(remaining, 0), 200)
+      if (slice <= 0) return
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          cleanup()
+          resolve()
+        }, slice)
+        const onAbort = () => {
+          clearTimeout(timer)
+          cleanup()
+          reject(new Error("Task cancelled"))
+        }
+        const cleanup = () => {
+          if (signal) signal.removeEventListener("abort", onAbort)
+        }
+        if (signal) {
+          if (signal.aborted) {
+            clearTimeout(timer)
+            cleanup()
+            reject(new Error("Task cancelled"))
+            return
+          }
+          signal.addEventListener("abort", onAbort, { once: true })
+        }
+      })
+    }
+  }
+
+  const traceLog = (line: string) => {
+    run.logs.push(`[${new Date().toLocaleTimeString()}] ${line}`)
+    console.log(`[runner ${run.id}] ${line}`)
+  }
+
+  const schedule: ScheduleRuntime = {
+    waitUntil: async (target, options) => {
+      const targetMs = target instanceof Date ? target.getTime() : typeof target === "number" ? target : Date.parse(target)
+      if (!Number.isFinite(targetMs)) {
+        throw new Error(`schedule.waitUntil: 无法解析目标时间 ${String(target)}`)
+      }
+      const pollMs = Math.max(50, options?.pollMs ?? 200)
+      const logEverySec = Math.max(1, options?.logEverySec ?? 30)
+      traceLog(`schedule.waitUntil · 等待至 ${new Date(targetMs).toLocaleString()}（剩余 ${Math.max(0, Math.ceil((targetMs - Date.now()) / 1000))}s）`)
+      await onUpdate()
+      let lastLogSec = -1
+      while (Date.now() < targetMs) {
+        ensureNotCancelled()
+        if (waitIfPaused) await waitIfPaused()
+        const remainingSec = Math.ceil((targetMs - Date.now()) / 1000)
+        if (lastLogSec === -1 || lastLogSec - remainingSec >= logEverySec) {
+          traceLog(`schedule.waitUntil · 距离 ${new Date(targetMs).toLocaleString()} 还剩 ${remainingSec}s`)
+          await onUpdate()
+          lastLogSec = remainingSec
+        }
+        await sleepCancellable(Math.min(pollMs, Math.max(50, targetMs - Date.now())))
+      }
+      traceLog(`schedule.waitUntil · 到达目标时刻 ${new Date(targetMs).toLocaleString()}`)
+      await onUpdate()
+    },
+  }
+
+  const loop: LoopRuntime = {
+    until: async (predicate, options) => {
+      const intervalMs = Math.max(50, options.intervalMs)
+      const startedAt = Date.now()
+      const deadline = options.timeoutMs ? startedAt + options.timeoutMs : Number.POSITIVE_INFINITY
+      const maxRounds = options.maxRounds ?? Number.POSITIVE_INFINITY
+      const logEvery = Math.max(1, options.logEveryRound ?? 10)
+      const label = options.description ?? "loop.until"
+      traceLog(`${label} · 开始（intervalMs=${intervalMs}, timeoutMs=${options.timeoutMs ?? "∞"}, maxRounds=${options.maxRounds ?? "∞"}）`)
+      let round = 0
+      for (;;) {
+        ensureNotCancelled()
+        if (waitIfPaused) await waitIfPaused()
+        round += 1
+        let result: any
+        try {
+          result = await predicate()
+        } catch (err) {
+          if (signal?.aborted) throw err
+          console.warn(`[runner ${run.id}] ${label} · 第 ${round} 轮 predicate 抛错: ${err instanceof Error ? err.message : String(err)}`)
+          throw err
+        }
+        if (result) {
+          traceLog(`${label} · 第 ${round} 轮命中`)
+          await onUpdate()
+          return result as any
+        }
+        if (round % logEvery === 0) {
+          traceLog(`${label} · 已轮询 ${round} 轮，未命中`)
+          await onUpdate()
+        }
+        if (round >= maxRounds) {
+          console.warn(`[runner ${run.id}] ${label} · 达到最大轮次 ${maxRounds}，未命中`)
+          throw new Error(`LOOP_UNTIL_MAX_ROUNDS: ${label} 达到最大轮次 ${maxRounds}`)
+        }
+        if (Date.now() + intervalMs > deadline) {
+          console.warn(`[runner ${run.id}] ${label} · 已超过 ${options.timeoutMs} ms`)
+          throw new Error(`LOOP_UNTIL_TIMEOUT: ${label} 已超过 ${options.timeoutMs} ms`)
+        }
+        await sleepCancellable(intervalMs)
+      }
+    },
+    forDuration: async (ms, fn, options) => {
+      const intervalMs = Math.max(0, options?.intervalMs ?? 200)
+      const logEvery = Math.max(1, options?.logEveryRound ?? 10)
+      const label = options?.description ?? "loop.forDuration"
+      const deadline = Date.now() + Math.max(0, ms)
+      traceLog(`${label} · 开始（时长=${ms}ms, intervalMs=${intervalMs}）`)
+      let round = 0
+      for (;;) {
+        ensureNotCancelled()
+        if (waitIfPaused) await waitIfPaused()
+        round += 1
+        try {
+          const result = await fn()
+          if (result) {
+            traceLog(`${label} · 第 ${round} 轮提前命中`)
+            await onUpdate()
+            return result as any
+          }
+        } catch (err) {
+          if (signal?.aborted) throw err
+          console.warn(`[runner ${run.id}] ${label} · 第 ${round} 轮抛错（已吞，继续）: ${err instanceof Error ? err.message : String(err)}`)
+        }
+        if (round % logEvery === 0) {
+          traceLog(`${label} · 已尝试 ${round} 轮`)
+          await onUpdate()
+        }
+        if (Date.now() + intervalMs >= deadline) {
+          traceLog(`${label} · 时长到（共 ${round} 轮），未提前命中`)
+          await onUpdate()
+          return undefined
+        }
+        await sleepCancellable(intervalMs)
+      }
+    },
+    times: async (n, fn, options) => {
+      const intervalMs = Math.max(0, options?.intervalMs ?? 200)
+      const logEvery = Math.max(1, options?.logEveryRound ?? 10)
+      const label = options?.description ?? "loop.times"
+      const total = Math.max(1, Math.floor(n))
+      traceLog(`${label} · 开始（共 ${total} 轮, intervalMs=${intervalMs}）`)
+      for (let round = 1; round <= total; round += 1) {
+        ensureNotCancelled()
+        if (waitIfPaused) await waitIfPaused()
+        try {
+          const result = await fn(round)
+          if (result) {
+            traceLog(`${label} · 第 ${round} 轮提前命中`)
+            await onUpdate()
+            return result as any
+          }
+        } catch (err) {
+          if (signal?.aborted) throw err
+          console.warn(`[runner ${run.id}] ${label} · 第 ${round} 轮抛错（已吞，继续）: ${err instanceof Error ? err.message : String(err)}`)
+        }
+        if (round % logEvery === 0) {
+          traceLog(`${label} · 已执行 ${round}/${total} 轮`)
+          await onUpdate()
+        }
+        if (round < total) await sleepCancellable(intervalMs)
+      }
+      traceLog(`${label} · ${total} 轮执行完，未提前命中`)
+      await onUpdate()
+      return undefined
+    },
+  }
+
+  const retry: RetryRuntime = async (fn, options) => {
+    const times = Math.max(1, options?.times ?? 3)
+    const baseDelay = options?.backoffMs ?? 0
+    const factor = options?.backoffFactor ?? 1
+    const label = options?.description ?? "retry"
+    let lastError: unknown
+    for (let attempt = 1; attempt <= times; attempt += 1) {
+      ensureNotCancelled()
+      if (waitIfPaused) await waitIfPaused()
+      try {
+        const result = await fn(attempt)
+        if (attempt > 1) {
+          traceLog(`${label} · 第 ${attempt} 次尝试成功`)
+          await onUpdate()
+        }
+        return result
+      } catch (err) {
+        lastError = err
+        if (signal?.aborted) throw err
+        // 默认不重试"风控拦截"错误：再导航/再点只会让风控更严。脚本仍可用 shouldRetry 显式覆盖。
+        const shouldRetry = options?.shouldRetry ? await options.shouldRetry(err, attempt) : !isRiskControlError(err)
+        if (!shouldRetry || attempt >= times) {
+          console.warn(`[runner ${run.id}] ${label} · 第 ${attempt}/${times} 次失败：${err instanceof Error ? err.message : String(err)}（放弃重试）`)
+          break
+        }
+        const delay = baseDelay * Math.pow(factor, attempt - 1)
+        traceLog(`${label} · 第 ${attempt} 次失败：${err instanceof Error ? err.message : String(err)}；${delay > 0 ? `${delay} ms 后重试` : "立即重试"}`)
+        await onUpdate()
+        if (delay > 0) await sleepCancellable(delay)
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error(`RETRY_EXHAUSTED: ${label} 用尽 ${times} 次仍失败`)
+  }
+
+  const risk: RiskRuntime = {
+    check: async () => detectRiskControl(session.page),
+    blocked: async () => (await detectRiskControl(session.page)).blocked,
+    assertClear: async (label) => {
+      const signal = await detectRiskControl(session.page)
+      if (signal.blocked) {
+        const prefix = label ? `${label} - ` : ""
+        traceLog(`风控拦截 · ${prefix}${signal.reason}（kind=${signal.kind}）`)
+        await onUpdate()
+        throw new Error(`${RISK_CONTROL_ERROR_PREFIX}: ${prefix}${signal.reason}`)
+      }
+    },
+  }
+
+  const http: HttpRuntime = {
+    get: async (url, options) => {
+      traceLog(`网络请求 · http.get(${url})`)
+      await onUpdate()
+      const query = options?.params ? `?${new URLSearchParams(options.params).toString()}` : ""
+      const res = await fetch(url + query, { headers: options?.headers })
+      if (!res.ok) throw new Error(`HTTP GET ${url} failed with status ${res.status}`)
+      const text = await res.text()
+      try { return JSON.parse(text) } catch { return text }
+    },
+    post: async (url, options) => {
+      traceLog(`网络请求 · http.post(${url})`)
+      await onUpdate()
+      const isJson = options?.data && typeof options.data === "object"
+      const headers = { ...(isJson ? { "Content-Type": "application/json" } : {}), ...options?.headers }
+      const body = isJson ? JSON.stringify(options.data) : options?.data
+      const res = await fetch(url, { method: "POST", headers, body })
+      if (!res.ok) throw new Error(`HTTP POST ${url} failed with status ${res.status}`)
+      const text = await res.text()
+      try { return JSON.parse(text) } catch { return text }
+    }
+  }
+
+  let reportSeq = 0
+  const slugify = (raw: string) =>
+    (raw || "report")
+      .trim()
+      .replace(/[\/\\?%*:|"<>\s]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80) || "report"
+  const writeArtifactFile = async (fileName: string, content: string, logLabel: string) => {
+    await writeFile(join(session.runDir, fileName), content, "utf-8")
+    const url = toPublicArtifactUrl(run.id, fileName)
+    run.artifacts = run.artifacts ?? []
+    if (!run.artifacts.find((item) => item.name === fileName)) {
+      run.artifacts.push({ kind: "report", name: fileName, url })
+    }
+    run.logs.push(`[${new Date().toLocaleTimeString()}] ${logLabel} · ${fileName} → ${url}`)
+    await onUpdate()
+    return url
+  }
+  const report: ReportRuntime = {
+    html: async (title, html) => {
+      reportSeq += 1
+      const fileName = `report-${reportSeq}-${slugify(title)}.html`
+      const hasDoc = /<!doctype|<html[\s>]/i.test(html)
+      const doc = hasDoc
+        ? html
+        : `<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>` +
+          `<style>body{max-width:860px;margin:2rem auto;padding:0 1rem;font:16px/1.7 -apple-system,Segoe UI,Roboto,"Helvetica Neue",sans-serif;color:#1a1a1a}h1,h2,h3{line-height:1.3}pre,code{background:#f5f5f5;border-radius:4px}pre{padding:1rem;overflow:auto}blockquote{border-left:3px solid #ddd;margin:0;padding:.2rem 1rem;color:#555}</style>` +
+          `</head><body>${html}</body></html>`
+      return writeArtifactFile(fileName, doc, "报告产物")
+    },
+    text: async (name, content) => {
+      reportSeq += 1
+      const safe = slugify(name)
+      const fileName = /\.[a-z0-9]{1,8}$/i.test(name) ? safe : `${safe}.txt`
+      return writeArtifactFile(fileName, content, "文本产物")
+    },
+  }
+
+  const apiParamValues = apiParams ?? {}
+  const params: ParamsRuntime = {
+    get: <T = unknown>(name: string) => {
+      const value = apiParamValues[name]
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 读取入参 · params.get(${name}) = ${formatRuntimeValue(value)}`)
+      void onUpdate()
+      return value as T
+    },
+    all: () => ({ ...apiParamValues }),
+  }
+
+  const result: ResultRuntime = {
+    set: (key, value) => {
+      run.apiResult = { ...(run.apiResult ?? {}), [key]: value }
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 设置响应 · result.set(${key}) = ${formatRuntimeValue(value)}`)
+      void onUpdate()
+    },
+    setAll: (values) => {
+      run.apiResult = { ...(run.apiResult ?? {}), ...values }
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 设置响应 · result.setAll(${Object.keys(values).join(", ")})`)
+      void onUpdate()
+    },
+  }
+
+  let downloadSeq = 0
+  const files: FilesRuntime = {
+    download: async (url, fileName) => {
+      downloadSeq += 1
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 下载文件 · files.download(${url})`)
+      await onUpdate()
+      const res = await fetch(url)
+      if (!res.ok) {
+        throw new Error(`FILE_DOWNLOAD_FAILED: 下载 ${url} 失败，HTTP ${res.status}`)
+      }
+      const buffer = Buffer.from(await res.arrayBuffer())
+      const inferExt = () => {
+        const fromUrl = url.split("?")[0].split("#")[0].match(/\.([a-z0-9]{1,8})$/i)?.[1]
+        if (fromUrl) return `.${fromUrl.toLowerCase()}`
+        const mime = res.headers.get("content-type")?.split(";")[0].trim() ?? ""
+        const map: Record<string, string> = {
+          "image/jpeg": ".jpg",
+          "image/png": ".png",
+          "image/webp": ".webp",
+          "image/gif": ".gif",
+          "video/mp4": ".mp4",
+          "video/webm": ".webm",
+        }
+        return map[mime] ?? ".bin"
+      }
+      const safeName = fileName && /^[\w.\-]+$/.test(fileName) ? fileName : `download-${downloadSeq}-${Date.now()}${inferExt()}`
+      const filePath = join(session.runDir, safeName)
+      await writeFile(filePath, buffer)
+      run.logs.push(`[${new Date().toLocaleTimeString()}] 下载完成 · ${safeName}（${buffer.length} 字节）→ ${filePath}`)
+      await onUpdate()
+      return filePath
+    },
+  }
+
+  const unavailableTables = (): never => {
+    throw new Error("DATA_TABLES_UNAVAILABLE: 当前运行环境未启用数据表能力（tables.* 不可用）")
+  }
+  const tables: TablesRuntime = dataTables ?? {
+    insert: unavailableTables,
+    find: unavailableTables,
+    findOne: unavailableTables,
+    exists: unavailableTables,
+    update: unavailableTables,
+    upsert: unavailableTables,
+    delete: unavailableTables,
+  }
+
+  const unavailableKnowledge = (): never => {
+    throw new Error("KNOWLEDGE_UNAVAILABLE: 当前运行环境未启用知识库能力（knowledge.* 不可用）")
+  }
+  const knowledgeRuntime: KnowledgeRuntime = knowledge ?? {
+    write: unavailableKnowledge,
+    read: unavailableKnowledge,
+    exists: unavailableKnowledge,
+    mkdir: unavailableKnowledge,
+    list: unavailableKnowledge,
+    saveAsset: unavailableKnowledge,
+    remove: unavailableKnowledge,
+  }
+
+  const executor = new AsyncExecutor("page", "expect", "human", "ai", "test", "getBaseUrl", "step", "outputs", "inputs", "temp", "guard", "schedule", "loop", "retry", "http", "risk", "report", "params", "result", "files", "tables", "knowledge", body)
+
+  const scriptExecution = async () => {
+    // deadline 预热：浏览器/登录/初始页面已在 at 之前就绪，这里卡到精确时刻再跑正文（抢占动作）。
+    // 与脚本正文共用同一超时与取消 race，schedule.waitUntil 自身已响应 pause/cancel。
+    if (deadlineWaitUntil) {
+      await schedule.waitUntil(deadlineWaitUntil)
+    }
+    await executor(instrumentedPage, expect, human, ai, test, getBaseUrl, step, outputs, inputs, temp, guard, schedule, loop, retry, http, risk, report, params, result, files, tables, knowledgeRuntime)
+    await testChain
+  }
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`脚本执行超时（已超过 ${Math.round(timeoutMs / 1000)} 秒限制）`)), timeoutMs)
+  })
+
+  // 取消时不仅 race 出错，还主动关闭浏览器上下文，让正在执行的 Playwright 操作
+  // （如 waitForSelector / click 的隐式等待）立即以 "Target closed" 抛错中止，避免等到其自身超时。
+  const cancelPromise = new Promise<never>((_, reject) => {
+    if (!signal) return
+    const abort = () => {
+      void session.context.close().catch(() => undefined)
+      reject(new Error("Run cancelled"))
+    }
+    if (signal.aborted) {
+      abort()
+      return
+    }
+    signal.addEventListener("abort", abort, { once: true })
+  })
+
+  await Promise.race([scriptExecution(), timeoutPromise, cancelPromise])
+  const executionShot = await captureStepScreenshot(session.page, run.id, session.runDir, `${screenshotFilePrefix}-finished.png`)
+  await markRunStep(run, stepIndex, "passed", onUpdate, completedLog, executionShot)
+}
+
+/**
+ * 在已经打开的 page 上执行验证脚本（不负责浏览器生命周期）。
+ * 返回结构化结果而不是抛错，便于上层做"对照实验"。
+ */
+export const runValidationOnPage = async (
+  page: Page,
+  validationScriptCode: string,
+  timeoutMs = 15_000,
+): Promise<{ ok: true } | { ok: false; error: string }> => {
+  try {
+    const rawBody = extractScriptBody(validationScriptCode)
+    const transpileResult = ts.transpileModule(rawBody, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    })
+    const body = transpileResult.outputText
+
+    const ValidationExecutor = Object.getPrototypeOf(async function () {
+      return undefined
+    }).constructor as new (...args: string[]) => (...args: any[]) => Promise<void>
+    const executor = new ValidationExecutor("page", "expect", body)
+
+    await Promise.race([
+      executor(page, expect),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("验证脚本执行超时")), timeoutMs),
+      ),
+    ])
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
