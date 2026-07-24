@@ -9,6 +9,7 @@ import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { inputClassName } from "../../components/ui/field"
 import { formatDateTime, formatDuration, resolveUrl, translateStatus } from "../../utils"
+import { t } from "../../../i18n/index.js"
 import { RunArtifacts } from "./RunArtifacts"
 
 type RunStepGroup = {
@@ -79,10 +80,10 @@ export function RunDetail({
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 border-b border-border/40 pb-4 md:flex-row md:items-center md:justify-between select-none">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="hover:text-foreground cursor-pointer transition-colors" onClick={onBack}>执行记录</span>
+          <span className="hover:text-foreground cursor-pointer transition-colors" onClick={onBack}>{t("runs.title")}</span>
           <span className="material-symbols-outlined text-[10px] text-muted-foreground/60">chevron_right</span>
           <span className="font-mono bg-secondary/80 text-secondary-foreground px-2 py-0.5 rounded border border-border/40 font-semibold text-[10px]">
-            任务 #{activeTaskRun?.id.slice(0, 8) || executionActiveRun?.id.slice(0, 8)}
+            {t("runs.taskNumber", { id: activeTaskRun?.id.slice(0, 8) || executionActiveRun?.id.slice(0, 8) || "" })}
           </span>
           {currentCase ? (
             <>
@@ -118,30 +119,30 @@ export function RunDetail({
 
           <Button onClick={onBack} variant="ghost" className="h-8 rounded-lg text-xs flex items-center gap-1 cursor-pointer">
             <span className="material-symbols-outlined text-sm">arrow_back</span>
-            返回任务列表
+            {t("runs.backToTaskList")}
           </Button>
         </div>
       </div>
 
       {activeTaskRun ? (
         <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
-          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">总用例</span><strong className="text-xl font-bold text-foreground font-mono mt-0.5 block">{activeTaskRun.totalCount}</strong></div>
-          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">已通过</span><strong className="text-xl font-bold text-emerald-600 dark:text-emerald-450 font-mono mt-0.5 block">{activeTaskRun.passedCount}</strong></div>
-          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">已失败</span><strong className="text-xl font-bold text-rose-600 dark:text-rose-405 font-mono mt-0.5 block">{activeTaskRun.failedCount}</strong></div>
-          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">排队中</span><strong className="text-xl font-bold text-foreground font-mono mt-0.5 block">{activeTaskRun.queuedCount}</strong></div>
-          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-primary uppercase tracking-wider block">当前运行</span><strong className="text-xs font-bold text-primary mt-1.5 block truncate max-w-[120px]" title={currentCase ? currentCase.caseCode : activeTaskRun.currentRunId ?? "--"}>{currentCase ? currentCase.caseCode : activeTaskRun.currentRunId ?? "--"}</strong></div>
+          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{t("runs.totalCases")}</span><strong className="text-xl font-bold text-foreground font-mono mt-0.5 block">{activeTaskRun.totalCount}</strong></div>
+          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">{t("runs.passed")}</span><strong className="text-xl font-bold text-emerald-600 dark:text-emerald-450 font-mono mt-0.5 block">{activeTaskRun.passedCount}</strong></div>
+          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">{t("runs.failed")}</span><strong className="text-xl font-bold text-rose-600 dark:text-rose-405 font-mono mt-0.5 block">{activeTaskRun.failedCount}</strong></div>
+          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{t("runs.queued")}</span><strong className="text-xl font-bold text-foreground font-mono mt-0.5 block">{activeTaskRun.queuedCount}</strong></div>
+          <div className="border-border/40 bg-card/60 backdrop-blur-md py-3 px-4 rounded-xl border"><span className="text-[10px] font-bold text-primary uppercase tracking-wider block">{t("runs.currentRun")}</span><strong className="text-xs font-bold text-primary mt-1.5 block truncate max-w-[120px]" title={currentCase ? currentCase.caseCode : activeTaskRun.currentRunId ?? "--"}>{currentCase ? currentCase.caseCode : activeTaskRun.currentRunId ?? "--"}</strong></div>
         </div>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start">
         <div className="flex flex-col border border-border bg-card/60 backdrop-blur-md rounded-2xl p-4 space-y-3 sticky top-4 max-h-[calc(100vh-14rem)] overflow-y-auto custom-scrollbar shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-border/40">
-            <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">用例运行队列</span>
-            <Badge tone="default">{currentTaskRuns.length} 个子运行</Badge>
+            <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">{t("runs.caseRunQueue")}</span>
+            <Badge tone="default">{t("runs.subRunCount", { count: currentTaskRuns.length })}</Badge>
           </div>
 
           {currentTaskRuns.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic text-center py-4">暂无运行数据</p>
+            <p className="text-xs text-muted-foreground italic text-center py-4">{t("runs.noRunData")}</p>
           ) : (
             <div className="space-y-2">
               {currentTaskRuns.map((run) => {
@@ -201,10 +202,10 @@ export function RunDetail({
         <div className="flex flex-col border border-border bg-card/25 backdrop-blur-md rounded-2xl overflow-hidden shadow-sm">
           <div className="flex border-b border-border bg-secondary/10 px-4 py-2 justify-between items-center flex-wrap gap-3">
             <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-xl border border-border/40 select-none">
-              <button className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "steps" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onSelectDetailTab("steps")} type="button">执行步骤</button>
-              <button className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "logs" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onSelectDetailTab("logs")} type="button">系统日志</button>
-              <button className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "meta" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onSelectDetailTab("meta")} type="button">产物与诊断</button>
-              <button className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "control" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onSelectDetailTab("control")} type="button">控制命令</button>
+              <button className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "steps" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onSelectDetailTab("steps")} type="button">{t("runs.tabSteps")}</button>
+              <button className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "logs" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onSelectDetailTab("logs")} type="button">{t("runs.tabLogs")}</button>
+              <button className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "meta" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onSelectDetailTab("meta")} type="button">{t("runs.tabArtifacts")}</button>
+              <button className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${detailTab === "control" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onSelectDetailTab("control")} type="button">{t("runs.tabControl")}</button>
             </div>
           </div>
 
@@ -214,9 +215,9 @@ export function RunDetail({
                 <span className="material-symbols-outlined text-amber-500 text-3xl animate-bounce mt-0.5">smart_toy</span>
                 <div className="flex-1 space-y-3">
                   <div>
-                    <h4 className="text-xs font-bold text-amber-600 dark:text-amber-400">等待人工介入 (Manual Interaction Needed)</h4>
+                    <h4 className="text-xs font-bold text-amber-600 dark:text-amber-400">{t("runs.awaitingHumanTitle")}</h4>
                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                      {awaitingHumanRun.pendingHumanHandoff.scope === "precondition" ? "前置依赖执行中" : "目标脚本执行中"}：
+                      {awaitingHumanRun.pendingHumanHandoff.scope === "precondition" ? t("runs.handoffScopePrecondition") : t("runs.handoffScopeTarget")}
                       <span className="text-foreground font-semibold ml-1">{awaitingHumanRun.pendingHumanHandoff.instruction}</span>
                     </p>
                   </div>
@@ -224,7 +225,7 @@ export function RunDetail({
                   {(awaitingHumanRun.pendingHumanHandoff.imageUrl ?? awaitingHumanRun.currentViewport) ? (
                     <div className="overflow-hidden rounded-xl border border-border/60 max-w-md bg-slate-100 dark:bg-black/20">
                       <img
-                        alt={awaitingHumanRun.pendingHumanHandoff.inputLabel ?? "人工输入参考图"}
+                        alt={awaitingHumanRun.pendingHumanHandoff.inputLabel ?? t("runs.humanInputImageAlt")}
                         className="max-h-56 w-full object-contain cursor-zoom-in hover:brightness-105 transition-all"
                         src={resolveUrl(awaitingHumanRun.pendingHumanHandoff.imageUrl ?? awaitingHumanRun.currentViewport)}
                         onClick={() => onSetLightboxUrl(resolveUrl(awaitingHumanRun.pendingHumanHandoff!.imageUrl ?? awaitingHumanRun.currentViewport))}
@@ -236,7 +237,7 @@ export function RunDetail({
                     <input
                       className={`${inputClassName} text-xs flex-1 bg-background border-border/60 rounded-xl px-3 py-1.5 focus:border-amber-500 focus:ring-amber-500`}
                       onChange={(event) => onHumanInputChange(event.target.value)}
-                      placeholder={awaitingHumanRun.pendingHumanHandoff.placeholder ?? awaitingHumanRun.pendingHumanHandoff.inputLabel ?? "请输入内容"}
+                      placeholder={awaitingHumanRun.pendingHumanHandoff.placeholder ?? awaitingHumanRun.pendingHumanHandoff.inputLabel ?? t("runs.humanInputPlaceholder")}
                       value={humanInputValue}
                     />
                     <Button
@@ -244,7 +245,7 @@ export function RunDetail({
                       disabled={busy || !humanInputValue.trim()}
                       onClick={() => void onSubmitHumanInput()}
                     >
-                      {awaitingHumanRun.pendingHumanHandoff.confirmText ?? "确定并继续"}
+                      {awaitingHumanRun.pendingHumanHandoff.confirmText ?? t("runs.confirmAndContinue")}
                     </Button>
                   </div>
                 </div>
@@ -256,8 +257,8 @@ export function RunDetail({
             <div className="p-4 border-r border-border/60 flex flex-col justify-between space-y-4">
               <BrowserFrame
                 noCard
-                emptyText="执行测试后，此窗口将实时展示 Playwright 画面。"
-                title="实时浏览器回放"
+                emptyText={t("runs.browserFrameEmpty")}
+                title={t("runs.liveBrowserReplay")}
                 url={executionActiveRun?.testBaseUrl || activeTaskRun?.testBaseUrl || "--"}
                 viewport={executionActiveRun?.currentViewport}
                 replayVideoUrl={executionReplayVideo}
@@ -281,7 +282,7 @@ export function RunDetail({
               {detailTab === "steps" ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between pb-2 border-b border-border/40">
-                    <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">流水线步骤明细</span>
+                    <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">{t("runs.pipelineStepDetails")}</span>
                     {executionActiveRun ? (
                       <Badge tone={executionActiveRun.status === "passed" ? "success" : executionActiveRun.status === "failed" ? "danger" : "warning"}>
                         {translateStatus(executionActiveRun.status)}
@@ -399,7 +400,7 @@ export function RunDetail({
                       })}
                     </div>
                   ) : (
-                    <EmptyState description="开始执行后，这里会显示当前子运行的层级步骤和状态变化。" title="无步骤数据" />
+                    <EmptyState description={t("runs.noStepsDescription")} title={t("runs.noStepsTitle")} />
                   )}
                 </div>
               ) : null}
@@ -407,12 +408,12 @@ export function RunDetail({
               {detailTab === "logs" ? (
                 <div className="h-full flex flex-col space-y-4">
                   <div className="flex items-center justify-between pb-2 border-b border-border/40">
-                    <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">系统日志输出 (STDOUT)</span>
+                    <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">{t("runs.systemLogOutput")}</span>
                   </div>
                   <LogPanel
                     noCard
-                    content={executionActiveRun?.logs.join("\n") || activeTaskRun?.logs.join("\n") || "无输出日志"}
-                    title="日志输出"
+                    content={executionActiveRun?.logs.join("\n") || activeTaskRun?.logs.join("\n") || t("runs.noLogOutput")}
+                    title={t("runs.logOutput")}
                     className="h-[32rem] border border-border/80 bg-black/95 dark:bg-black/95 rounded-xl font-mono text-xs leading-relaxed text-emerald-400 p-4 shadow-inner"
                   />
                 </div>
@@ -431,18 +432,18 @@ export function RunDetail({
               {detailTab === "control" ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between pb-2 border-b border-border/40">
-                    <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">控制命令历史</span>
+                    <span className="text-[10px] font-bold text-foreground tracking-wider uppercase">{t("runs.controlCommandHistory")}</span>
                     {activeControlTarget ? <Badge tone="default">{activeControlTarget.kind} · {activeControlTarget.id.slice(0, 8)}</Badge> : null}
                   </div>
 
                   {!activeControlTarget ? (
-                    <EmptyState description="当前没有可控制的运行对象。" title="暂无命令历史" />
+                    <EmptyState description={t("runs.noControlTargetDescription")} title={t("runs.noControlTargetTitle")} />
                   ) : controlCommandsLoading ? (
-                    <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-5 text-sm text-muted-foreground">正在加载命令历史…</div>
+                    <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-5 text-sm text-muted-foreground">{t("runs.loadingCommandHistory")}</div>
                   ) : controlCommandsError ? (
                     <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-5 text-sm text-destructive">{controlCommandsError}</div>
                   ) : controlCommands.length === 0 ? (
-                    <EmptyState description="在这里可以看到暂停、继续、停止等控制操作的请求与结果。" title="尚无控制命令" />
+                    <EmptyState description={t("runs.noControlCommandsDescription")} title={t("runs.noControlCommandsTitle")} />
                   ) : (
                     <div className="space-y-3">
                       {controlCommands.map((command) => {
@@ -458,7 +459,7 @@ export function RunDetail({
                               </div>
                               <div className="text-[11px] text-muted-foreground font-mono text-right">
                                 <div>{formatDateTime(command.requestedAt)}</div>
-                                <div>{command.resolvedAt ? `完成 ${formatDateTime(command.resolvedAt)}` : "等待处理"}</div>
+                                <div>{command.resolvedAt ? t("runs.resolvedAt", { time: formatDateTime(command.resolvedAt) }) : t("runs.pendingResolution")}</div>
                               </div>
                             </div>
                             {command.note ? <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{command.note}</p> : null}

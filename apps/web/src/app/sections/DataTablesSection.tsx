@@ -7,6 +7,7 @@ import { EmptyState } from "../components/empty-state"
 import { PageHeader } from "../components/page-header"
 import { request } from "../api"
 import { apiRoutes } from "../apiRoutes"
+import { t } from "../../i18n/index.js"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
 import { formatDateTime } from "../utils"
 
@@ -15,12 +16,14 @@ type Props = { controller: ReadyWorkspaceController }
 const inputCls =
   "block w-full rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary/80 focus:ring-2 focus:ring-primary/20"
 
-const COLUMN_TYPE_LABELS: Record<DataColumnType, string> = {
-  string: "文本",
-  number: "数字",
-  boolean: "布尔",
-  datetime: "日期时间",
+const COLUMN_TYPE_LABEL_KEYS: Record<DataColumnType, string> = {
+  string: "dt.colTypeString",
+  number: "dt.colTypeNumber",
+  boolean: "dt.colTypeBoolean",
+  datetime: "dt.colTypeDatetime",
 }
+
+const columnTypeLabel = (type: DataColumnType): string => t(COLUMN_TYPE_LABEL_KEYS[type])
 
 const COLUMN_TYPES: DataColumnType[] = ["string", "number", "boolean", "datetime"]
 
@@ -150,7 +153,7 @@ export function DataTablesSection({ controller }: Props) {
   }
 
   const handleDeleteTable = async (table: DataTable) => {
-    if (!window.confirm(`确定删除数据表「${table.name}」吗？表内所有字段与数据行都会被清除。`)) return
+    if (!window.confirm(t("dt.confirmDeleteTable", { name: table.name }))) return
     const ok = await run(() => request(apiRoutes.dataTables.remove(table.id), { method: "DELETE" }))
     if (ok) {
       if (selectedTableId === table.id) setSelectedTableId(null)
@@ -162,12 +165,12 @@ export function DataTablesSection({ controller }: Props) {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         eyebrow="Data Tables"
-        title="数据表"
-        description="为当前项目维护可增删改查的持久化数据表（行 + 字段）。脚本运行时可通过 tables.* 读写它，用于跨运行记录与去重——例如标记某篇论文是否已被分析过，让后续运行和其他人都能查到。"
+        title={t("dt.title")}
+        description={t("dt.description")}
         actions={
           <Button size="sm" onClick={() => setShowCreateTable((v) => !v)} disabled={busy} className="cursor-pointer">
             <span className="material-symbols-outlined text-sm mr-1">{showCreateTable ? "close" : "add"}</span>
-            {showCreateTable ? "取消" : "新建数据表"}
+            {showCreateTable ? t("dt.cancel") : t("dt.newTable")}
           </Button>
         }
       />
@@ -175,22 +178,22 @@ export function DataTablesSection({ controller }: Props) {
       {showCreateTable ? (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">新建数据表</CardTitle>
-            <CardDescription className="text-[11px]">表名在项目内唯一。脚本写入未知字段时会自动补列。</CardDescription>
+            <CardTitle className="text-sm">{t("dt.newTable")}</CardTitle>
+            <CardDescription className="text-[11px]">{t("dt.newTableHint")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-[220px_1fr_auto] items-end">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">表名</label>
-                <input className={inputCls} placeholder="例如：analyzed_papers" value={newTableName} onChange={(e) => setNewTableName(e.target.value)} />
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t("dt.tableName")}</label>
+                <input className={inputCls} placeholder={t("dt.tableNamePlaceholder")} value={newTableName} onChange={(e) => setNewTableName(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">描述（可选）</label>
-                <input className={inputCls} placeholder="用途说明" value={newTableDesc} onChange={(e) => setNewTableDesc(e.target.value)} />
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t("dt.tableDesc")}</label>
+                <input className={inputCls} placeholder={t("dt.tableDescPlaceholder")} value={newTableDesc} onChange={(e) => setNewTableDesc(e.target.value)} />
               </div>
               <Button size="sm" onClick={handleCreateTable} disabled={busy || !newTableName.trim()} className="h-9 rounded-lg cursor-pointer">
                 <span className="material-symbols-outlined text-sm mr-1">add</span>
-                创建
+                {t("dt.create")}
               </Button>
             </div>
           </CardContent>
@@ -200,12 +203,12 @@ export function DataTablesSection({ controller }: Props) {
       {error ? <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-600 dark:text-rose-400">{error}</div> : null}
 
       {loading ? (
-        <div className="text-xs text-muted-foreground">加载中…</div>
+        <div className="text-xs text-muted-foreground">{t("dt.loading")}</div>
       ) : tables.length === 0 ? (
         <EmptyState
-          title="暂无数据表"
-          description="点击上方『新建数据表』创建第一张表。也可以直接在脚本里 tables.insert('表名', { ... })，运行时会自动创建表与字段。"
-          actionLabel="新建数据表"
+          title={t("dt.emptyTitle")}
+          description={t("dt.emptyDescription")}
+          actionLabel={t("dt.newTable")}
           onAction={() => setShowCreateTable(true)}
         />
       ) : (
@@ -222,10 +225,10 @@ export function DataTablesSection({ controller }: Props) {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-foreground truncate">{table.name}</span>
-                    <Badge tone="info" className="text-[9px] shrink-0">{table.rowCount} 行</Badge>
+                    <Badge tone="info" className="text-[9px] shrink-0">{t("dt.rowCountBadge", { count: table.rowCount })}</Badge>
                   </div>
                   {table.description ? <p className="text-[11px] text-muted-foreground truncate mt-0.5">{table.description}</p> : null}
-                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">{table.columns.length} 个字段</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">{t("dt.columnCount", { count: table.columns.length })}</p>
                 </button>
               )
             })}
@@ -302,7 +305,7 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
   }
 
   const handleDeleteColumn = async (col: DataTableColumn) => {
-    if (!window.confirm(`删除字段「${col.name}」？所有行里该字段的数据会被移除。`)) return
+    if (!window.confirm(t("dt.confirmDeleteColumn", { name: col.name }))) return
     const ok = await run(() => request(apiRoutes.dataTables.column(table.id, col.id), { method: "DELETE" }))
     if (ok) await onChanged()
   }
@@ -335,7 +338,7 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
   }
 
   const handleDeleteRow = async (row: DataTableRow) => {
-    if (!window.confirm("确定删除该数据行吗？")) return
+    if (!window.confirm(t("dt.confirmDeleteRow"))) return
     const ok = await run(() => request(apiRoutes.dataTables.row(table.id, row.id), { method: "DELETE" }))
     if (ok) await onChanged()
   }
@@ -372,13 +375,13 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
               {table.name}
             </CardTitle>
             <CardDescription className="text-[11px] mt-1">
-              {table.description || "（无描述）"} · 共 {rowsTotal} 行 · {columns.length} 个字段
+              {table.description || t("dt.noDescription")} · {t("dt.tableMeta", { rows: rowsTotal, cols: columns.length })}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" onClick={() => setShowAddColumn((v) => !v)} disabled={busy} className="h-8 rounded-lg border border-border/60 text-[11px] cursor-pointer">
               <span className="material-symbols-outlined text-sm mr-1">view_column</span>
-              添加字段
+              {t("dt.addColumn")}
             </Button>
             <Button size="sm" variant="ghost" onClick={onDeleteTable} disabled={busy} className="h-8 rounded-lg border border-rose-500/30 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] cursor-pointer">
               <span className="material-symbols-outlined text-sm">delete</span>
@@ -390,18 +393,18 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
         {showAddColumn ? (
           <div className="grid gap-3 sm:grid-cols-[1fr_160px_auto] items-end rounded-lg border border-primary/20 bg-primary/5 p-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">字段名</label>
-              <input className={inputCls} placeholder="例如：doi" value={colName} onChange={(e) => setColName(e.target.value)} />
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t("dt.columnName")}</label>
+              <input className={inputCls} placeholder={t("dt.columnNamePlaceholder")} value={colName} onChange={(e) => setColName(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">类型</label>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t("dt.columnType")}</label>
               <select className={inputCls} value={colType} onChange={(e) => setColType(e.target.value as DataColumnType)}>
                 {COLUMN_TYPES.map((t) => (
-                  <option key={t} value={t}>{COLUMN_TYPE_LABELS[t]}</option>
+                  <option key={t} value={t}>{columnTypeLabel(t)}</option>
                 ))}
               </select>
             </div>
-            <Button size="sm" onClick={handleAddColumn} disabled={busy || !colName.trim()} className="h-9 rounded-lg cursor-pointer">添加</Button>
+            <Button size="sm" onClick={handleAddColumn} disabled={busy || !colName.trim()} className="h-9 rounded-lg cursor-pointer">{t("dt.add")}</Button>
           </div>
         ) : null}
 
@@ -418,25 +421,25 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
                   disabled={busy}
                 >
                   {COLUMN_TYPES.map((t) => (
-                    <option key={t} value={t}>{COLUMN_TYPE_LABELS[t]}</option>
+                    <option key={t} value={t}>{columnTypeLabel(t)}</option>
                   ))}
                 </select>
-                <button onClick={() => handleDeleteColumn(col)} disabled={busy} className="text-muted-foreground/60 hover:text-rose-500 cursor-pointer" title="删除字段">
+                <button onClick={() => handleDeleteColumn(col)} disabled={busy} className="text-muted-foreground/60 hover:text-rose-500 cursor-pointer" title={t("dt.deleteColumn")}>
                   <span className="material-symbols-outlined text-sm">close</span>
                 </button>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">还没有字段。先添加字段，或直接添加数据行（脚本写入时也会自动补列）。</p>
+          <p className="text-xs text-muted-foreground">{t("dt.noColumnsHint")}</p>
         )}
 
         {/* 行操作 */}
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-muted-foreground">{rowsLoading ? "加载行…" : `${rows.length} / ${rowsTotal} 行`}</span>
+          <span className="text-[11px] text-muted-foreground">{rowsLoading ? t("dt.loadingRows") : t("dt.rowsShown", { shown: rows.length, total: rowsTotal })}</span>
           <Button size="sm" onClick={() => setShowAddRow((v) => !v)} disabled={busy || columns.length === 0} className="h-8 rounded-lg cursor-pointer">
             <span className="material-symbols-outlined text-sm mr-1">{showAddRow ? "close" : "add"}</span>
-            {showAddRow ? "取消" : "添加行"}
+            {showAddRow ? t("dt.cancel") : t("dt.addRow")}
           </Button>
         </div>
 
@@ -448,10 +451,10 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
                   {columns.map((col) => (
                     <th key={col.id} className="px-3 py-2 text-left font-semibold text-foreground whitespace-nowrap">
                       {col.name}
-                      <span className="ml-1 text-[9px] text-muted-foreground font-normal">{COLUMN_TYPE_LABELS[col.type]}</span>
+                      <span className="ml-1 text-[9px] text-muted-foreground font-normal">{columnTypeLabel(col.type)}</span>
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-right font-semibold text-foreground w-px">操作</th>
+                  <th className="px-3 py-2 text-right font-semibold text-foreground w-px">{t("dt.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -461,7 +464,7 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
                       <td key={col.id} className="px-3 py-2">{renderCellInput(col, newRow, setNewRow)}</td>
                     ))}
                     <td className="px-3 py-2 text-right">
-                      <Button size="sm" onClick={handleAddRow} disabled={busy} className="h-7 rounded-lg cursor-pointer text-[11px]">保存</Button>
+                      <Button size="sm" onClick={handleAddRow} disabled={busy} className="h-7 rounded-lg cursor-pointer text-[11px]">{t("dt.save")}</Button>
                     </td>
                   </tr>
                 ) : null}
@@ -477,15 +480,15 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         {editing ? (
                           <div className="flex items-center gap-1 justify-end">
-                            <Button size="sm" onClick={handleSaveRow} disabled={busy} className="h-7 rounded-lg cursor-pointer text-[11px]">保存</Button>
-                            <Button size="sm" variant="ghost" onClick={() => setEditingRowId(null)} className="h-7 rounded-lg border border-border/60 cursor-pointer text-[11px]">取消</Button>
+                            <Button size="sm" onClick={handleSaveRow} disabled={busy} className="h-7 rounded-lg cursor-pointer text-[11px]">{t("dt.save")}</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingRowId(null)} className="h-7 rounded-lg border border-border/60 cursor-pointer text-[11px]">{t("dt.cancel")}</Button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 justify-end">
-                            <button onClick={() => startEditRow(row)} disabled={busy} className="text-muted-foreground hover:text-primary cursor-pointer" title="编辑">
+                            <button onClick={() => startEditRow(row)} disabled={busy} className="text-muted-foreground hover:text-primary cursor-pointer" title={t("dt.edit")}>
                               <span className="material-symbols-outlined text-sm">edit</span>
                             </button>
-                            <button onClick={() => handleDeleteRow(row)} disabled={busy} className="text-muted-foreground hover:text-rose-500 cursor-pointer" title="删除">
+                            <button onClick={() => handleDeleteRow(row)} disabled={busy} className="text-muted-foreground hover:text-rose-500 cursor-pointer" title={t("dt.delete")}>
                               <span className="material-symbols-outlined text-sm">delete</span>
                             </button>
                           </div>
@@ -496,7 +499,7 @@ function TableDetail({ table, rows, rowsTotal, rowsLoading, busy, run, onChanged
                 })}
                 {rows.length === 0 && !showAddRow ? (
                   <tr className="border-t border-border/60">
-                    <td colSpan={columns.length + 1} className="px-3 py-6 text-center text-muted-foreground">暂无数据行</td>
+                    <td colSpan={columns.length + 1} className="px-3 py-6 text-center text-muted-foreground">{t("dt.noRows")}</td>
                   </tr>
                 ) : null}
               </tbody>

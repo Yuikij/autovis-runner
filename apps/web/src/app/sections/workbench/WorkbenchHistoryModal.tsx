@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { EmptyState } from "../../components/empty-state"
 import { formatDateTime } from "../../utils"
 import { useConfirm } from "../../components/ui/confirm"
+import { t } from "../../../i18n/index.js"
 import type { ScriptArtifact } from "@autovis/shared"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
 function scriptLabel(script: ScriptArtifact) {
-  return script.source === "manual" ? "手动录制" : "AI 生成"
+  return script.source === "manual" ? t("wb.sourceManual") : t("wb.sourceAi")
 }
 
 export type WorkbenchHistoryModalProps = {
@@ -24,7 +25,7 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
 
   const handleBatchDelete = async () => {
     if (selectedIds.length === 0) return
-    const confirmed = await confirm(`确定要删除选中的 ${selectedIds.length} 个脚本版本吗？此操作不可恢复。`)
+    const confirmed = await confirm(t("wb.confirmBatchDeleteVersions", { count: selectedIds.length }))
     if (!confirmed) return
     try {
       await deleteScriptVersions(selectedIds)
@@ -45,10 +46,10 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
           <div>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">history</span>
-              脚本历史版本
+              {t("wb.scriptHistory")}
             </CardTitle>
             <CardDescription className="mt-1">
-              选择一个已保存的版本，切换后可以直接在右侧进行验证或查阅。
+              {t("wb.scriptHistoryDescription")}
             </CardDescription>
           </div>
           <button
@@ -63,8 +64,8 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
         <CardContent className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-3 min-h-0">
           {scripts.length === 0 ? (
             <EmptyState 
-              title="暂无已保存脚本" 
-              description="生成或录制并保存后，这里会出现脚本历史版本。" 
+              title={t("wb.noSavedScripts")} 
+              description={t("wb.noSavedScriptsDescription")} 
             />
           ) : (
             <>
@@ -84,7 +85,7 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
                     className="size-4 rounded border-border text-primary focus:ring-primary cursor-pointer accent-primary shrink-0"
                   />
                   <span className="text-xs text-muted-foreground">
-                    全选 ({selectedIds.length}/{scripts.length})
+                    {t("wb.selectAllCount", { selected: selectedIds.length, total: scripts.length })}
                   </span>
                 </label>
                 {selectedIds.length > 0 && (
@@ -95,7 +96,7 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
                     className="cursor-pointer flex items-center gap-1 h-8 text-xs px-3"
                   >
                     <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
-                    批量删除
+                    {t("wb.batchDelete")}
                   </Button>
                 )}
               </div>
@@ -148,12 +149,12 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
                             </Badge>
                             {active && (
                               <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] py-0 px-1.5 h-4 flex items-center">
-                                当前载入
+                                {t("wb.currentlyLoaded")}
                               </Badge>
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            创建时间: {formatDateTime(script.createdAt)}
+                            {t("wb.createdAtTime", { time: formatDateTime(script.createdAt) })}
                           </p>
                         </div>
                       </div>
@@ -169,12 +170,12 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
                             }}
                             className="cursor-pointer"
                           >
-                            载入此版本
+                            {t("wb.loadThisVersion")}
                           </Button>
                         ) : (
                           <span className="text-xs text-muted-foreground flex items-center justify-center p-2">
                             <span className="material-symbols-outlined text-sm text-success">check_circle</span>
-                            已载入
+                            {t("wb.loaded")}
                           </span>
                         )}
                         
@@ -184,11 +185,11 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
                           className="text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer h-8 w-8 p-0"
                           onClick={async (e) => {
                             e.stopPropagation()
-                            if (await confirm("确定要删除此脚本版本吗？此操作不可恢复。")) {
+                            if (await confirm(t("wb.confirmDeleteVersion"))) {
                               await deleteScriptVersion(script.id)
                             }
                           }}
-                          title="删除此版本"
+                          title={t("wb.deleteThisVersion")}
                         >
                           <span className="material-symbols-outlined text-sm">delete</span>
                         </Button>
@@ -203,7 +204,7 @@ export function WorkbenchHistoryModal({ controller, onClose }: WorkbenchHistoryM
         
         <div className="border-t border-border/80 px-6 py-4 flex justify-end bg-secondary/10">
           <Button variant="ghost" onClick={onClose} className="cursor-pointer">
-            关闭窗口
+            {t("wb.closeWindow")}
           </Button>
         </div>
       </Card>

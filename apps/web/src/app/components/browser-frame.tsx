@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { resolveUrl, resolveWebSocketUrl } from "../utils"
+import { t } from "../../i18n/index.js"
 import type { LiveViewportState } from "@autovis/shared"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 
@@ -165,7 +166,7 @@ export function BrowserFrame({
           type="button"
           onClick={handleFullscreenButton}
           className="ml-2 flex items-center justify-center size-6 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all cursor-pointer"
-          title="全屏查看"
+          title={t("frame.fullscreen")}
         >
           <span className="material-symbols-outlined text-sm">fullscreen</span>
         </button>
@@ -213,7 +214,7 @@ export function BrowserFrame({
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-primary text-xl">desktop_windows</span>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">{title} (全屏视图)</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("frame.fullscreenTitle", { title })}</h3>
             <p className="text-xs text-muted-foreground font-mono truncate max-w-xl">{url || "--"}</p>
           </div>
         </div>
@@ -222,7 +223,7 @@ export function BrowserFrame({
             type="button"
             onClick={() => setIsFullscreen(false)}
             className="flex items-center justify-center size-8 rounded-full bg-secondary/80 border border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary transition-all cursor-pointer"
-            title="退出全屏 (Esc)"
+            title={t("frame.exitFullscreen")}
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>

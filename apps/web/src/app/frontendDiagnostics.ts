@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react"
 
+import { t } from "../i18n/index.js"
+
 export type FrontendDiagnosticSource =
   | "window-error"
   | "unhandled-rejection"
@@ -146,10 +148,10 @@ export const startFrontendDiagnostics = () => {
     recordFrontendDiagnostic({
       source: "window-error",
       level: "error",
-      title: resourceUrl ? "前端资源加载失败" : "前端未捕获异常",
+      title: resourceUrl ? t("diag.resourceFailed") : t("diag.uncaught"),
       message: resourceUrl
-        ? `${target?.tagName?.toLowerCase() ?? "resource"} 加载失败`
-        : event.message || "发生了未捕获异常",
+        ? t("diag.resourceLoadFailed", { tag: target?.tagName?.toLowerCase() ?? "resource" })
+        : event.message || t("diag.uncaughtOccurred"),
       stack: getStack(event.error),
       meta: {
         resourceUrl,
@@ -163,8 +165,8 @@ export const startFrontendDiagnostics = () => {
     recordFrontendDiagnostic({
       source: "unhandled-rejection",
       level: "error",
-      title: "未处理的 Promise 拒绝",
-      message: getMessage(event.reason, "Promise 被拒绝，但没有被捕获"),
+      title: t("diag.unhandledRejection"),
+      message: getMessage(event.reason, t("diag.promiseRejected")),
       stack: getStack(event.reason),
     })
   })

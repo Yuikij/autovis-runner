@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { inputClassName } from "../../components/ui/field"
+import { t } from "../../../i18n/index.js"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
 export type WorkbenchRepoViewProps = {
@@ -27,15 +28,15 @@ export function WorkbenchRepoView({ controller }: WorkbenchRepoViewProps) {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-sm">仓库文件浏览</CardTitle>
+              <CardTitle className="text-sm">{t("wb.repoBrowserTitle")}</CardTitle>
               <CardDescription>
-                {projectWorkspace ? `${projectWorkspace.sourceKind} · ${projectWorkspace.status}` : "尚未配置工作区"}
+                {projectWorkspace ? `${projectWorkspace.sourceKind} · ${projectWorkspace.status}` : t("wb.workspaceNotConfigured")}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <input
                 className={`${inputClassName} h-8 text-xs w-44`}
-                placeholder="搜索关键字..."
+                placeholder={t("wb.searchKeywordPlaceholder")}
                 value={workspaceQuery}
                 onChange={(event) => setWorkspaceQuery(event.target.value)}
               />
@@ -45,7 +46,7 @@ export function WorkbenchRepoView({ controller }: WorkbenchRepoViewProps) {
                 onClick={() => searchWorkspace(workspaceQuery)} 
                 disabled={!projectWorkspace || !workspaceQuery.trim()}
               >
-                搜索
+                {t("wb.search")}
               </Button>
               <Button 
                 variant="ghost" 
@@ -53,7 +54,7 @@ export function WorkbenchRepoView({ controller }: WorkbenchRepoViewProps) {
                 onClick={() => browseWorkspaceTree()} 
                 disabled={!projectWorkspace}
               >
-                刷新目录
+                {t("wb.refreshTree")}
               </Button>
             </div>
           </div>
@@ -61,7 +62,7 @@ export function WorkbenchRepoView({ controller }: WorkbenchRepoViewProps) {
         <CardContent className="grid gap-3 lg:grid-cols-[220px_1fr] flex-1 min-h-0">
           <div className="space-y-2 overflow-auto pr-1">
             {workspaceTree.length === 0 && workspaceSearchResults.length === 0 ? (
-              <div className="text-xs text-muted-foreground">暂无目录数据，先在项目页配置并同步工作区。</div>
+              <div className="text-xs text-muted-foreground">{t("wb.noTreeData")}</div>
             ) : (
               <>
                 {workspaceTree.map((entry) => (
@@ -90,7 +91,7 @@ export function WorkbenchRepoView({ controller }: WorkbenchRepoViewProps) {
             )}
           </div>
           <pre className="min-h-[24rem] max-h-[32rem] overflow-auto rounded-xl border border-border/40 bg-secondary/20 p-4 text-xs leading-relaxed whitespace-pre-wrap break-all">
-            {selectedWorkspaceFile?.content || "选择左侧文件后显示内容"}
+            {selectedWorkspaceFile?.content || t("wb.selectFileToView")}
           </pre>
         </CardContent>
       </Card>

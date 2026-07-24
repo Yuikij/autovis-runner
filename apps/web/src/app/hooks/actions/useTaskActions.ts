@@ -3,6 +3,7 @@ import { request } from "../../api.js"
 import { apiRoutes } from "../../apiRoutes.js"
 import { emptyTaskForm } from "../../workspaceForms.js"
 import { useConfirm } from "../../components/ui/confirm.js"
+import { t } from "../../../i18n/index.js"
 import type {
   ScheduleTrigger,
   StartTaskRunResponse,
@@ -41,11 +42,11 @@ export function useTaskActions(params: WorkspaceActionParams) {
   const saveTask = async () => {
     if (!selectedProject) return false
     if (!taskForm.name.trim()) {
-      setError("保存失败：任务名称不能为空！")
+      setError(t("actions.taskNameRequired"))
       return false
     }
     if (!taskForm.items.length) {
-      setError("保存失败：任务至少需要包含一条用例！")
+      setError(t("actions.taskNeedsCase"))
       return false
     }
 
@@ -66,7 +67,7 @@ export function useTaskActions(params: WorkspaceActionParams) {
       if (result.data?.id) {
         setSelectedTaskId(result.data.id)
       }
-      setSuccessMessage("任务保存成功！")
+      setSuccessMessage(t("actions.taskSaved"))
       setTimeout(() => setSuccessMessage(null), 3000)
       return true
     } catch (reason) {
@@ -79,7 +80,7 @@ export function useTaskActions(params: WorkspaceActionParams) {
 
   const deleteTask = async (taskId: string) => {
     if (!selectedProject) return false
-    if (!await confirm("确定要删除该任务及其执行历史与调度触发器吗？此操作不可恢复。")) {
+    if (!await confirm(t("actions.taskDeleteConfirm"))) {
       return false
     }
 

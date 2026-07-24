@@ -4,6 +4,7 @@ import { request } from "../../api.js"
 import { apiRoutes } from "../../apiRoutes.js"
 import { emptyProjectForm, emptyWorkspaceForm } from "../../workspaceForms.js"
 import { useConfirm } from "../../components/ui/confirm.js"
+import { t } from "../../../i18n/index.js"
 import type { Module, Project, AuthProfile, TargetUrl, UpsertAuthProfileRequest } from "@autovis/shared"
 
 export function useProjectActions(params: WorkspaceActionParams) {
@@ -80,11 +81,11 @@ export function useProjectActions(params: WorkspaceActionParams) {
 
   const saveProject = async () => {
     if (!projectForm.name.trim()) {
-      setError("保存失败：项目名称不能为空！")
+      setError(t("actions.projectNameRequired"))
       return
     }
     if (!projectForm.description.trim()) {
-      setError("保存失败：项目描述不能为空！")
+      setError(t("actions.projectDescRequired"))
       return
     }
 
@@ -100,7 +101,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
       if (result.data?.id) {
         setSelectedProjectId(result.data.id)
       }
-      setSuccessMessage("项目保存成功！")
+      setSuccessMessage(t("actions.projectSaved"))
       setTimeout(() => setSuccessMessage(null), 3000)
       setActiveSection("projects")
     } catch (reason) {
@@ -111,7 +112,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
   }
 
   const deleteProject = async (projectId: string) => {
-    if (!await confirm("确定要删除该项目及其所有用例、历史记录吗？此操作不可恢复。")) {
+    if (!await confirm(t("actions.projectDeleteConfirm"))) {
       return
     }
 
@@ -128,7 +129,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
   }
 
   const clearRuns = async (projectId: string) => {
-    if (!await confirm("确定要清空该项目的所有运行记录吗？此操作不可恢复。")) {
+    if (!await confirm(t("actions.clearRunsConfirm"))) {
       return
     }
 
@@ -138,7 +139,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
     try {
       await request(apiRoutes.projects.runs(projectId), { method: "DELETE" })
       await refreshWorkspace(projectId)
-      setSuccessMessage("运行记录已成功清空！")
+      setSuccessMessage(t("actions.runsCleared"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)
@@ -148,7 +149,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
   }
 
   const deleteRun = async (runId: string): Promise<boolean> => {
-    if (!await confirm("确定要删除该运行记录吗？相关截图、视频、trace 等产物会一并删除，此操作不可恢复。")) {
+    if (!await confirm(t("actions.runDeleteConfirm"))) {
       return false
     }
 
@@ -158,7 +159,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
     try {
       await request(apiRoutes.runs.remove(runId), { method: "DELETE" })
       if (selectedProjectId) await loadProjectResources(selectedProjectId)
-      setSuccessMessage("运行记录已删除！")
+      setSuccessMessage(t("actions.runDeleted"))
       setTimeout(() => setSuccessMessage(null), 3000)
       return true
     } catch (reason) {
@@ -170,7 +171,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
   }
 
   const deleteRunArtifacts = async (runId: string): Promise<boolean> => {
-    if (!await confirm("确定只删除该运行的产物吗？运行记录会保留，但截图、视频、trace 等磁盘产物会被清除。")) {
+    if (!await confirm(t("actions.artifactsDeleteConfirm"))) {
       return false
     }
 
@@ -180,7 +181,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
     try {
       await request(apiRoutes.runs.artifacts(runId), { method: "DELETE" })
       if (selectedProjectId) await loadProjectResources(selectedProjectId)
-      setSuccessMessage("运行产物已删除！")
+      setSuccessMessage(t("actions.artifactsDeleted"))
       setTimeout(() => setSuccessMessage(null), 3000)
       return true
     } catch (reason) {
@@ -235,7 +236,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
       })
       const result = await request<AuthProfile[]>(apiRoutes.projects.authProfiles(selectedProject.id))
       setAuthProfiles(result.data)
-      setSuccessMessage("鉴权配置已保存！")
+      setSuccessMessage(t("actions.authProfileSaved"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)
@@ -246,7 +247,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
 
   const deleteAuthProfile = async (profileId: string) => {
     if (!selectedProject) return
-    if (!await confirm("确定要删除该鉴权配置吗？")) return
+    if (!await confirm(t("actions.authProfileDeleteConfirm"))) return
     setBusy(true)
     setError(null)
     try {
@@ -394,7 +395,7 @@ export function useProjectActions(params: WorkspaceActionParams) {
   }
 
   const deleteTargetUrl = async (id: string): Promise<boolean> => {
-    if (!await confirm("确定删除该 URL 吗？关联到该 URL 的登录态数据也会被清除。")) return false
+    if (!await confirm(t("actions.targetUrlDeleteConfirm"))) return false
     setBusy(true)
     setError(null)
     try {

@@ -5,6 +5,7 @@ import { EmptyState } from "../../components/empty-state"
 import { Badge } from "../../components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { describeTaskMode } from "./shared"
+import { t } from "../../../i18n/index.js"
 
 type TasksListProps = {
   selectedTaskId: string | null
@@ -18,12 +19,12 @@ export function TasksList({ selectedTaskId, tasks, onSelectTask, onRunTask, busy
   return (
     <Card className="h-fit">
       <CardHeader>
-        <CardTitle>任务列表</CardTitle>
-        <CardDescription>{tasks.length} 个任务</CardDescription>
+        <CardTitle>{t("tasks.listTitle")}</CardTitle>
+        <CardDescription>{t("tasks.taskCount", { count: tasks.length })}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
         {tasks.length === 0 ? (
-          <EmptyState description="当前项目下还没有任何任务，点击右上角新建任务。" title="暂无任务" />
+          <EmptyState description={t("tasks.listEmptyDescription")} title={t("tasks.listEmptyTitle")} />
         ) : (
           tasks.map((task) => {
             const isActive = task.id === selectedTaskId
@@ -59,13 +60,13 @@ export function TasksList({ selectedTaskId, tasks, onSelectTask, onRunTask, busy
                   <div className="flex items-center gap-2 shrink-0">
                     {task.lastStatus ? (
                       <Badge tone={task.lastStatus === "passed" ? "success" : task.lastStatus === "failed" ? "danger" : "warning"}>
-                        {task.lastStatus === "passed" ? "通过" : task.lastStatus === "failed" ? "失败" : "运行中"}
+                        {task.lastStatus === "passed" ? t("tasks.statusPassed") : task.lastStatus === "failed" ? t("tasks.statusFailed") : t("tasks.statusRunning")}
                       </Badge>
                     ) : null}
                     <button
                       type="button"
-                      aria-label={isRunning ? "任务运行中" : "立即执行该任务"}
-                      title={isRunning ? "任务运行中" : "立即执行"}
+                      aria-label={isRunning ? t("tasks.taskRunning") : t("tasks.runTaskNow")}
+                      title={isRunning ? t("tasks.taskRunning") : t("tasks.runNow")}
                       disabled={busy || isRunning}
                       onClick={(event) => {
                         event.stopPropagation()
@@ -85,7 +86,7 @@ export function TasksList({ selectedTaskId, tasks, onSelectTask, onRunTask, busy
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1.5 truncate">
                   <span className="material-symbols-outlined text-[13px] text-muted-foreground/60">task</span>
-                  {task.items.length} 个步骤
+                  {t("tasks.stepsCount", { count: task.items.length })}
                   <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
                   <span className="material-symbols-outlined text-[13px] text-muted-foreground/60">run_circle</span>
                   {describeTaskMode(task.executionMode)}

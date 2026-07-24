@@ -1,3 +1,5 @@
+import { t } from "../i18n/index.js"
+
 export type WorkspaceSection = "dashboard" | "projects" | "cases" | "tasks" | "targetUrls" | "dataTables" | "knowledge" | "authProfiles" | "workbench" | "runs" | "outbox" | "llmConnections"
 
 const runtimeApiBase = typeof window === "undefined"
@@ -12,16 +14,16 @@ export const defaultScriptPrompt = ""
 export const defaultRecorderUrl = ""
 
 export const navItems: Array<{ id: WorkspaceSection; label: string; icon: string }> = [
-  { id: "dashboard", label: "仪表盘", icon: "dashboard" },
-  { id: "llmConnections", label: "大模型中心", icon: "smart_toy" },
-  { id: "projects", label: "项目", icon: "folder" },
-  { id: "cases", label: "测试用例", icon: "assignment" },
-  { id: "tasks", label: "任务", icon: "checklist" },
-  { id: "targetUrls", label: "目标网址", icon: "language" },
-  { id: "dataTables", label: "数据表", icon: "table" },
-  { id: "knowledge", label: "知识库", icon: "auto_stories" },
-  { id: "authProfiles", label: "登录状态", icon: "key" },
-  { id: "workbench", label: "AI 工作台", icon: "terminal" },
-  { id: "runs", label: "执行记录", icon: "play_circle" },
-  { id: "outbox", label: "产出收件箱", icon: "inbox" },
+  { id: "dashboard", label: t("nav.dashboard"), icon: "dashboard" },
+  { id: "llmConnections", label: t("nav.llmConnections"), icon: "smart_toy" },
+  { id: "projects", label: t("nav.projects"), icon: "folder" },
+  { id: "cases", label: t("nav.cases"), icon: "assignment" },
+  { id: "tasks", label: t("nav.tasks"), icon: "checklist" },
+  { id: "targetUrls", label: t("nav.targetUrls"), icon: "language" },
+  { id: "dataTables", label: t("nav.dataTables"), icon: "table" },
+  { id: "knowledge", label: t("nav.knowledge"), icon: "auto_stories" },
+  { id: "authProfiles", label: t("nav.authProfiles"), icon: "key" },
+  { id: "workbench", label: t("nav.workbench"), icon: "terminal" },
+  { id: "runs", label: t("nav.runs"), icon: "play_circle" },
+  { id: "outbox", label: t("nav.outbox"), icon: "inbox" },
 ]

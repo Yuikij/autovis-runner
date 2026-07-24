@@ -5,6 +5,7 @@ import { Button } from "../components/ui/button"
 import { PageHeader } from "../components/page-header"
 import { apiRoutes } from "../apiRoutes"
 import { request } from "../api"
+import { t } from "../../i18n/index.js"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
 import { TaskEditor } from "./tasks/TaskEditor"
 import { TaskRunHistory } from "./tasks/TaskRunHistory"
@@ -143,12 +144,12 @@ export function TasksSection({ controller }: TasksSectionProps) {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         eyebrow="Tasks"
-        title={`${selectedProject.name} · 任务`}
-        description="编排有序用例、配置执行模式与调度触发器，并查看执行历史。"
+        title={t("tasks.pageTitle", { name: selectedProject.name })}
+        description={t("tasks.pageDescription")}
         actions={
           <Button disabled={busy} onClick={startNewTaskDraft} className="rounded-xl shadow-sm">
             <span className="material-symbols-outlined text-base">add</span>
-            新建任务
+            {t("tasks.newTask")}
           </Button>
         }
       />
@@ -169,7 +170,7 @@ export function TasksSection({ controller }: TasksSectionProps) {
                 }`}
               >
                 <span className="material-symbols-outlined text-sm">tune</span>
-                配置与编排
+                {t("tasks.tabOrchestration")}
               </button>
               <button
                 type="button"
@@ -181,7 +182,7 @@ export function TasksSection({ controller }: TasksSectionProps) {
                 }`}
               >
                 <span className="material-symbols-outlined text-sm">schedule</span>
-                调度触发器
+                {t("tasks.tabTriggers")}
                 {triggers.length > 0 && (
                   <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/10 px-1 text-[9px] font-bold text-primary border border-primary/20">
                     {triggers.length}
@@ -198,7 +199,7 @@ export function TasksSection({ controller }: TasksSectionProps) {
                 }`}
               >
                 <span className="material-symbols-outlined text-sm">history</span>
-                执行历史
+                {t("tasks.tabHistory")}
                 {history.length > 0 && (
                   <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-muted-foreground/10 px-1 text-[9px] font-bold text-muted-foreground border border-border/40">
                     {history.length}

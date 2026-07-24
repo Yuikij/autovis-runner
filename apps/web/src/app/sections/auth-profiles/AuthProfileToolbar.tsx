@@ -1,5 +1,6 @@
 import type { AuthProfile, TargetUrl } from "@autovis/shared"
 import { Button } from "../../components/ui/button"
+import { t } from "../../../i18n/index.js"
 import type { DetailTab } from "./useAuthProfilesState"
 
 export function DetailTabButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
@@ -50,10 +51,10 @@ export function AuthProfileToolbar({
   return (
     <div className="flex flex-wrap items-center gap-3 justify-between border-b border-border bg-secondary/10 px-4 py-2">
       <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-xl border border-border/40">
-        <DetailTabButton active={detailTab === "overview"} onClick={() => onChangeTab("overview")}>概览</DetailTabButton>
-        <DetailTabButton active={detailTab === "script"} onClick={() => onChangeTab("script")}>失效校验脚本</DetailTabButton>
+        <DetailTabButton active={detailTab === "overview"} onClick={() => onChangeTab("overview")}>{t("auth.tabOverview")}</DetailTabButton>
+        <DetailTabButton active={detailTab === "script"} onClick={() => onChangeTab("script")}>{t("auth.validationScript")}</DetailTabButton>
         <DetailTabButton active={detailTab === "timeline"} onClick={() => onChangeTab("timeline")}>
-          执行日志
+          {t("auth.tabTimeline")}
           {taskBusy ? (
             <span className="ml-1 size-1.5 rounded-full bg-rose-500 animate-pulse inline-block align-middle" />
           ) : null}
@@ -66,7 +67,7 @@ export function AuthProfileToolbar({
           value={activeTargetUrlId}
           onChange={(e) => setActiveTargetUrlId(e.target.value)}
         >
-          <option value="">选择 URL</option>
+          <option value="">{t("auth.selectUrl")}</option>
           {targetUrls.map((u) => (
             <option key={u.id} value={u.id}>{u.label} · {u.url}</option>
           ))}
@@ -79,7 +80,7 @@ export function AuthProfileToolbar({
           disabled={busy || !canCheck || taskBusy || !activeTargetUrlId}
         >
           <span className="material-symbols-outlined text-base">policy</span>
-          {checkInProgress ? "检查中…" : "检查登录状态"}
+          {checkInProgress ? t("auth.checking") : t("auth.checkLoginStatus")}
         </Button>
         <Button
           size="sm"
@@ -88,7 +89,7 @@ export function AuthProfileToolbar({
           disabled={busy || taskBusy || !activeTargetUrlId}
         >
           <span className="material-symbols-outlined text-sm mr-1">smart_toy</span>
-          {profile.validationScript ? "重新生成失效条件" : "生成失效条件"}
+          {profile.validationScript ? t("auth.regenerateValidation") : t("auth.generateValidation")}
         </Button>
       </div>
     </div>

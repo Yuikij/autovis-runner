@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import { translateStatus } from "../utils"
+import { t } from "../../i18n/index.js"
 
 type RunStatusBarProps = {
   /** 运行状态（如 running / passed / failed / awaiting_human）。 */
@@ -75,7 +76,7 @@ export function RunStatusBar({ status, title, subtitle, logs, controls }: RunSta
           ref={logRef}
           className="flex-1 min-h-[10rem] overflow-auto whitespace-pre-wrap border-t border-border/40 bg-secondary/30 px-4 py-3 text-xs leading-6 font-mono text-slate-800 dark:text-slate-200"
         >
-          {logs?.trim() || "暂无日志输出。"}
+          {logs?.trim() || t("runbar.noLogs")}
         </pre>
       ) : null}
     </div>

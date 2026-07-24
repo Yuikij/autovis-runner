@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { textareaClassName } from "../../components/ui/field"
+import { t } from "../../../i18n/index.js"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
 export type WorkbenchCodeViewProps = {
@@ -68,7 +69,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
     const text = chatInput.trim()
     if ((!text && !hasUserTurn) || !baseScriptId || interactionLocked || !isConnected) return
     if (!lastTargetUrlId) {
-      setError("请先在「沙盒控制台」生成模式选择一个目标 URL，再执行改写。")
+      setError(t("wb.selectUrlBeforeRewrite"))
       return
     }
     const nextMessages = text
@@ -82,7 +83,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
       const plan = await rewritePlan(toHistory(nextMessages), baseScriptId)
       setMessages((current) => [
         ...current,
-        { id: `msg_${Date.now()}_plan`, role: "assistant", content: `改写执行方案：\n${plan}` },
+        { id: `msg_${Date.now()}_plan`, role: "assistant", content: `${t("wb.rewritePlanPrefix")}\n${plan}` },
       ])
       setChatInput("")
       setWorkspaceTab("sandbox")
@@ -126,13 +127,13 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
         <div className="flex flex-col min-h-[30rem] xl:min-h-0 rounded-xl border border-border/60 bg-slate-50 dark:bg-slate-950/90 p-4">
           <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">脚本代码</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{t("wb.scriptCode")}</p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                当前选中脚本版本{selectedScript ? ` · v${selectedScript.version}` : latestScript ? ` · v${latestScript.version}` : ""}
+                {t("wb.currentScriptVersion")}{selectedScript ? ` · v${selectedScript.version}` : latestScript ? ` · v${latestScript.version}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              {isDirty ? <Badge tone="warning">未保存修改</Badge> : null}
+              {isDirty ? <Badge tone="warning">{t("wb.unsavedChanges")}</Badge> : null}
               {currentScriptCode ? (
                 editMode ? (
                   <>
@@ -148,7 +149,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
                         setIsDirty(false)
                       }}
                     >
-                      保存为新版本
+                      {t("wb.saveAsNewVersion")}
                     </Button>
                     <Button
                       size="sm"
@@ -161,7 +162,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
                         setIsDirty(false)
                       }}
                     >
-                      放弃修改
+                      {t("wb.discardChanges")}
                     </Button>
                   </>
                 ) : (
@@ -175,7 +176,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
                       setEditMode(true)
                     }}
                   >
-                    编辑
+                    {t("wb.edit")}
                   </Button>
                 )
               ) : null}
@@ -197,7 +198,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
                 <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 text-4xl">code_off</span>
-                <p>尚未生成自动化脚本。请选择左侧模式并开始生成或录制。</p>
+                <p>{t("wb.noScriptYet")}</p>
               </div>
             )}
           </div>
@@ -207,10 +208,10 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
           <div className="border-b border-primary/10 bg-background/60 backdrop-blur-md p-4 flex flex-row items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-base drop-shadow-[0_0_8px_rgba(var(--primary),0.8)]">auto_awesome</span>
-              <h3 className="text-sm font-semibold text-foreground tracking-wide">AI 脚本改写</h3>
+              <h3 className="text-sm font-semibold text-foreground tracking-wide">{t("wb.aiScriptRewrite")}</h3>
             </div>
             <Badge tone="default" className="font-mono text-[9px] py-0 px-1.5 border-border/60 bg-background/50">
-              {selectedScript?.id || latestScript?.id ? `v${selectedScript?.version ?? latestScript?.version}` : "无版本"}
+              {selectedScript?.id || latestScript?.id ? `v${selectedScript?.version ?? latestScript?.version}` : t("wb.noVersion")}
             </Badge>
           </div>
           
@@ -221,16 +222,16 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
                   <span className="material-symbols-outlined text-2xl drop-shadow-[0_0_8px_rgba(var(--primary),0.8)]">auto_fix_high</span>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground tracking-wide">可对话，也可直接执行</p>
+                  <p className="text-sm font-semibold text-foreground tracking-wide">{t("wb.chatOrExecute")}</p>
                   <p className="text-xs text-muted-foreground mt-2 max-w-[280px] leading-relaxed">
-                    直接点「执行方案」会自动整理方案并开始改写；点发送可先继续讨论。
+                    {t("wb.chatOrExecuteHint")}
                   </p>
                 </div>
                 <div className="w-full pt-2 space-y-2 max-w-[280px]">
                   {[
-                    "增加步骤：点击页面右上角退出登录",
-                    "修复网络延迟导致的元素找不到问题",
-                    "在创建成功后，校验提示文本是否正确",
+                    t("wb.suggestionAddLogoutStep"),
+                    t("wb.suggestionFixFlakyElement"),
+                    t("wb.suggestionVerifyToast"),
                   ].map((suggestion, i) => (
                     <button
                       key={suggestion}
@@ -249,7 +250,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
               <div className="space-y-4 pr-1">
                 {messages.map((message) => {
                   const isUser = message.role === "user"
-                  const isPlan = !isUser && message.content.startsWith("改写执行方案：")
+                  const isPlan = !isUser && message.content.startsWith(t("wb.rewritePlanPrefix"))
                   return (
                     <div key={message.id} className={`flex gap-3 max-w-[88%] animate-in fade-in slide-in-from-bottom-2 duration-300 ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}>
                       <div className={`size-7 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold shadow-sm ${
@@ -305,10 +306,10 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
               }}
               placeholder={
                 isDirty 
-                  ? "请先保存或放弃当前手动修改" 
+                  ? t("wb.saveOrDiscardFirst") 
                   : !currentScriptCode 
-                  ? "请先生成或录制基础版本脚本..."
-                  : "描述要怎么改写当前脚本，回车可先对话..."
+                  ? t("wb.generateBaseScriptFirst")
+                  : t("wb.rewriteInputPlaceholder")
               }
               value={chatInput}
             />
@@ -320,7 +321,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
                 className="h-8 rounded-xl border border-border/60 text-[11px] cursor-pointer"
                 disabled={interactionLocked || (!chatInput && messages.length === 0)}
                 onClick={handleResetInstruction}
-                title="清空输入和对话"
+                title={t("wb.clearInputAndChat")}
               >
                 <span className="material-symbols-outlined text-[14px]">restart_alt</span>
               </Button>
@@ -330,7 +331,7 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
                 className="h-8 rounded-xl border border-border/60 text-[11px] cursor-pointer"
                 disabled={interactionLocked || !chatInput.trim() || !isConnected || !currentScriptCode || isDirty || !baseScriptId}
                 onClick={handleSend}
-                title="发送对话"
+                title={t("wb.sendMessage")}
               >
                 <span className="material-symbols-outlined text-[14px]">send</span>
               </Button>
@@ -341,12 +342,12 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
                 onClick={handleExecuteRewrite}
               >
                 <span className="material-symbols-outlined text-[15px] mr-1">play_arrow</span>
-                {planBusy ? "正在执行方案..." : "执行方案"}
+                {planBusy ? t("wb.executingPlan") : t("wb.executePlan")}
               </Button>
             </div>
             {!lastTargetUrlId && (
               <p className="text-[10px] text-amber-600 dark:text-amber-400 px-1">
-                请先在「沙盒控制台」生成模式选择一个目标 URL，再执行改写。
+                {t("wb.selectUrlBeforeRewrite")}
               </p>
             )}
 
@@ -355,16 +356,16 @@ export function WorkbenchCodeView({ controller, isDirty, setIsDirty, setWorkspac
                 <span className={`size-1.5 rounded-full ${isDirty ? "bg-amber-500" : isConnected ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500 animate-pulse"}`} />
                 <span>
                   {isDirty 
-                    ? "存在未保存的手动修改" 
+                    ? t("wb.unsavedManualEdits") 
                     : isConnected 
-                    ? "输入要求后可直接执行改写" 
-                    : "智能体未连接"}
+                    ? t("wb.readyToRewrite") 
+                    : t("wb.agentNotConnected")}
                 </span>
               </div>
               {(planBusy || agentRunning) && (
                 <span className="text-primary font-medium animate-pulse flex items-center gap-1">
                   <span className="size-1 rounded-full bg-primary" />
-                  {agentRunning ? "正在改写脚本..." : "正在整理方案..."}
+                  {agentRunning ? t("wb.rewritingScript") : t("wb.preparingPlan")}
                 </span>
               )}
             </div>

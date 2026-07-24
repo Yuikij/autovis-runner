@@ -1,6 +1,7 @@
 import type { WorkspaceActionParams } from "../types.js"
 import { request } from "../../api.js"
 import { apiRoutes } from "../../apiRoutes.js"
+import { t } from "../../../i18n/index.js"
 import type { CopilotSessionResponse } from "@autovis/shared"
 
 export function useLlmActions(params: WorkspaceActionParams) {
@@ -25,7 +26,7 @@ export function useLlmActions(params: WorkspaceActionParams) {
         body: JSON.stringify(llmConfigForm),
       })
       await loadLlmSession()
-      setSuccessMessage("AI 配置已保存。")
+      setSuccessMessage(t("actions.llmSaved"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)
@@ -72,7 +73,7 @@ export function useLlmActions(params: WorkspaceActionParams) {
     try {
       await request(apiRoutes.llm.config(configId), { method: "DELETE" })
       await loadLlmSession()
-      setSuccessMessage("AI 配置已删除。")
+      setSuccessMessage(t("actions.llmDeleted"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)

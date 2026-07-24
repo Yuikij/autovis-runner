@@ -3,6 +3,7 @@ import type { TaskRun } from "@autovis/shared"
 import { Badge } from "../../components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { formatDateTime, translateStatus } from "../../utils"
+import { t } from "../../../i18n/index.js"
 
 type TaskRunHistoryProps = {
   history: TaskRun[]
@@ -13,14 +14,14 @@ export function TaskRunHistory({ history, onOpenTaskRun }: TaskRunHistoryProps) 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2"><span className="material-symbols-outlined text-primary text-lg">history</span>执行历史记录</CardTitle>
-        <CardDescription>该任务的所有历史运行状态和步骤明细。点击任意记录可跳转至详情控制台。</CardDescription>
+        <CardTitle className="text-base flex items-center gap-2"><span className="material-symbols-outlined text-primary text-lg">history</span>{t("tasks.historyTitle")}</CardTitle>
+        <CardDescription>{t("tasks.historyDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {history.length === 0 ? (
           <div className="relative rounded-xl border border-dashed border-border/80 bg-secondary/5 px-4 py-8 text-center flex flex-col items-center justify-center gap-2">
             <span className="material-symbols-outlined text-muted-foreground/60 text-xl">history_toggle_off</span>
-            <p className="text-xs text-muted-foreground">该任务暂无历史运行记录。</p>
+            <p className="text-xs text-muted-foreground">{t("tasks.historyEmpty")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -50,8 +51,8 @@ export function TaskRunHistory({ history, onOpenTaskRun }: TaskRunHistoryProps) 
                       </div>
 
                       <div className="flex items-center gap-3 text-[10px] text-muted-foreground/80">
-                        <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[13px] text-muted-foreground/60">playlist_add_check</span>通过率：{taskRun.passedCount}/{taskRun.totalCount}</span>
-                        {taskRun.failedCount > 0 ? <span className="flex items-center gap-1 text-rose-500 font-medium"><span className="material-symbols-outlined text-[13px]">error</span>失败 {taskRun.failedCount} 个</span> : null}
+                        <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[13px] text-muted-foreground/60">playlist_add_check</span>{t("tasks.passRate", { passed: taskRun.passedCount, total: taskRun.totalCount })}</span>
+                        {taskRun.failedCount > 0 ? <span className="flex items-center gap-1 text-rose-500 font-medium"><span className="material-symbols-outlined text-[13px]">error</span>{t("tasks.failedCount", { count: taskRun.failedCount })}</span> : null}
                       </div>
                     </div>
                   </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import type { TestCase, AuthProfile } from "@autovis/shared"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { t } from "../../../i18n/index.js"
 import type { ProfileFormState } from "./useAuthProfilesState"
 
 const inputCls = "block w-full rounded-xl border border-border/60 bg-background/40 px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary/80 focus:ring-2 focus:ring-primary/20"
@@ -76,39 +77,39 @@ export function AuthProfileForm({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm">{isEditing ? "编辑登录状态" : "新建登录状态"}</CardTitle>
+        <CardTitle className="text-sm">{isEditing ? t("auth.formTitleEdit") : t("auth.formTitleCreate")}</CardTitle>
         <CardDescription>
-          来源登录用例是用来"跑出"登录态的脚本；创建后可以在概览里为每个项目 URL 独立刷新登录态。
+          {t("auth.formDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label="配置名称">
+          <FormField label={t("auth.fieldName")}>
             <input
               className={inputCls}
-              placeholder="例如：标准登录态"
+              placeholder={t("auth.fieldNamePlaceholder")}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               disabled={busy}
             />
           </FormField>
-          <FormField label="描述">
+          <FormField label={t("auth.fieldDescription")}>
             <input
               className={inputCls}
-              placeholder="例如：用于执行需要登录的用例"
+              placeholder={t("auth.fieldDescriptionPlaceholder")}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               disabled={busy}
             />
           </FormField>
-          <FormField label="来源登录用例" hint="用来跑登录流程、采集 storageState 的测试用例">
+          <FormField label={t("auth.sourceCase")} hint={t("auth.fieldSourceCaseHint")}>
             <select
               className={inputCls}
               value={form.sourceCaseId}
               onChange={(e) => setForm({ ...form, sourceCaseId: e.target.value })}
               disabled={busy}
             >
-              <option value="">选择用例...</option>
+              <option value="">{t("auth.selectCasePlaceholder")}</option>
               {cases.map((testCase) => (
                 <option key={testCase.id} value={testCase.id}>{testCase.caseCode}{testCase.purpose ? ` · ${testCase.purpose}` : ""}</option>
               ))}
@@ -117,8 +118,8 @@ export function AuthProfileForm({
           {prerequisiteCandidates.length > 0 ? (
             <div className="sm:col-span-2">
               <FormField
-                label="前置登录态"
-                hint="手动登录时先把勾选的登录态（如 Google / GitHub）注入浏览器，再打开目标站——走第三方登录时可直接带上会话，不用每次先登第三方。"
+                label={t("auth.fieldPrerequisites")}
+                hint={t("auth.fieldPrerequisitesHint")}
               >
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-border/60 bg-background/40 px-3 py-2">
                   {prerequisiteCandidates.map((profile) => (
@@ -146,10 +147,10 @@ export function AuthProfileForm({
                 onChange={(e) => setForm({ ...form, usePersistentProfile: e.target.checked })}
                 disabled={busy}
               />
-              <span className="text-xs text-foreground">持久 profile（推荐，默认开）</span>
+              <span className="text-xs text-foreground">{t("auth.persistentProfileLabel")}</span>
             </label>
             <p className="text-[10px] text-muted-foreground/80 leading-relaxed">
-              保留浏览器 userDataDir，复用人机验证（如 Cloudflare cf_clearance），避免反复触发挑战。仅当需要同一登录态并发执行时才关闭。
+              {t("auth.persistentProfileHint")}
             </p>
           </div>
         </div>
@@ -161,7 +162,7 @@ export function AuthProfileForm({
             onClick={onCancel}
             disabled={busy}
           >
-            取消
+            {t("auth.cancel")}
           </Button>
           <Button
             size="sm"
@@ -170,7 +171,7 @@ export function AuthProfileForm({
             className="h-8 rounded-lg cursor-pointer"
           >
             <span className="material-symbols-outlined text-sm mr-1">save</span>
-            {busy ? "保存中..." : (isEditing ? "保存修改" : "创建")}
+            {busy ? t("auth.formSaving") : (isEditing ? t("auth.saveChanges") : t("auth.create"))}
           </Button>
         </div>
       </CardContent>

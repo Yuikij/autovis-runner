@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { cn } from "../../lib/utils"
+import { t } from "../../i18n/index.js"
 
 type LogPanelProps = {
   title: string
@@ -16,7 +17,7 @@ export function LogPanel({ title, content, noCard = false, className = "" }: Log
         className || "max-h-72"
       )}
     >
-      {content || "无输出日志"}
+      {content || t("logpanel.empty")}
     </pre>
   )
 

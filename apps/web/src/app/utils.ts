@@ -1,4 +1,5 @@
 import { apiBase } from "./constants.js"
+import { lang, t } from "../i18n/index.js"
 
 export const resolveUrl = (url?: string) => {
   if (!url) {
@@ -33,7 +34,7 @@ export const formatDateTime = (value?: string) => {
     return "--"
   }
 
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -83,42 +84,22 @@ export const splitCommaValues = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean)
 
+const KNOWN_STATUSES = new Set([
+  "idle", "queued", "running", "awaiting_human", "passed", "failed", "connected",
+  "disconnected", "authorizing", "error", "starting", "stopping", "completed",
+])
+
 export const translateStatus = (status: string, isStep?: boolean) => {
   if (isStep && status === "queued") {
-    return "等待中"
+    return t("status.queuedStep")
   }
-  const map: Record<string, string> = {
-    idle: "空闲",
-    queued: "排队中",
-    running: "运行中",
-    awaiting_human: "等待人工输入",
-    passed: "成功",
-    failed: "失败",
-    connected: "已连接",
-    disconnected: "已断开",
-    authorizing: "授权中",
-    error: "错误",
-    starting: "启动中",
-    stopping: "停止中",
-    completed: "已完成",
-  }
-  return map[status] ?? status
+  return KNOWN_STATUSES.has(status) ? t(`status.${status}`) : status
 }
 
 export const translateArtifactKind = (kind: string) => {
-  const map: Record<string, string> = {
-    trace: "运行轨迹 (Trace)",
-    video: "录制视频 (Video)",
-    screenshot: "步骤截图 (Screenshot)",
-  }
-  return map[kind] ?? kind
+  return kind === "trace" || kind === "video" || kind === "screenshot" ? t(`artifact.${kind}`) : kind
 }
 
 export const translateTestType = (type: string) => {
-  const map: Record<string, string> = {
-    functional: "功能测试",
-    regression: "回归测试",
-    smoke: "冒烟测试",
-  }
-  return map[type] ?? type
+  return type === "functional" || type === "regression" || type === "smoke" ? t(`testType.${type}`) : type
 }

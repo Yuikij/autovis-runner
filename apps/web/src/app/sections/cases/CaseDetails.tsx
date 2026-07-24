@@ -9,12 +9,13 @@ import { LogPanel } from "../../components/log-panel"
 import { RunStatusBar } from "../../components/run-status-bar"
 import { TaskControlBar } from "../../components/TaskControlBar"
 import { CaseApiPanel } from "./CaseApiPanel"
+import { t } from "../../../i18n/index.js"
 
 const translateRunPhase = (phase?: any) => {
-  if (phase === "preconditions") return "前置依赖中"
-  if (phase === "target") return "目标脚本中"
-  if (phase === "archive") return "归档中"
-  return "未分阶段"
+  if (phase === "preconditions") return t("cases.phasePreconditions")
+  if (phase === "target") return t("cases.phaseTarget")
+  if (phase === "archive") return t("cases.phaseArchive")
+  return t("cases.phaseNone")
 }
 
 export function CaseDetails(props: CaseDetailsProps) {
@@ -55,16 +56,16 @@ export function CaseDetails(props: CaseDetailsProps) {
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">上次更新于 {formatDateTime(selectedCase.updatedAt)}</p>
+            <p className="text-sm text-muted-foreground">{t("cases.lastUpdatedAt", { time: formatDateTime(selectedCase.updatedAt) })}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={() => setIsEditing(true)} size="sm">
               <span className="material-symbols-outlined text-sm">edit</span>
-              编辑用例
+              {t("cases.editCase")}
             </Button>
             <Button onClick={() => setActiveSection("workbench")} variant="ghost" size="sm">
               <span className="material-symbols-outlined text-sm">smart_toy</span>
-              AI 工作台
+              {t("cases.aiWorkbench")}
             </Button>
             <Button
               onClick={() => handleDeleteCase(selectedCase.id)}
@@ -89,7 +90,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                 value={quickRunTargetUrlId}
                 onChange={(e) => setQuickRunTargetUrlId(e.target.value)}
               >
-                <option value="">选择目标 URL</option>
+                <option value="">{t("cases.selectTargetUrl")}</option>
                 {targetUrls.map((u) => (
                   <option key={u.id} value={u.id}>{u.label} · {u.url}</option>
                 ))}
@@ -102,7 +103,7 @@ export function CaseDetails(props: CaseDetailsProps) {
             onClick={() => startRun(quickRunTargetUrlId)}
           >
             <span className="material-symbols-outlined text-sm">play_arrow</span>
-            临时运行
+            {t("cases.tempRun")}
           </Button>
           <Button
             size="sm"
@@ -112,10 +113,10 @@ export function CaseDetails(props: CaseDetailsProps) {
               setActiveSection("workbench")
               startDirectAgent(quickRunTargetUrlId)
             }}
-            title="不生成脚本，直接让 AI 尝试完成该用例"
+            title={t("cases.directAgentTitle")}
           >
             <span className="material-symbols-outlined text-sm text-purple-500">smart_toy</span>
-            AI 直接执行
+            {t("cases.aiDirectRun")}
           </Button>
         </div>
 
@@ -124,7 +125,7 @@ export function CaseDetails(props: CaseDetailsProps) {
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-semibold text-foreground">临时运行结果</span>
+                  <span className="text-xs font-semibold text-foreground">{t("cases.tempRunResult")}</span>
                   <Badge tone={temporaryRun.status === "passed" ? "success" : temporaryRun.status === "failed" ? "danger" : "warning"}>
                     {translateStatus(temporaryRun.status)}
                   </Badge>
@@ -150,19 +151,19 @@ export function CaseDetails(props: CaseDetailsProps) {
                     }}
                   >
                     <span className="material-symbols-outlined text-sm">auto_fix_high</span>
-                    ✨ AI 智能修复
+                    {t("cases.aiRepair")}
                   </Button>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => setActiveRun(null)}>
-                  清除临时结果
+                  {t("cases.clearTempResult")}
                 </Button>
               </div>
             </div>
 
             <div className="space-y-5">
               <BrowserFrame
-                title="临时运行画面"
-                emptyText="临时运行开始后，这里会实时显示执行画面；结束后优先播放完整回放视频。"
+                title={t("cases.tempRunView")}
+                emptyText={t("cases.tempRunViewEmpty")}
                 noCard
                 url={temporaryRun.testBaseUrl}
                 viewport={temporaryRun.currentViewport}
@@ -187,9 +188,9 @@ export function CaseDetails(props: CaseDetailsProps) {
                   {temporaryRun.pendingHumanHandoff ? (
                     <Card className="border-warning/40 bg-warning/5 shadow-sm">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">等待人工输入</CardTitle>
+                        <CardTitle className="text-sm">{t("cases.waitingHumanInput")}</CardTitle>
                         <CardDescription>
-                          {temporaryRun.pendingHumanHandoff.scope === "precondition" ? "前置依赖执行中需要人工输入。" : "目标脚本执行中需要人工输入。"}
+                          {temporaryRun.pendingHumanHandoff.scope === "precondition" ? t("cases.humanInputPrecondition") : t("cases.humanInputTarget")}
                           {" "}
                           {temporaryRun.pendingHumanHandoff.instruction}
                         </CardDescription>
@@ -198,7 +199,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                         {(temporaryRun.pendingHumanHandoff.imageUrl ?? temporaryRun.currentViewport) ? (
                           <div className="overflow-hidden rounded-xl border border-border/60 bg-slate-100 dark:bg-black/20">
                             <img
-                              alt={temporaryRun.pendingHumanHandoff.inputLabel ?? "人工输入参考图"}
+                              alt={temporaryRun.pendingHumanHandoff.inputLabel ?? t("cases.humanInputImageAlt")}
                               className="max-h-52 w-full object-contain bg-slate-200 dark:bg-black"
                               src={temporaryRun.pendingHumanHandoff.imageUrl ?? temporaryRun.currentViewport}
                             />
@@ -208,7 +209,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                           <input
                             className={`${inputClassName} text-xs flex-1 bg-secondary/20 border-border/60`}
                             onChange={(event) => setQuickRunHumanInput(event.target.value)}
-                            placeholder={temporaryRun.pendingHumanHandoff.placeholder ?? temporaryRun.pendingHumanHandoff.inputLabel ?? "请输入内容"}
+                            placeholder={temporaryRun.pendingHumanHandoff.placeholder ?? temporaryRun.pendingHumanHandoff.inputLabel ?? t("cases.humanInputPlaceholder")}
                             value={quickRunHumanInput}
                           />
                           <Button
@@ -219,7 +220,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                               setQuickRunHumanInput("")
                             }}
                           >
-                            {temporaryRun.pendingHumanHandoff.confirmText ?? "确定并继续"}
+                            {temporaryRun.pendingHumanHandoff.confirmText ?? t("cases.confirmAndContinue")}
                           </Button>
                         </div>
                       </CardContent>
@@ -229,8 +230,8 @@ export function CaseDetails(props: CaseDetailsProps) {
                   {temporaryRun.steps.length > 0 ? (
                     <div className="space-y-3">
                       <div className="rounded-xl border border-border/50 bg-background/40 px-3 py-2 text-xs text-muted-foreground select-none">
-                        当前阶段：{translateRunPhase(temporaryRun.orchestrationPhase)}
-                        {temporaryRun.preconditionSummary?.length ? ` · 前置依赖：${temporaryRun.preconditionSummary.join("、")}` : ""}
+                        {t("cases.currentPhase", { phase: translateRunPhase(temporaryRun.orchestrationPhase) })}
+                        {temporaryRun.preconditionSummary?.length ? t("cases.preconditionList", { list: temporaryRun.preconditionSummary.join(t("cases.listSeparator")) }) : ""}
                       </div>
                       <div className="space-y-2 max-h-[18rem] overflow-y-auto pr-1">
                         {temporaryRun.steps.map((step: any) => (
@@ -248,7 +249,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                     </div>
                   ) : (
                     <div className="rounded-xl border border-border/50 bg-background/40 px-3 py-2 text-xs text-muted-foreground select-none">
-                      临时运行已创建，正在等待执行反馈。
+                      {t("cases.tempRunCreated")}
                     </div>
                   )}
                 </div>
@@ -256,7 +257,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                 <div className="flex flex-col">
                   <LogPanel
                     noCard
-                    title="临时运行日志"
+                    title={t("cases.tempRunLogs")}
                     content={temporaryRun.logs.join("\n")}
                     className="flex-1 max-h-[22rem] min-h-[14rem]"
                   />
@@ -266,7 +267,7 @@ export function CaseDetails(props: CaseDetailsProps) {
 
             {temporaryRun.artifacts.length > 0 ? (
               <div className="space-y-2 pt-1">
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">运行产物 / 回放</div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("cases.artifactsTitle")}</div>
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {temporaryRun.artifacts.map((artifact: any) => (
                     <a
@@ -276,7 +277,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                       rel="noreferrer"
                       className="flex items-center justify-between rounded-xl border border-border bg-card/40 px-3 py-2 text-xs transition hover:bg-secondary/40"
                     >
-                      <strong>{artifact.kind === "video" ? "回放视频" : artifact.kind === "trace" ? "运行轨迹" : "步骤截图"}</strong>
+                      <strong>{artifact.kind === "video" ? t("cases.artifactVideo") : artifact.kind === "trace" ? t("cases.artifactTrace") : t("cases.artifactScreenshot")}</strong>
                       <span className="truncate text-muted-foreground text-[10px] max-w-[140px]">{artifact.name}</span>
                     </a>
                   ))}
@@ -298,9 +299,9 @@ export function CaseDetails(props: CaseDetailsProps) {
               }`}
               onClick={() => setActiveTab(tab)}
             >
-              {tab === "info" && "基本信息与步骤"}
-              {tab === "script" && "自动化脚本"}
-              {tab === "history" && "正式执行历史"}
+              {tab === "info" && t("cases.tabInfo")}
+              {tab === "script" && t("cases.tabScript")}
+              {tab === "history" && t("cases.tabHistory")}
               {tab === "api" && "API"}
             </button>
           ))}
@@ -313,7 +314,7 @@ export function CaseDetails(props: CaseDetailsProps) {
               <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
               <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1 select-none">
                 <span className="material-symbols-outlined text-xs">target</span>
-                测试目的
+                {t("cases.purpose")}
               </h4>
               <p className="text-sm font-medium text-foreground leading-relaxed">{selectedCase.purpose}</p>
             </div>
@@ -322,7 +323,7 @@ export function CaseDetails(props: CaseDetailsProps) {
               <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
               <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1 select-none">
                 <span className="material-symbols-outlined text-xs text-emerald-500">check_circle</span>
-                预期结果
+                {t("cases.expectedResult")}
               </h4>
               <p className="text-sm font-medium text-foreground leading-relaxed">{selectedCase.expectedResult}</p>
             </div>
@@ -330,7 +331,7 @@ export function CaseDetails(props: CaseDetailsProps) {
             <div className="space-y-3">
               <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 select-none">
                 <span className="material-symbols-outlined text-xs">format_list_numbered</span>
-                操作步骤 (点击即可打勾对照)
+                {t("cases.stepsTitle")}
               </h4>
               <div className="grid gap-2.5">
                 {selectedCase.steps.map((step, index) => (
@@ -357,7 +358,7 @@ export function CaseDetails(props: CaseDetailsProps) {
               <div className="space-y-2">
                 <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 select-none">
                   <span className="material-symbols-outlined text-xs">account_tree</span>
-                  前置用例
+                  {t("cases.preconditionCases")}
                 </h4>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {selectedCaseDependencies.map((item) => {
@@ -365,7 +366,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                     return (
                       <div key={item.id} className="p-3.5 rounded-xl border border-border/80 bg-secondary/20 text-xs space-y-1">
                         <p className="font-semibold text-foreground">{item.caseCode}</p>
-                        <p className="text-[10px] text-muted-foreground">{item.purpose || item.expectedResult || "未填写说明"}</p>
+                        <p className="text-[10px] text-muted-foreground">{item.purpose || item.expectedResult || t("cases.noDescription")}</p>
                         <p className="text-[10px] text-muted-foreground">{proj?.name}</p>
                       </div>
                     )
@@ -377,15 +378,15 @@ export function CaseDetails(props: CaseDetailsProps) {
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/40 text-xs text-muted-foreground select-none">
               <div>
                 <span className="font-semibold">Bug ID: </span>
-                <span className="font-mono text-foreground">{selectedCase.bugId || "无"}</span>
+                <span className="font-mono text-foreground">{selectedCase.bugId || t("cases.none")}</span>
               </div>
               <div>
-                <span className="font-semibold">创建时间: </span>
+                <span className="font-semibold">{t("cases.createdAtLabel")}</span>
                 <span>{formatDateTime(selectedCase.createdAt)}</span>
               </div>
               {selectedCase.note && (
                 <div className="col-span-2 mt-2">
-                  <span className="font-semibold block mb-1">备注信息:</span>
+                  <span className="font-semibold block mb-1">{t("cases.noteInfoLabel")}</span>
                   <p className="text-foreground leading-relaxed p-3 bg-secondary/5 rounded-lg border border-border/30 whitespace-pre-wrap">{selectedCase.note}</p>
                 </div>
               )}
@@ -411,7 +412,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                     className="px-3 py-1 text-xs font-semibold bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
                   >
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
-                    {copied ? "已复制" : "复制代码"}
+                    {copied ? t("cases.copied") : t("cases.copyCode")}
                   </button>
                 </div>
                 <div className="relative rounded-xl border border-border/80 overflow-hidden bg-slate-50 dark:bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-800 dark:text-slate-200">
@@ -421,10 +422,10 @@ export function CaseDetails(props: CaseDetailsProps) {
             ) : (
               <div className="flex flex-col items-center justify-center py-16 px-6 border border-dashed border-border/60 rounded-xl text-center bg-secondary/5">
                 <span className="material-symbols-outlined text-4xl text-muted-foreground/60 mb-2">code_off</span>
-                <p className="text-sm font-semibold text-muted-foreground mb-4">该用例尚未生成 Playwright 自动化脚本</p>
+                <p className="text-sm font-semibold text-muted-foreground mb-4">{t("cases.noScriptEmpty")}</p>
                 <Button onClick={() => setActiveSection("workbench")} size="sm">
                   <span className="material-symbols-outlined text-base">smart_toy</span>
-                  前往 AI 工作台生成
+                  {t("cases.goWorkbenchGenerate")}
                 </Button>
               </div>
             )}
@@ -435,7 +436,7 @@ export function CaseDetails(props: CaseDetailsProps) {
           <div className="space-y-3 animate-fade-in">
             {caseRuns.length === 0 ? (
               <div className="text-center py-16 text-sm text-muted-foreground italic border border-dashed border-border/40 rounded-xl bg-secondary/5">
-                暂无该用例的执行历史记录
+                {t("cases.noRunHistory")}
               </div>
             ) : (
               caseRuns.map((run) => (
@@ -447,7 +448,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                         {translateStatus(run.status)}
                       </Badge>
                       <Badge tone={run.kind === "verification" ? "info" : "default"}>
-                        {run.kind === "verification" ? "验证" : "执行"}
+                        {run.kind === "verification" ? t("cases.runKindVerification") : t("cases.runKindExecution")}
                       </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 select-none">
@@ -465,7 +466,7 @@ export function CaseDetails(props: CaseDetailsProps) {
                     size="sm"
                     variant="ghost"
                   >
-                    查看日志
+                    {t("cases.viewLogs")}
                     <span className="material-symbols-outlined text-base">arrow_forward</span>
                   </Button>
                 </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { t } from "../../i18n/index.js"
 import { request } from "../api"
 import { apiRoutes } from "../apiRoutes"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
@@ -42,9 +43,9 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
         method: "POST",
         body: JSON.stringify(llmConfigForm),
       })
-      alert("连通性测试成功！通道已畅通。")
+      alert(t("llm.testConnectivitySuccess"))
     } catch (err) {
-      alert("连通性测试失败: " + (err as Error).message)
+      alert(t("llm.testConnectivityFailed", { message: (err as Error).message }))
     } finally {
       setTestingConnectivity(false)
     }
@@ -63,9 +64,9 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
         })
       }
       setConfigModels(result.data)
-      alert(`已成功获取该提供商的 ${result.data.length} 个可用模型列表。`)
+      alert(t("llm.fetchModelsSuccess", { count: result.data.length }))
     } catch (err) {
-      alert("拉取模型列表失败: " + (err as Error).message)
+      alert(t("llm.fetchModelsFailed", { message: (err as Error).message }))
     } finally {
       setLoadingConfigModels(false)
     }
@@ -116,7 +117,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
       })
       await controller.loadLlmSession()
     } catch (err) {
-      alert("更新模型失败: " + (err as Error).message)
+      alert(t("llm.updateModelFailed", { message: (err as Error).message }))
     }
   }
 
@@ -128,30 +129,30 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
         <div className="flex items-center justify-between pb-4 border-b border-border/40 mb-5">
           <div className="flex items-center gap-2.5">
             <span className="material-symbols-outlined text-primary text-xl">smart_toy</span>
-            <h3 className="text-base font-semibold text-foreground">大模型连接中心</h3>
+            <h3 className="text-base font-semibold text-foreground">{t("llm.title")}</h3>
           </div>
           
            {llmSession.connectionStatus === "connected" ? (
             <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg select-none">
               <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              在线已连接
+              {t("llm.statusConnected")}
             </span>
           ) : llmSession.connectionStatus === "authorizing" ? (
             <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg select-none">
               <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-              授权核对中
+              {t("llm.statusAuthorizing")}
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg select-none">
               <span className="size-2 rounded-full bg-rose-500" />
-              未连接
+              {t("llm.statusDisconnected")}
             </span>
           )}
         </div>
 
         <div className="space-y-6 flex-1">
           <div className="rounded-xl border border-border/40 bg-secondary/10 p-5 space-y-4">
-            <div className="text-sm font-semibold text-foreground">AI 配置管理</div>
+            <div className="text-sm font-semibold text-foreground">{t("llm.configManagement")}</div>
             <div className="space-y-2.5">
               {llmConfigs.map((config) => (
                 <div key={config.id} className="rounded-xl border border-border/40 bg-background/80 p-3">
@@ -161,12 +162,12 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                         {config.name}
                         {activeLlmConfigId === config.id && (
                           <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
-                            通用配置
+                            {t("llm.badgeGeneral")}
                           </span>
                         )}
                         {activeVisionConfigId === config.id && (
                           <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
-                            识图模型
+                            {t("llm.badgeVision")}
                           </span>
                         )}
                       </div>
@@ -183,7 +184,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                         disabled={busy || activeLlmConfigId === config.id} 
                         onClick={() => activateLlmConfig(config.id)}
                       >
-                        启用
+                        {t("llm.activate")}
                       </button>
                       <button 
                         type="button" 
@@ -195,7 +196,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                         disabled={busy} 
                         onClick={() => activateVisionConfig(activeVisionConfigId === config.id ? null : config.id)}
                       >
-                        {activeVisionConfigId === config.id ? "取消识图" : "设为识图"}
+                        {activeVisionConfigId === config.id ? t("llm.unsetVision") : t("llm.setVision")}
                       </button>
                       <button 
                         type="button" 
@@ -210,7 +211,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                           apiKey: ""
                         })}
                       >
-                        编辑
+                        {t("llm.edit")}
                       </button>
                       {llmConfigs.length > 1 ? (
                         <button 
@@ -219,7 +220,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                           disabled={busy} 
                           onClick={() => deleteLlmConfig(config.id)}
                         >
-                          删除
+                          {t("llm.delete")}
                         </button>
                       ) : null}
                     </div>
@@ -229,12 +230,12 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
             </div>
             
             <div className="pt-2 border-t border-border/30 space-y-3">
-              <div className="text-xs font-medium text-muted-foreground">新增/修改配置</div>
+              <div className="text-xs font-medium text-muted-foreground">{t("llm.addOrEditConfig")}</div>
               <input
                 value={llmConfigForm.name}
                 onChange={(event) => setLlmConfigForm((current) => ({ ...current, name: event.target.value }))}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-                placeholder="配置名称"
+                placeholder={t("llm.configNamePlaceholder")}
               />
               <select
                 value={llmConfigForm.provider}
@@ -258,7 +259,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                   className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
                   placeholder={
                     llmConfigs.find((c) => c.id === llmConfigForm.id)?.apiKeyConfigured
-                      ? "已配置 API Key (若无需修改请留空)"
+                      ? t("llm.apiKeyConfiguredPlaceholder")
                       : "API Key"
                   }
                 />
@@ -269,7 +270,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                   onChange={(event) => setLlmConfigForm((current) => ({ ...current, model: event.target.value }))}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
                 >
-                  <option value="" disabled>选择或输入模型...</option>
+                  <option value="" disabled>{t("llm.selectModelPlaceholder")}</option>
                   {llmConfigForm.model && !configModels.some((m) => m.id === llmConfigForm.model) && (
                     <option value={llmConfigForm.model}>{llmConfigForm.model}</option>
                   )}
@@ -290,7 +291,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                       ) : (
                         <span className="material-symbols-outlined text-[14px]">download</span>
                       )}
-                      拉取模型列表
+                      {t("llm.fetchModels")}
                     </button>
                     <button
                       type="button"
@@ -303,14 +304,14 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                       ) : (
                         <span className="material-symbols-outlined text-[14px]">wifi</span>
                       )}
-                      测试连通性
+                      {t("llm.testConnectivity")}
                     </button>
                   </div>
                 )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" className="flex-1 h-10 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 transition-all cursor-pointer" disabled={busy} onClick={saveLlmConfig}>
-                  {llmConfigForm.id ? "更新配置" : "保存新配置"}
+                  {llmConfigForm.id ? t("llm.updateConfig") : t("llm.saveNewConfig")}
                 </button>
                 {llmConfigForm.id && (
                   <button 
@@ -318,7 +319,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
                     className="px-6 h-10 text-sm font-medium rounded-lg border border-border hover:bg-secondary transition-all cursor-pointer text-muted-foreground" 
                     onClick={() => setLlmConfigForm({ name: "", provider: "openai-compatible", baseUrl: "", model: "", apiKey: "" })}
                   >
-                    取消编辑
+                    {t("llm.cancelEdit")}
                   </button>
                 )}
               </div>
@@ -326,14 +327,14 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
           </div>
           
           <div className="bg-secondary/20 p-5 rounded-xl border border-border/30 space-y-4">
-            <div className="text-sm font-semibold text-foreground border-b border-border/30 pb-2">当前连接状态</div>
+            <div className="text-sm font-semibold text-foreground border-b border-border/30 pb-2">{t("llm.currentStatus")}</div>
             
             {/* Model Select */}
             <div className="flex items-center justify-between text-sm py-1">
-              <span className="text-muted-foreground">模型会话</span>
+              <span className="text-muted-foreground">{t("llm.modelSession")}</span>
               {llmSession.connectionStatus === "connected" ? (
                 loadingModels ? (
-                  <span className="text-muted-foreground text-xs">获取中...</span>
+                  <span className="text-muted-foreground text-xs">{t("llm.loadingModels")}</span>
                 ) : (
                   <select
                     value={llmSession.model}
@@ -357,7 +358,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
 
             {/* API host */}
             <div className="flex items-center justify-between text-sm py-1">
-              <span className="text-muted-foreground">服务地址</span>
+              <span className="text-muted-foreground">{t("llm.serviceAddress")}</span>
               <strong className="font-mono text-foreground text-xs truncate max-w-[250px]" title={llmSession.baseUrl}>
                 {llmSession.baseUrl}
               </strong>
@@ -365,7 +366,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
 
             {/* Sync date */}
             <div className="flex items-center justify-between text-sm py-1">
-              <span className="text-muted-foreground">最后同步</span>
+              <span className="text-muted-foreground">{t("llm.lastSynced")}</span>
               <strong className="text-foreground text-sm">{formatDateTime(llmSession.lastSyncedAt)}</strong>
             </div>
             
@@ -387,7 +388,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
               onClick={disconnectCopilot} 
               disabled={busy}
             >
-              断开会话连接
+              {t("llm.disconnectSession")}
             </button>
           ) : activeIsCopilot ? (
             <button 
@@ -397,7 +398,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
               disabled={busy || copilotPolling}
             >
               <span className="material-symbols-outlined text-base">login</span>
-              {pendingDeviceAuth ? "重新启动授权流" : "启动 Copilot 设备授权"}
+              {pendingDeviceAuth ? t("llm.restartAuthFlow") : t("llm.startDeviceAuth")}
             </button>
           ) : null}
         </div>
@@ -408,14 +409,14 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm animate-spin">sync</span>
-                等待设备授权中
+                {t("llm.waitingDeviceAuth")}
               </span>
               <span className="text-xs text-muted-foreground font-mono">
-                {pendingExpiresInSeconds}s 后失效
+                {t("llm.expiresInSeconds", { seconds: pendingExpiresInSeconds })}
               </span>
             </div>
             <div className="text-sm text-muted-foreground leading-normal">
-              请在浏览器中打开授权链接，并输入下方的设备配对码：
+              {t("llm.deviceAuthHint")}
             </div>
             <a 
               href={pendingDeviceAuth.verificationUri} 
@@ -434,7 +435,7 @@ export function LlmConnectionsSection({ controller }: LlmConnectionsSectionProps
               disabled={busy || copilotPolling}
               className="w-full h-10 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
             >
-              {copilotPolling ? "检查中..." : "立即核对授权"}
+              {copilotPolling ? t("llm.checking") : t("llm.verifyAuthNow")}
             </button>
           </div>
         )}

@@ -6,6 +6,7 @@ import { request } from "../../api"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { inputClassName } from "../../components/ui/field"
+import { t } from "../../../i18n/index.js"
 
 interface ContractDoc {
   testCaseId: string
@@ -66,12 +67,12 @@ function FieldEditor({
         <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{title}</h4>
         <Button size="sm" variant="ghost" onClick={() => onChange([...fields, emptyField()])}>
           <span className="material-symbols-outlined text-sm">add</span>
-          添加字段
+          {t("cases.addField")}
         </Button>
       </div>
       {fields.length === 0 ? (
         <p className="text-xs text-muted-foreground italic px-1 py-3 border border-dashed border-border/50 rounded-lg text-center">
-          暂无字段
+          {t("cases.noFields")}
         </p>
       ) : (
         <div className="space-y-2">
@@ -80,7 +81,7 @@ function FieldEditor({
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   className={`${inputClassName} h-8 text-xs font-mono flex-1 min-w-[120px]`}
-                  placeholder="字段名"
+                  placeholder={t("cases.fieldNamePlaceholder")}
                   value={field.name}
                   onChange={(e) => update(index, { name: e.target.value })}
                 />
@@ -89,9 +90,9 @@ function FieldEditor({
                   value={field.type}
                   onChange={(e) => update(index, { type: e.target.value as ContractField["type"] })}
                 >
-                  {FIELD_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  {FIELD_TYPES.map((ft) => (
+                    <option key={ft} value={ft}>
+                      {ft}
                     </option>
                   ))}
                 </select>
@@ -101,9 +102,9 @@ function FieldEditor({
                     value={field.items?.type ?? "string"}
                     onChange={(e) => update(index, { items: { type: e.target.value as ContractField["type"] } })}
                   >
-                    {FIELD_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        元素:{t}
+                    {FIELD_TYPES.map((ft) => (
+                      <option key={ft} value={ft}>
+                        {t("cases.arrayItemType", { type: ft })}
                       </option>
                     ))}
                   </select>
@@ -115,7 +116,7 @@ function FieldEditor({
                     checked={Boolean(field.required)}
                     onChange={(e) => update(index, { required: e.target.checked })}
                   />
-                  必填
+                  {t("cases.required")}
                 </label>
                 <Button
                   size="sm"
@@ -129,19 +130,19 @@ function FieldEditor({
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   className={`${inputClassName} h-8 text-xs flex-1 min-w-[160px]`}
-                  placeholder="说明（描述这个字段的用途）"
+                  placeholder={t("cases.fieldDescPlaceholder")}
                   value={field.description ?? ""}
                   onChange={(e) => update(index, { description: e.target.value || undefined })}
                 />
                 <input
                   className={`${inputClassName} h-8 text-xs w-[120px]`}
-                  placeholder="format（如 uri）"
+                  placeholder={t("cases.fieldFormatPlaceholder")}
                   value={field.format ?? ""}
                   onChange={(e) => update(index, { format: e.target.value || undefined })}
                 />
                 <input
                   className={`${inputClassName} h-8 text-xs w-[140px]`}
-                  placeholder="默认值"
+                  placeholder={t("cases.fieldDefaultPlaceholder")}
                   value={stringifyDefault(field.default)}
                   onChange={(e) => update(index, { default: parseDefault(e.target.value) })}
                 />
@@ -193,7 +194,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
       const { data } = await request<ContractDoc>(apiRoutes.testCases.contract(testCaseId))
       applyDoc(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载契约失败")
+      setError(err instanceof Error ? err.message : t("cases.loadContractFailed"))
     } finally {
       setLoading(false)
     }
@@ -221,7 +222,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
       })
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存契约失败")
+      setError(err instanceof Error ? err.message : t("cases.saveContractFailed"))
     } finally {
       setSaving(false)
     }
@@ -237,7 +238,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
       setResponse(data.response ?? [])
       if (data.maxConcurrency) setMaxConcurrency(data.maxConcurrency)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "AI 生成契约失败")
+      setError(err instanceof Error ? err.message : t("cases.generateContractFailed"))
     } finally {
       setGenerating(false)
     }
@@ -253,7 +254,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
       })
       setApiEnabled((prev) => !prev)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "切换 API 开关失败")
+      setError(err instanceof Error ? err.message : t("cases.toggleApiFailed"))
     } finally {
       setToggling(false)
     }
@@ -269,7 +270,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
       })
       setApiIntended((prev) => !prev)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "切换「计划 API 化」失败")
+      setError(err instanceof Error ? err.message : t("cases.toggleApiIntentFailed"))
     } finally {
       setToggling(false)
     }
@@ -310,7 +311,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
   const invokeUrl = `${apiBase || location.origin}${apiRoutes.testCases.invoke(testCaseId)}`
 
   if (loading) {
-    return <div className="py-12 text-center text-sm text-muted-foreground">加载契约中…</div>
+    return <div className="py-12 text-center text-sm text-muted-foreground">{t("cases.loadingContract")}</div>
   }
 
   return (
@@ -326,16 +327,16 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-amber-600 dark:text-amber-400">target</span>
-            <span className="text-sm font-semibold text-foreground">计划 API 化</span>
-            <Badge tone={apiIntended ? "success" : "default"}>{apiIntended ? "已开启" : "未开启"}</Badge>
+            <span className="text-sm font-semibold text-foreground">{t("cases.apiIntended")}</span>
+            <Badge tone={apiIntended ? "success" : "default"}>{apiIntended ? t("cases.enabled") : t("cases.notEnabled")}</Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            开启后，LLM 生成脚本时即具备「API 意识」：先声明接口契约，再用 params.get() 写参数化脚本。这是轻量意图开关，不要求已有契约或脚本。
+            {t("cases.apiIntendedDesc")}
           </p>
         </div>
         <Button size="sm" variant={apiIntended ? "secondary" : "primary"} disabled={toggling} onClick={toggleApiIntended}>
           <span className="material-symbols-outlined text-sm">{apiIntended ? "toggle_on" : "toggle_off"}</span>
-          {apiIntended ? "关闭意图" : "开启意图"}
+          {apiIntended ? t("cases.disableIntent") : t("cases.enableIntent")}
         </Button>
       </div>
 
@@ -344,23 +345,23 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-primary">api</span>
-            <span className="text-sm font-semibold text-foreground">对外 API</span>
-            <Badge tone={apiEnabled ? "success" : "default"}>{apiEnabled ? "已开启" : "未开启"}</Badge>
-            {!hasScript && <Badge tone="warning">尚未生成脚本</Badge>}
+            <span className="text-sm font-semibold text-foreground">{t("cases.publicApi")}</span>
+            <Badge tone={apiEnabled ? "success" : "default"}>{apiEnabled ? t("cases.enabled") : t("cases.notEnabled")}</Badge>
+            {!hasScript && <Badge tone="warning">{t("cases.noScriptBadge")}</Badge>}
           </div>
           <p className="text-xs text-muted-foreground">
-            开启后，其他服务可通过 HTTP / MCP 把该用例当作稳定接口调用，入参与出参均按下方契约校验。
+            {t("cases.publicApiDesc")}
           </p>
         </div>
         <Button size="sm" variant={apiEnabled ? "secondary" : "primary"} disabled={toggling || !hasScript} onClick={toggleApi}>
           <span className="material-symbols-outlined text-sm">{apiEnabled ? "toggle_on" : "toggle_off"}</span>
-          {apiEnabled ? "关闭 API" : "开启 API"}
+          {apiEnabled ? t("cases.disableApi") : t("cases.enableApi")}
         </Button>
       </div>
 
       {/* Endpoint */}
       <div className="space-y-2">
-        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">调用地址</h4>
+        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("cases.invokeUrlTitle")}</h4>
         <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-secondary/10 px-3 py-2">
           <code className="flex-1 text-xs font-mono text-foreground break-all">
             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">POST</span> {invokeUrl}
@@ -380,7 +381,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
             href={`${apiBase}${apiRoutes.testCases.apiDoc(testCaseId)}`}
             target="_blank"
             rel="noreferrer"
-            title="打开独立文档页"
+            title={t("cases.openApiDocTitle")}
           >
             <span className="material-symbols-outlined text-sm">open_in_new</span>
           </a>
@@ -391,24 +392,24 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
       <div className="space-y-4 rounded-2xl border border-border/60 bg-card/40 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="space-y-0.5">
-            <h4 className="text-sm font-semibold text-foreground">接口契约</h4>
+            <h4 className="text-sm font-semibold text-foreground">{t("cases.contractTitle")}</h4>
             <p className="text-[11px] text-muted-foreground">
-              推荐让 AI 根据脚本目标自动设计入参 / 响应，再在下方 review 微调后保存冻结。
+              {t("cases.contractHint")}
             </p>
           </div>
           <Button size="sm" variant="primary" disabled={generating || !hasScript} onClick={generateContract}>
             <span className="material-symbols-outlined text-sm">auto_awesome</span>
-            {generating ? "AI 生成中…" : "AI 生成契约"}
+            {generating ? t("cases.generatingContract") : t("cases.generateContract")}
           </Button>
         </div>
         {!hasScript && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400">需要先生成脚本，AI 才能反推契约。</p>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400">{t("cases.needScriptForContract")}</p>
         )}
-        <FieldEditor title="入参契约 (params)" fields={params} onChange={setParams} />
-        <FieldEditor title="响应契约 (response)" fields={response} onChange={setResponse} />
+        <FieldEditor title={t("cases.paramsContractTitle")} fields={params} onChange={setParams} />
+        <FieldEditor title={t("cases.responseContractTitle")} fields={response} onChange={setResponse} />
         <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-border/40">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            最大并发
+            {t("cases.maxConcurrency")}
             <input
               type="number"
               min={1}
@@ -416,24 +417,24 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
               value={maxConcurrency}
               onChange={(e) => setMaxConcurrency(Math.max(1, Number(e.target.value) || 1))}
             />
-            <span className="text-[10px] text-muted-foreground/70">同一用例同时在跑的 API 调用上限，超过返回 busy</span>
+            <span className="text-[10px] text-muted-foreground/70">{t("cases.maxConcurrencyHint")}</span>
           </label>
           <Button size="sm" disabled={saving} onClick={saveContract} className="ml-auto">
             <span className="material-symbols-outlined text-sm">save</span>
-            {saving ? "保存中…" : "保存并冻结契约"}
+            {saving ? t("cases.saving") : t("cases.saveAndFreeze")}
           </Button>
         </div>
       </div>
 
       {/* 在线测试 */}
       <div className="space-y-3 rounded-2xl border border-border/60 bg-card/40 p-4">
-        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">在线测试</h4>
+        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("cases.onlineTest")}</h4>
         {!apiEnabled ? (
-          <p className="text-xs text-muted-foreground italic">请先开启 API 后再测试。</p>
+          <p className="text-xs text-muted-foreground italic">{t("cases.enableApiFirst")}</p>
         ) : params.length === 0 && doc?.contract ? (
-          <p className="text-xs text-muted-foreground">该用例无入参，可直接发送。</p>
+          <p className="text-xs text-muted-foreground">{t("cases.noParamsDirectSend")}</p>
         ) : !doc?.contract ? (
-          <p className="text-xs text-muted-foreground italic">请先保存契约。</p>
+          <p className="text-xs text-muted-foreground italic">{t("cases.saveContractFirst")}</p>
         ) : null}
 
         {apiEnabled && (
@@ -452,7 +453,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
                     value={paramValues[field.name] ?? ""}
                     onChange={(e) => setParamValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
                   >
-                    <option value="">(未设置)</option>
+                    <option value="">{t("cases.unsetOption")}</option>
                     <option value="true">true</option>
                     <option value="false">false</option>
                   </select>
@@ -472,7 +473,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
                 value={invokeTargetUrlId}
                 onChange={(e) => setInvokeTargetUrlId(e.target.value)}
               >
-                <option value="">默认目标 URL</option>
+                <option value="">{t("cases.defaultTargetUrl")}</option>
                 {targetUrls.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.label} · {u.url}
@@ -481,7 +482,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
               </select>
               <Button size="sm" disabled={invoking} onClick={invoke}>
                 <span className="material-symbols-outlined text-sm">send</span>
-                {invoking ? "请求中…" : "发送请求"}
+                {invoking ? t("cases.requesting") : t("cases.sendRequest")}
               </Button>
             </div>
           </div>
@@ -491,7 +492,7 @@ export function CaseApiPanel({ selectedCase, targetUrls }: { selectedCase: TestC
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs">
               <Badge tone={invokeResult.body.ok ? "success" : "danger"}>
-                {invokeResult.body.ok ? "成功" : "失败"}
+                {invokeResult.body.ok ? t("cases.invokeSuccess") : t("cases.invokeFailed")}
               </Badge>
               <span className="text-muted-foreground font-mono">HTTP {invokeResult.httpStatus} · {invokeResult.body.status}</span>
             </div>

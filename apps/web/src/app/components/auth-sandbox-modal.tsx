@@ -9,6 +9,7 @@ import { request } from "../api"
 import { apiRoutes } from "../apiRoutes"
 import { resolveWebSocketUrl } from "../utils"
 import { Button } from "./ui/button"
+import { t } from "../../i18n/index.js"
 
 // 服务端用 viewport:null（跟随真实窗口）启动反检测浏览器，真实 CSS 视口尺寸由
 // session.liveViewport.width/height 下发；这里只在尚未拿到时用作兜底。
@@ -322,7 +323,7 @@ export function AuthSandboxModal({
         <div className="flex items-center gap-3 min-w-0">
           <span className="material-symbols-outlined text-primary text-xl">login</span>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-foreground">登录沙盒 · {targetLabel}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("sandbox.title", { label: targetLabel })}</h3>
             <p className="text-xs text-muted-foreground font-mono truncate max-w-xl">{session?.currentUrl ?? session?.targetUrl ?? "--"}</p>
           </div>
         </div>
@@ -334,13 +335,13 @@ export function AuthSandboxModal({
             className="h-8 px-3 text-xs cursor-pointer"
           >
             <span className="material-symbols-outlined text-sm mr-1">save</span>
-            {saving ? "保存中…" : "我已登录成功，保存登录态"}
+            {saving ? t("sandbox.saving") : t("sandbox.saveState")}
           </Button>
           <button
             type="button"
             onClick={onClose}
             className="flex items-center justify-center size-8 rounded-full bg-secondary/80 border border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary transition-all cursor-pointer"
-            title="关闭（不保存）"
+            title={t("sandbox.closeNoSave")}
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
@@ -359,19 +360,22 @@ export function AuthSandboxModal({
           className="flex-1 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-xs font-mono outline-none focus:border-primary"
         />
         <Button size="sm" variant="ghost" onClick={handleNavigate} disabled={!session} className="h-8 px-3 text-xs border border-border/60 cursor-pointer">
-          前往
+          {t("sandbox.go")}
         </Button>
       </div>
 
       {/* Tips */}
       <p className="text-[11px] text-muted-foreground mb-3 shrink-0">
-        在下方画面里像本地浏览器一样操作完成登录：滑块直接拖、点选直接点、短信验证码看手机输、扫码掏手机扫。登录成功后点右上角"保存登录态"。点击画面后可直接用键盘输入。
+        {t("sandbox.tips")}
       </p>
 
       {session?.prerequisiteInjection ? (
         <p className="text-[11px] text-sky-600 dark:text-sky-400 mb-3 shrink-0">
-          已注入前置登录态：{session.prerequisiteInjection.profileNames.join("、")}
-          （{session.prerequisiteInjection.cookieCount} 个 cookie · {session.prerequisiteInjection.originCount} 个 origin）——走第三方登录时可直接带上会话。
+          {t("sandbox.injected", {
+            names: session.prerequisiteInjection.profileNames.join(t("sandbox.listSeparator")),
+            cookies: session.prerequisiteInjection.cookieCount,
+            origins: session.prerequisiteInjection.originCount,
+          })}
         </p>
       ) : null}
 
@@ -383,7 +387,7 @@ export function AuthSandboxModal({
         {starting ? (
           <div className="flex flex-col items-center gap-3 text-muted-foreground">
             <span className="material-symbols-outlined text-4xl animate-spin">progress_activity</span>
-            <p className="text-sm">正在启动反检测浏览器并打开目标站点…</p>
+            <p className="text-sm">{t("sandbox.starting")}</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-3 text-rose-500 max-w-lg text-center">
@@ -407,7 +411,7 @@ export function AuthSandboxModal({
 
       {summary ? (
         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-3 shrink-0">
-          已保存：{summary.cookieCount} 个 cookie · {summary.originCount} 个 origin
+          {t("sandbox.saved", { cookies: summary.cookieCount, origins: summary.originCount })}
         </p>
       ) : null}
     </div>

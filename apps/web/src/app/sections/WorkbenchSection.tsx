@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { EmptyState } from "../components/empty-state"
 import { Button } from "../components/ui/button"
+import { t } from "../../i18n/index.js"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
 import { WorkbenchSidebar } from "./workbench/WorkbenchSidebar"
 import { WorkbenchCodeView } from "./workbench/WorkbenchCodeView"
@@ -56,10 +57,10 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
   if (!selectedCase) {
     return (
       <EmptyState
-        actionLabel="前往测试集与用例"
-        description="选择测试用例后，可生成脚本、保存录制结果、查看历史版本，并在当前工作台内直接验证已有脚本。"
+        actionLabel={t("wb.goToCases")}
+        description={t("wb.workbenchEmptyDescription")}
         onAction={() => controller.setActiveSection("cases")}
-        title="AI 自动化脚本工作台"
+        title={t("wb.workbenchTitle")}
       />
     )
   }
@@ -67,7 +68,7 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-2 text-xs text-muted-foreground select-none pb-2 border-b border-border/30">
-        <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => controller.setActiveSection("cases")}>测试集与用例</span>
+        <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => controller.setActiveSection("cases")}>{t("wb.breadcrumbCases")}</span>
         <span className="material-symbols-outlined text-[10px] text-muted-foreground/60">chevron_right</span>
         <span className="font-mono bg-secondary/80 text-secondary-foreground px-2 py-0.5 rounded border border-border/40 font-semibold text-[10px]">
           {selectedCase.caseCode}
@@ -106,21 +107,21 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                 onClick={() => setWorkspaceTab("code")}
                 type="button"
               >
-                代码视图
+                {t("wb.tabCodeView")}
               </button>
               <button
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${workspaceTab === "repo" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setWorkspaceTab("repo")}
                 type="button"
               >
-                仓库文件
+                {t("wb.tabRepoFiles")}
               </button>
               <button
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${workspaceTab === "sandbox" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setWorkspaceTab("sandbox")}
                 type="button"
               >
-                沙盒控制台
+                {t("wb.tabSandboxConsole")}
               </button>
             </div>
 
@@ -133,7 +134,7 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                   className="h-8 px-2.5 rounded-lg border border-border/60 hover:bg-secondary/60 text-xs flex items-center gap-1 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base">history</span>
-                  历史版本
+                  {t("wb.historyVersions")}
                   {scripts.length > 0 && (
                     <span className="ml-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-secondary-foreground/10 text-muted-foreground font-mono">
                       {scripts.length}
@@ -150,11 +151,11 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                   <span className="material-symbols-outlined text-base">
                     {copied ? "check" : "content_copy"}
                   </span>
-                  {copied ? "已复制" : "复制代码"}
+                  {copied ? t("wb.copied") : t("wb.copyCode")}
                 </Button>
               </div>
             ) : workspaceTab === "repo" ? (
-              <div className="text-xs text-muted-foreground">查看仓库目录、搜索结果与文件内容。</div>
+              <div className="text-xs text-muted-foreground">{t("wb.repoTabHint")}</div>
             ) : (
               <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
                 {mode === "generate" ? (
@@ -172,7 +173,7 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                         }
                       }}
                     >
-                      <option value="">选择目标 URL</option>
+                      <option value="">{t("wb.selectTargetUrl")}</option>
                       {targetUrls.map((url) => (
                         <option key={url.id} value={url.id}>{url.label} · {url.url}</option>
                       ))}
@@ -184,7 +185,7 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                       className="rounded-lg shadow-sm shrink-0 cursor-pointer h-8 px-3"
                     >
                       <span className="material-symbols-outlined text-sm mr-1">play_arrow</span>
-                      启动验证
+                      {t("wb.startVerification")}
                     </Button>
                   </>
                 ) : (
@@ -192,14 +193,14 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                     <div className="flex items-center bg-secondary/40 border border-border/40 rounded-xl px-3 py-1.5 w-full sm:w-[240px] select-none">
                       <span className="material-symbols-outlined text-muted-foreground text-xs mr-1.5">language</span>
                       <div className="w-full bg-transparent text-xs text-muted-foreground truncate font-mono">
-                        {activeRecorderSession?.currentUrl || navigateUrl || "未启动录制"}
+                        {activeRecorderSession?.currentUrl || navigateUrl || t("wb.recorderNotStarted")}
                       </div>
                     </div>
                     {recorderRunning ? (
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400 font-medium bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-lg mr-1 select-none">
                           <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
-                          录制中
+                          {t("wb.recording")}
                         </span>
                         <Button
                           size="sm"
@@ -209,7 +210,7 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                           className="h-8 px-2.5 rounded-lg border border-border/60 hover:bg-secondary/60 text-xs flex items-center gap-1 cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-sm mr-1">play_arrow</span>
-                          单独验证
+                          {t("wb.verifyAlone")}
                         </Button>
                         <Button
                           size="sm"
@@ -218,7 +219,7 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                           className="h-8 px-2.5 rounded-lg cursor-pointer bg-red-650 hover:bg-red-700 text-white"
                         >
                           <span className="material-symbols-outlined text-sm mr-1">save</span>
-                          停止并保存
+                          {t("wb.stopAndSave")}
                         </Button>
                         <Button
                           size="sm"
@@ -228,7 +229,7 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                           className="h-8 px-2.5 rounded-lg border border-border/60 hover:bg-secondary/60 text-xs flex items-center gap-1 cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-sm mr-1">verified</span>
-                          保存并验证
+                          {t("wb.saveAndVerify")}
                         </Button>
                       </div>
                     ) : (
@@ -239,7 +240,7 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                         className="h-8 px-3 rounded-lg cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-sm mr-1">fiber_manual_record</span>
-                        启动远程录制
+                        {t("wb.startRemoteRecording")}
                       </Button>
                     )}
                   </div>

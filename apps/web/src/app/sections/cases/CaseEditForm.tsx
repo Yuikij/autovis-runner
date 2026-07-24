@@ -3,6 +3,7 @@ import type { TestCase } from "@autovis/shared"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Field, inputClassName, textareaClassName } from "../../components/ui/field"
+import { t } from "../../../i18n/index.js"
 
 function moveItem<T>(list: T[], index: number, direction: -1 | 1): T[] {
   const nextIndex = index + direction
@@ -38,15 +39,15 @@ export function CaseEditForm(props: CaseDetailsProps) {
   return (
     <div className="space-y-6">
       <div className="pb-4 border-b border-border/40">
-        <h3 className="text-xl font-bold tracking-tight text-foreground">{selectedCase ? `编辑用例 ${selectedCase.caseCode}` : "创建测试用例"}</h3>
-        <p className="text-sm text-muted-foreground mt-2">设计测试用例与有序前置用例，并为后续脚本生成与验证提供上下文。</p>
+        <h3 className="text-xl font-bold tracking-tight text-foreground">{selectedCase ? t("cases.editCaseTitle", { code: selectedCase.caseCode }) : t("cases.createCaseTitle")}</h3>
+        <p className="text-sm text-muted-foreground mt-2">{t("cases.editFormDesc")}</p>
       </div>
       <div className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="用例编号">
+          <Field label={t("cases.caseCodeLabel")}>
             <input className={inputClassName} onChange={(event) => setCaseForm((current) => ({ ...current, caseCode: event.target.value }))} value={caseForm.caseCode} />
           </Field>
-          <Field label="模块（选填）">
+          <Field label={t("cases.moduleOptionalLabel")}>
             {modules.length > 0 ? (
               <select
                 className={inputClassName}
@@ -60,27 +61,27 @@ export function CaseEditForm(props: CaseDetailsProps) {
                 }}
                 value={caseForm.moduleId ?? ""}
               >
-                <option value="">选择模块...</option>
+                <option value="">{t("cases.selectModule")}</option>
                 {modules.map((item) => (
                   <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
               </select>
             ) : (
-              <input className={inputClassName} onChange={(event) => setCaseForm((current) => ({ ...current, moduleName: event.target.value }))} placeholder="请先在项目中创建模块" value={caseForm.moduleName ?? ""} />
+              <input className={inputClassName} onChange={(event) => setCaseForm((current) => ({ ...current, moduleName: event.target.value }))} placeholder={t("cases.createModuleFirst")} value={caseForm.moduleName ?? ""} />
             )}
           </Field>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="测试类型">
+          <Field label={t("cases.testType")}>
             <select className={inputClassName} onChange={(event) => setCaseForm((current) => ({ ...current, testType: event.target.value as TestCase["testType"] }))} value={caseForm.testType}>
-              <option value="functional">功能测试</option>
-              <option value="regression">回归测试</option>
-              <option value="smoke">冒烟测试</option>
+              <option value="functional">{t("cases.testTypeFunctional")}</option>
+              <option value="regression">{t("cases.testTypeRegression")}</option>
+              <option value="smoke">{t("cases.testTypeSmoke")}</option>
             </select>
           </Field>
           <Field label="Bug ID">
-            <input className={inputClassName} onChange={(event) => setCaseForm((current) => ({ ...current, bugId: event.target.value }))} placeholder="例: #BUG-101" value={caseForm.bugId ?? ""} />
+            <input className={inputClassName} onChange={(event) => setCaseForm((current) => ({ ...current, bugId: event.target.value }))} placeholder={t("cases.bugIdPlaceholder")} value={caseForm.bugId ?? ""} />
           </Field>
         </div>
 
@@ -92,38 +93,38 @@ export function CaseEditForm(props: CaseDetailsProps) {
             onChange={(event) => setCaseForm((current) => ({ ...current, apiIntended: event.target.checked }))}
           />
           <div className="space-y-1">
-            <div className="text-sm font-medium text-foreground">计划 API 化</div>
+            <div className="text-sm font-medium text-foreground">{t("cases.apiIntended")}</div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              开启后，LLM 生成脚本时即具备「API 意识」：先声明接口契约（define_contract），再用 params.get() 写参数化脚本，而非写完硬编码脚本再回头补参数。这是轻量意图开关，不要求已有契约；真正对外暴露仍需在 API 面板里「开启 API」。
+              {t("cases.apiIntendedFormDesc")}
             </p>
           </div>
         </label>
 
-        <Field label="执行鉴权态 (可选)">
+        <Field label={t("cases.authProfileLabel")}>
           <select
             className={inputClassName}
             onChange={(event) => setCaseForm((current) => ({ ...current, authProfileId: event.target.value || undefined }))}
             value={caseForm.authProfileId ?? ""}
           >
-            <option value="">不指派鉴权配置（或不需登录）</option>
+            <option value="">{t("cases.noAuthProfile")}</option>
             {authProfiles.map((profile) => (
               <option key={profile.id} value={profile.id}>
-                {profile.name} {profile.states?.some((s) => Boolean(s.storageStateJson)) ? "✅(已有状态)" : "❌(需登录)"}
+                {profile.name} {profile.states?.some((s) => Boolean(s.storageStateJson)) ? t("cases.authProfileReady") : t("cases.authProfileNeedsLogin")}
               </option>
             ))}
           </select>
           <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-            如执行此用例需要登录态，请指派相关鉴权配置。若所选配置无状态，系统会尝试自动调用它的来源登录用例。
+            {t("cases.authProfileHint")}
           </p>
         </Field>
 
-        <Field label="归属网站 (Target URL)">
+        <Field label={t("cases.targetUrlLabel")}>
           <select
             className={inputClassName}
             onChange={(event) => setCaseForm((current) => ({ ...current, defaultTargetUrlId: event.target.value || undefined }))}
             value={caseForm.defaultTargetUrlId ?? ""}
           >
-            <option value="">跟随项目默认网站</option>
+            <option value="">{t("cases.followProjectDefault")}</option>
             {controller.selectedProject?.targetUrls?.map((targetUrl) => (
               <option key={targetUrl.id} value={targetUrl.id}>
                 {targetUrl.label} ({targetUrl.url})
@@ -131,20 +132,20 @@ export function CaseEditForm(props: CaseDetailsProps) {
             ))}
           </select>
           <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-            指定用例执行时的默认域名。若不指定，将使用项目的默认主域名。
+            {t("cases.targetUrlHint")}
           </p>
         </Field>
 
-        <Field label="测试目的">
+        <Field label={t("cases.purpose")}>
           <textarea className={textareaClassName} onChange={(event) => setCaseForm((current) => ({ ...current, purpose: event.target.value }))} value={caseForm.purpose ?? ""} />
         </Field>
 
-        <Field label="前置用例（按顺序执行）">
+        <Field label={t("cases.dependencyLabel")}>
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">执行本用例前会按下面的顺序依次先跑这些用例（用于登录 / 造数据等可复用前置）。</p>
+            <p className="text-xs text-muted-foreground">{t("cases.dependencyHint")}</p>
             {dependencyCaseIds.length === 0 ? (
               <div className="rounded-xl border border-border/70 bg-secondary/20 px-4 py-3 text-xs text-muted-foreground">
-                暂未选择前置用例。
+                {t("cases.noDependencySelected")}
               </div>
             ) : (
               <div className="space-y-2">
@@ -158,11 +159,11 @@ export function CaseEditForm(props: CaseDetailsProps) {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{item ? item.caseCode : id} {project ? `[${project.name}]` : ""}</p>
-                        <p className="truncate text-xs text-muted-foreground">{item ? (item.purpose || item.expectedResult || "未填写说明") : "用例不存在或不可用"}</p>
+                        <p className="truncate text-xs text-muted-foreground">{item ? (item.purpose || item.expectedResult || t("cases.noDescription")) : t("cases.caseUnavailable")}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         <Button
-                          aria-label="上移前置用例"
+                          aria-label={t("cases.moveDependencyUp")}
                           className="h-8 w-8 px-0"
                           disabled={index === 0}
                           onClick={() => setCaseForm((current) => ({ ...current, dependencyCaseIds: moveItem(current.dependencyCaseIds, index, -1) }))}
@@ -173,7 +174,7 @@ export function CaseEditForm(props: CaseDetailsProps) {
                           <span className="material-symbols-outlined text-base">keyboard_arrow_up</span>
                         </Button>
                         <Button
-                          aria-label="下移前置用例"
+                          aria-label={t("cases.moveDependencyDown")}
                           className="h-8 w-8 px-0"
                           disabled={index === dependencyCaseIds.length - 1}
                           onClick={() => setCaseForm((current) => ({ ...current, dependencyCaseIds: moveItem(current.dependencyCaseIds, index, 1) }))}
@@ -184,7 +185,7 @@ export function CaseEditForm(props: CaseDetailsProps) {
                           <span className="material-symbols-outlined text-base">keyboard_arrow_down</span>
                         </Button>
                         <Button
-                          aria-label="移除前置用例"
+                          aria-label={t("cases.removeDependency")}
                           className="h-8 w-8 px-0 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
                           onClick={() => setCaseForm((current) => ({ ...current, dependencyCaseIds: current.dependencyCaseIds.filter((depId) => depId !== id) }))}
                           size="sm"
@@ -214,12 +215,12 @@ export function CaseEditForm(props: CaseDetailsProps) {
               }}
               disabled={availableToAdd.length === 0}
             >
-              <option value="">{availableToAdd.length === 0 ? "没有更多可添加的用例" : "添加前置用例..."}</option>
+              <option value="">{availableToAdd.length === 0 ? t("cases.noMoreCasesToAdd") : t("cases.addDependency")}</option>
               {availableToAdd.map((item) => {
                 const project = projects.find((entry) => entry.id === item.projectId)
                 return (
                   <option key={item.id} value={item.id}>
-                    {item.caseCode} {project ? `[${project.name}]` : ""} - {item.purpose || item.expectedResult || "未填写说明"}
+                    {item.caseCode} {project ? `[${project.name}]` : ""} - {item.purpose || item.expectedResult || t("cases.noDescription")}
                   </option>
                 )
               })}
@@ -227,15 +228,15 @@ export function CaseEditForm(props: CaseDetailsProps) {
           </div>
         </Field>
 
-        <Field label="操作步骤（每行一条）">
+        <Field label={t("cases.stepsLabel")}>
           <textarea className={textareaClassName} onChange={(event) => setCaseForm((current) => ({ ...current, steps: event.target.value.split("\n") }))} value={caseForm.steps.join("\n")} />
         </Field>
 
-        <Field label="预期结果">
+        <Field label={t("cases.expectedResult")}>
           <textarea className={textareaClassName} onChange={(event) => setCaseForm((current) => ({ ...current, expectedResult: event.target.value }))} value={caseForm.expectedResult} />
         </Field>
 
-        <Field label="备注">
+        <Field label={t("cases.noteLabel")}>
           <textarea className={textareaClassName} onChange={(event) => setCaseForm((current) => ({ ...current, note: event.target.value }))} value={caseForm.note ?? ""} />
         </Field>
 
@@ -255,7 +256,7 @@ export function CaseEditForm(props: CaseDetailsProps) {
             variant="ghost"
             disabled={busy}
           >
-            取消
+            {t("cases.cancel")}
           </Button>
           {selectedCase && (
             <Button
@@ -265,7 +266,7 @@ export function CaseEditForm(props: CaseDetailsProps) {
               className="text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-500/10"
             >
               <span className="material-symbols-outlined text-base">delete</span>
-              删除用例
+              {t("cases.deleteCase")}
             </Button>
           )}
           <Button
@@ -278,7 +279,7 @@ export function CaseEditForm(props: CaseDetailsProps) {
             }}
           >
             <span className="material-symbols-outlined text-base">save</span>
-            保存用例
+            {t("cases.saveCase")}
           </Button>
         </div>
       </div>

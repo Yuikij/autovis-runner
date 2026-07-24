@@ -1,6 +1,7 @@
 import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/empty-state"
 import { AuthSandboxModal } from "../../components/auth-sandbox-modal"
+import { t } from "../../../i18n/index.js"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
 import { useAuthProfilesState } from "./useAuthProfilesState"
@@ -26,7 +27,7 @@ export function AuthProfilesSection({ controller }: AuthProfilesSectionProps) {
         <div className="flex items-center gap-2 text-xs text-muted-foreground select-none">
           <span className="font-medium">{selectedProject.name}</span>
           <span className="material-symbols-outlined text-[10px] text-muted-foreground/60">chevron_right</span>
-          <span className="font-medium text-foreground">登录状态管理</span>
+          <span className="font-medium text-foreground">{t("auth.sectionTitle")}</span>
           {state.selectedProfile ? (
             <>
               <span className="material-symbols-outlined text-[10px] text-muted-foreground/60">chevron_right</span>
@@ -45,7 +46,7 @@ export function AuthProfilesSection({ controller }: AuthProfilesSectionProps) {
             disabled={busy}
           >
             <span className="material-symbols-outlined text-base">refresh</span>
-            刷新
+            {t("auth.refresh")}
           </Button>
           <Button
             size="sm"
@@ -54,7 +55,7 @@ export function AuthProfilesSection({ controller }: AuthProfilesSectionProps) {
             disabled={busy}
           >
             <span className="material-symbols-outlined text-sm mr-1">{state.showForm ? "close" : "add"}</span>
-            {state.showForm ? "取消" : "新建登录态"}
+            {state.showForm ? t("auth.cancel") : t("auth.newProfile")}
           </Button>
         </div>
       </div>
@@ -80,8 +81,8 @@ export function AuthProfilesSection({ controller }: AuthProfilesSectionProps) {
         <main className="flex min-h-[480px] flex-col border border-border/80 bg-card/20 backdrop-blur-md rounded-2xl overflow-hidden shadow-sm">
           {!state.selectedProfile ? (
             <EmptyState
-              title="选择一个登录状态"
-              description="左侧列表里没有可选项？请先新建一个登录态并绑定来源登录用例，再回来继续。"
+              title={t("auth.selectProfileTitle")}
+              description={t("auth.selectProfileDescription")}
             />
           ) : (
             <>

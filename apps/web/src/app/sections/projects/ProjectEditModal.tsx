@@ -1,5 +1,6 @@
 import type { ProjectEditModalProps, EditTab } from "./types"
 import { formatDateTime } from "../../utils"
+import { t } from "../../../i18n/index.js"
 
 export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab, setEditTab, newModuleName, setNewModuleName, newModuleDesc, setNewModuleDesc, authForm, setAuthForm }: ProjectEditModalProps) {
   const {
@@ -39,7 +40,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-border/40 mb-4">
               <h3 className="text-base font-bold text-foreground">
-                {projectForm.id ? "编辑项目" : "新建项目"}
+                {projectForm.id ? t("proj.editProject") : t("proj.newProject")}
               </h3>
               <button
                 className="text-muted-foreground hover:text-foreground hover:bg-secondary/60 p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
@@ -63,7 +64,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {tab === "basic" ? "基本信息" : "模块管理"}
+                    {tab === "basic" ? t("proj.tabBasic") : t("proj.tabModules")}
                   </button>
                 ))}
               </div>
@@ -74,58 +75,58 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                    项目名称
+                    {t("proj.nameLabel")}
                   </label>
                   <input
                     className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="例如：在线商城自动化测试"
+                    placeholder={t("proj.namePlaceholder")}
                     value={projectForm.name}
                     onChange={(event) => setProjectForm((current: any) => ({ ...current, name: event.target.value }))}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                    项目描述
+                    {t("proj.descLabel")}
                   </label>
                   <textarea
                     className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[5rem] resize-none"
-                    placeholder="主要用于测试商城登录、加购、结算等全链路核心流程。"
+                    placeholder={t("proj.descPlaceholder")}
                     value={projectForm.description}
                     onChange={(event) => setProjectForm((current: any) => ({ ...current, description: event.target.value }))}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                    主域名（仅用于初始化主目标 URL）
+                    {t("proj.baseUrlLabel")}
                   </label>
                   <input
                     className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="例: https://admin.example.com"
+                    placeholder={t("proj.baseUrlPlaceholder")}
                     value={projectForm.testBaseUrl}
                     onChange={(event) => setProjectForm((current: any) => ({ ...current, testBaseUrl: event.target.value }))}
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    此字段仅在首次创建项目时同步成主「目标网址」。日常生成 / 录制 / 运行请到「目标网址」管理多套环境，并在工作台下拉显式选择。
+                    {t("proj.baseUrlHint")}
                   </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                      工作区来源
+                      {t("proj.workspaceSourceLabel")}
                     </label>
                     <select
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={workspaceForm.sourceKind}
                       onChange={(event) => setWorkspaceForm((current: any) => ({ ...current, sourceKind: event.target.value as typeof current.sourceKind }))}
                     >
-                      <option value="git">Git 仓库</option>
-                      <option value="local_path">本地路径</option>
-                      <option value="upload">上传目录（预留）</option>
+                      <option value="git">{t("proj.sourceGit")}</option>
+                      <option value="local_path">{t("proj.sourceLocalPath")}</option>
+                      <option value="upload">{t("proj.sourceUpload")}</option>
                     </select>
                   </div>
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                      鉴权配置
+                      {t("proj.authProfileLabel")}
                     </label>
                     <select
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
@@ -133,17 +134,17 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                       onChange={(event) => setWorkspaceForm((current: any) => ({ ...current, gitAuthProfileId: event.target.value }))}
                       disabled={workspaceForm.sourceKind !== "git"}
                     >
-                      <option value="">无</option>
+                      <option value="">{t("proj.authNone")}</option>
                       {gitAuthProfiles.map((profile) => (
                         <option key={profile.id} value={profile.id}>{profile.name} ({profile.kind})</option>
                       ))}
                     </select>
                     <p className="text-[10px] text-muted-foreground leading-relaxed">
                       {workspaceForm.sourceKind !== "git"
-                        ? "只有 Git 仓库来源才需要鉴权配置。"
+                        ? t("proj.authHintNotGit")
                         : gitAuthProfiles.length === 0
-                        ? "当前还没有保存任何鉴权配置，所以上面只能选“无”。先在下方新增一个，再回来选择。"
-                        : "这里选择的是已保存的全局鉴权配置；下方用于新增或删除配置。"}
+                        ? t("proj.authHintEmpty")
+                        : t("proj.authHintPick")}
                     </p>
                   </div>
                 </div>
@@ -151,15 +152,15 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                 <div className="rounded-xl border border-border/40 bg-secondary/10 p-3 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-[11px] font-semibold text-foreground">Git 鉴权配置管理</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">先在这里保存配置，再到上面的“鉴权配置”下拉里选择。</div>
+                      <div className="text-[11px] font-semibold text-foreground">{t("proj.gitAuthTitle")}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{t("proj.gitAuthHint")}</div>
                     </div>
-                    <div className="text-[10px] text-muted-foreground shrink-0">已保存 {gitAuthProfiles.length} 个</div>
+                    <div className="text-[10px] text-muted-foreground shrink-0">{t("proj.savedCount", { count: gitAuthProfiles.length })}</div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3 py-2 text-xs text-foreground"
-                      placeholder="配置名称"
+                      placeholder={t("proj.authNamePlaceholder")}
                       value={authForm.name}
                       onChange={(event) => setAuthForm((current: any) => ({ ...current, name: event.target.value }))}
                     />
@@ -175,20 +176,20 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                     </select>
                     <input
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3 py-2 text-xs text-foreground"
-                      placeholder="Host Pattern，例如 github.com"
+                      placeholder={t("proj.hostPatternPlaceholder")}
                       value={authForm.hostPattern}
                       onChange={(event) => setAuthForm((current: any) => ({ ...current, hostPattern: event.target.value }))}
                     />
                     <input
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3 py-2 text-xs text-foreground"
-                      placeholder="用户名（可选）"
+                      placeholder={t("proj.usernamePlaceholder")}
                       value={authForm.username}
                       onChange={(event) => setAuthForm((current: any) => ({ ...current, username: event.target.value }))}
                     />
                   </div>
                   <textarea
                     className="block w-full rounded-xl border border-border/60 bg-background/30 px-3 py-2 text-xs text-foreground min-h-[4rem] resize-none"
-                    placeholder={authForm.kind === "ssh_key" ? "粘贴 SSH 私钥" : "粘贴 token 或密码"}
+                    placeholder={authForm.kind === "ssh_key" ? t("proj.pasteSshKey") : t("proj.pasteToken")}
                     value={authForm.secret}
                     onChange={(event) => setAuthForm((current: any) => ({ ...current, secret: event.target.value }))}
                   />
@@ -208,7 +209,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                         setAuthForm({ name: "", kind: "http_token", hostPattern: "", username: "", secret: "" })
                       }}
                     >
-                      保存鉴权配置
+                      {t("proj.saveAuthProfile")}
                     </button>
                     {gitAuthProfiles.length > 0 && (
                       <div className="flex-1 min-w-full space-y-2 max-h-32 overflow-auto pr-1">
@@ -236,7 +237,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                      Git 仓库地址
+                      {t("proj.gitRepoUrlLabel")}
                     </label>
                     <input
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
@@ -252,7 +253,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                   </div>
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                      本地目录路径
+                      {t("proj.localPathLabel")}
                     </label>
                     <input
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
@@ -270,7 +271,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                      分支
+                      {t("proj.branchLabel")}
                     </label>
                     <input
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -281,11 +282,11 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                   </div>
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                      引用 / Commit
+                      {t("proj.refLabel")}
                     </label>
                     <input
                       className="block w-full rounded-xl border border-border/60 bg-background/30 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 shadow-sm transition-all focus:border-primary/80 focus:bg-background/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="可选"
+                      placeholder={t("proj.optionalPlaceholder")}
                       value={workspaceForm.ref ?? ""}
                       onChange={(event) => setWorkspaceForm((current: any) => ({ ...current, ref: event.target.value }))}
                     />
@@ -295,8 +296,8 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                 {projectForm.id && (
                   <div className="rounded-xl border border-border/40 bg-secondary/15 p-3 space-y-3">
                     <div className="text-[11px] text-muted-foreground">
-                      当前状态：<span className="font-mono text-foreground">{projectWorkspace?.status ?? "missing"}</span>
-                      {projectWorkspace?.lastSyncedAt ? ` · 最近同步 ${formatDateTime(projectWorkspace.lastSyncedAt)}` : ""}
+                      {t("proj.currentStatus")}<span className="font-mono text-foreground">{projectWorkspace?.status ?? "missing"}</span>
+                      {projectWorkspace?.lastSyncedAt ? t("proj.lastSynced", { time: formatDateTime(projectWorkspace.lastSyncedAt) }) : ""}
                     </div>
                     {projectWorkspace?.lastError && (
                       <div className="text-[11px] text-rose-600 dark:text-rose-400 break-all">{projectWorkspace.lastError}</div>
@@ -308,7 +309,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                         onClick={saveWorkspace}
                         disabled={busy}
                       >
-                        保存工作区
+                        {t("proj.saveWorkspace")}
                       </button>
                       <button
                         className="h-8 px-3 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-secondary/40 text-muted-foreground hover:text-foreground transition-all cursor-pointer disabled:opacity-50"
@@ -316,7 +317,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                         onClick={() => importLocalWorkspace()}
                         disabled={busy || workspaceForm.sourceKind !== "local_path"}
                       >
-                        导入本地目录
+                        {t("proj.importLocalDir")}
                       </button>
                       <button
                         className="h-8 px-3 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-secondary/40 text-muted-foreground hover:text-foreground transition-all cursor-pointer disabled:opacity-50"
@@ -336,7 +337,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                         }}
                         disabled={busy || workspaceForm.sourceKind !== "upload"}
                       >
-                        上传目录
+                        {t("proj.uploadDir")}
                       </button>
                       <button
                         className="h-8 px-3 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-secondary/40 text-muted-foreground hover:text-foreground transition-all cursor-pointer disabled:opacity-50"
@@ -344,7 +345,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                         onClick={syncWorkspace}
                         disabled={busy || workspaceForm.sourceKind !== "git"}
                       >
-                        同步 Git
+                        {t("proj.syncGit")}
                       </button>
                       <button
                         className="h-8 px-3 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-secondary/40 text-muted-foreground hover:text-foreground transition-all cursor-pointer disabled:opacity-50"
@@ -355,7 +356,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                         }}
                         disabled={busy || !projectWorkspace}
                       >
-                        浏览代码
+                        {t("proj.browseCode")}
                       </button>
                     </div>
                   </div>
@@ -368,7 +369,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                     type="button"
                     onClick={() => setIsEditing(false)}
                   >
-                    取消
+                    {t("proj.cancel")}
                   </button>
                   <button
                     className="h-9 px-4 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
@@ -380,7 +381,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                     disabled={busy}
                   >
                     <span className="material-symbols-outlined text-sm">save</span>
-                    保存项目
+                    {t("proj.saveProject")}
                   </button>
                 </div>
               </div>
@@ -392,10 +393,10 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                 <div className="flex items-end gap-3 p-4 bg-secondary/20 border border-border/40 rounded-xl">
                   <div className="flex-1 space-y-1.5">
                     <label className="block text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-                      模块名称
+                      {t("proj.moduleNameLabel")}
                     </label>
                     <input
-                      placeholder="登录模块"
+                      placeholder={t("proj.moduleNamePlaceholder")}
                       value={newModuleName}
                       onChange={(e) => setNewModuleName(e.target.value)}
                       className="block w-full rounded-xl border border-border/60 bg-background/40 px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary/80 focus:ring-2 focus:ring-primary/20"
@@ -403,10 +404,10 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                   </div>
                   <div className="flex-1 space-y-1.5">
                     <label className="block text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-                      模块描述 (可选)
+                      {t("proj.moduleDescLabel")}
                     </label>
                     <input
-                      placeholder="描述该模块的业务功能"
+                      placeholder={t("proj.moduleDescPlaceholder")}
                       value={newModuleDesc}
                       onChange={(e) => setNewModuleDesc(e.target.value)}
                       className="block w-full rounded-xl border border-border/60 bg-background/40 px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary/80 focus:ring-2 focus:ring-primary/20"
@@ -423,7 +424,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                     }}
                   >
                     <span className="material-symbols-outlined text-sm">add</span>
-                    添加
+                    {t("proj.add")}
                   </button>
                 </div>
 
@@ -449,7 +450,7 @@ export function ProjectEditModal({ controller, isEditing, setIsEditing, editTab,
                   ))}
                   {modules.length === 0 && (
                     <div className="py-10 text-center text-xs text-muted-foreground italic bg-secondary/5 border border-dashed border-border/40 rounded-xl">
-                      暂无业务模块，请通过上方输入栏创建。
+                      {t("proj.noModules")}
                     </div>
                   )}
                 </div>

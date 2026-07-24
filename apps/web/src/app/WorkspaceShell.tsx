@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react"
 
 import { appName, appVersion, navItems } from "./constants"
+import { lang, setLang, t } from "../i18n/index.js"
 import { FrontendErrorBoundary } from "./FrontendErrorBoundary"
 import { Badge } from "./components/ui/badge"
 import { Button } from "./components/ui/button"
@@ -21,20 +22,10 @@ const KnowledgeSection = lazy(async () => ({ default: (await import("./sections/
 const TasksSection = lazy(async () => ({ default: (await import("./sections/TasksSection")).TasksSection }))
 const LlmConnectionsSection = lazy(async () => ({ default: (await import("./sections/LlmConnectionsSection")).LlmConnectionsSection }))
 
-const sectionCopy: Record<string, { title: string; description: string }> = {
-  dashboard: { title: "总览", description: "集中查看项目健康度、模型连接状态和最近活动。" },
-  projects: { title: "项目", description: "管理测试项目、仓库来源和模块信息。" },
-  cases: { title: "测试用例", description: "管理项目下的测试用例与有序前置用例。" },
-  tasks: { title: "任务", description: "编排有序用例、配置执行模式与调度触发器，并查看执行历史。" },
-  targetUrls: { title: "目标网址管理", description: "为项目配置多个目标网址，供执行、录制、登录态等场景下拉选择。" },
-  dataTables: { title: "数据表", description: "维护项目级持久化数据表，供脚本通过 tables.* 读写以实现跨运行的记录与去重。" },
-  knowledge: { title: "知识库", description: "跟随项目的多层级 Markdown 内容空间：浏览目录树、渲染文档；AI 与脚本可通过 knowledge.* 持续沉淀采集整理的内容。" },
-  authProfiles: { title: "登录状态管理", description: "管理需要在用例中注入的持久化身份鉴权状态。" },
-  workbench: { title: "AI 工作台", description: "生成脚本、手动录制、查看历史脚本并在工作台内直接验证。" },
-  runs: { title: "执行记录", description: "查看任务执行历史、实时浏览器回放与执行产物。" },
-  outbox: { title: "产出收件箱", description: "聚合各任务产出，按分类快速查看双语报告、签到、账单等结果。" },
-  llmConnections: { title: "大模型中心", description: "管理 AI 模型配置、API Keys 与 Copilot 授权状态。" },
-}
+const sectionCopyFor = (section: string): { title: string; description: string } => ({
+  title: t(`shell.sec.${section}.title`),
+  description: t(`shell.sec.${section}.desc`),
+})
 
 type WorkspaceShellProps = {
   authSession: AuthSession
@@ -45,7 +36,7 @@ type WorkspaceShellProps = {
 function SectionLoadingState({ title }: { title: string }) {
   return (
     <div className="rounded-2xl border border-border/70 bg-card/50 px-6 py-8 text-sm text-muted-foreground shadow-sm">
-      正在加载 {title}…
+      {t("shell.loadingSection", { title })}
     </div>
   )
 }
@@ -56,7 +47,7 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
     setActiveSection, setActiveRun, setActiveTaskRunId, setActiveRecorderSessionId,
     startNewTaskDraft,
   } = controller
-  const currentSection = sectionCopy[activeSection]
+  const currentSection = sectionCopyFor(activeSection)
 
   return (
     <div className="grid min-h-screen grid-cols-1 bg-background text-foreground lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -72,21 +63,21 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
         <div className="mt-8 space-y-3">
           <Button className="w-full justify-start" onClick={startNewTaskDraft}>
             <span className="material-symbols-outlined text-base">add</span>
-            新建任务
+            {t("shell.newTask")}
           </Button>
           <div className="rounded-2xl border border-border/80 bg-card/70 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">模型连接</p>
-                <p className="mt-1 text-sm font-medium">{llmSession.provider === "copilot-proxy" ? "Copilot" : "LLM API"} {llmSession.signedIn ? "已连接" : "待连接"}</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t("shell.modelConnection")}</p>
+                <p className="mt-1 text-sm font-medium">{llmSession.provider === "copilot-proxy" ? "Copilot" : "LLM API"} {llmSession.signedIn ? t("shell.connected") : t("shell.pendingConnection")}</p>
               </div>
-              <Badge tone={llmSession.signedIn ? "success" : "warning"}>{llmSession.signedIn ? "在线" : "未连接"}</Badge>
+              <Badge tone={llmSession.signedIn ? "success" : "warning"}>{llmSession.signedIn ? t("shell.online") : t("shell.offline")}</Badge>
             </div>
             <p className="mt-3 text-sm text-muted-foreground">{llmSession.model}</p>
           </div>
         </div>
 
-        <nav className="mt-8 flex flex-col gap-2" aria-label="主导航">
+        <nav className="mt-8 flex flex-col gap-2" aria-label={t("shell.mainNav")}>
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -108,12 +99,12 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
         </nav>
 
         <div className="mt-8 rounded-2xl border border-border/80 bg-card/70 p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">当前项目</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t("shell.currentProject")}</p>
           <h2 className="mt-2 text-lg font-semibold tracking-tight">{selectedProject.name}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{selectedProject.description}</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Badge>{selectedProject.version || "未标记版本"}</Badge>
-            <Badge>{selectedProject.summary.totalCases} 条用例</Badge>
+            <Badge>{selectedProject.version || t("shell.noVersion")}</Badge>
+            <Badge>{t("shell.caseCount", { count: selectedProject.summary.totalCases })}</Badge>
           </div>
         </div>
       </aside>
@@ -127,9 +118,18 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
             actions={
               <div className="flex items-center gap-2.5">
                 <button
+                  onClick={() => setLang(lang === "zh" ? "en" : "zh")}
+                  className="flex items-center justify-center h-9 px-2.5 gap-1 rounded-xl border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-sm"
+                  title={t("shell.switchLang")}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-lg">translate</span>
+                  <span className="text-xs font-medium">{lang === "zh" ? "中" : "EN"}</span>
+                </button>
+                <button
                   onClick={() => controller.setTheme(controller.theme === "dark" ? "light" : "dark")}
                   className="flex items-center justify-center size-9 rounded-xl border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-sm"
-                  title={controller.theme === "dark" ? "切换为亮色模式" : "切换为暗色模式"}
+                  title={controller.theme === "dark" ? t("shell.switchToLight") : t("shell.switchToDark")}
                   type="button"
                 >
                   <span className="material-symbols-outlined text-lg">
@@ -154,7 +154,7 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
               <div className="flex items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-red-800 dark:text-red-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
                 <span className="material-symbols-outlined text-destructive shrink-0">error</span>
                 <span className="flex-1 break-all">{error}</span>
-                <button onClick={() => controller.setError?.(null)} className="flex shrink-0 p-1 opacity-70 hover:opacity-100 transition-opacity" title="关闭">
+                <button onClick={() => controller.setError?.(null)} className="flex shrink-0 p-1 opacity-70 hover:opacity-100 transition-opacity" title={t("common.close")}>
                   <span className="material-symbols-outlined text-base">close</span>
                 </button>
               </div>
@@ -163,7 +163,7 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
               <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
                 <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 shrink-0">check_circle</span>
                 <span className="flex-1">{successMessage}</span>
-                <button onClick={() => controller.setSuccessMessage?.(null)} className="flex shrink-0 p-1 opacity-70 hover:opacity-100 transition-opacity" title="关闭">
+                <button onClick={() => controller.setSuccessMessage?.(null)} className="flex shrink-0 p-1 opacity-70 hover:opacity-100 transition-opacity" title={t("common.close")}>
                   <span className="material-symbols-outlined text-base">close</span>
                 </button>
               </div>

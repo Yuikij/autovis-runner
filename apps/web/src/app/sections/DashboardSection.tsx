@@ -1,6 +1,7 @@
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
 import { formatDateTime, formatDuration, translateStatus } from "../utils"
 import { clearFrontendDiagnostics, type FrontendDiagnosticEntry, useFrontendDiagnostics } from "../frontendDiagnostics"
+import { t } from "../../i18n/index.js"
 
 type DashboardSectionProps = {
   controller: ReadyWorkspaceController
@@ -45,10 +46,10 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
           <span className="material-symbols-outlined text-[120px] text-foreground">deployed_code</span>
         </div>
         <div className="max-w-2xl space-y-2">
-          <p className="text-xs font-semibold text-primary uppercase tracking-widest">系统仪表盘</p>
-          <h2 className="text-xl font-bold text-foreground">智能自动化测试中枢</h2>
+          <p className="text-xs font-semibold text-primary uppercase tracking-widest">{t("dash.kicker")}</p>
+          <h2 className="text-xl font-bold text-foreground">{t("dash.heroTitle")}</h2>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            围绕项目、测试集、测试用例、AI 工作台与任务执行，统一管理自动化测试脚本的生成、录制、版本回滚、验证与回放。
+            {t("dash.heroDesc")}
           </p>
         </div>
       </div>
@@ -60,13 +61,13 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
           <div className="absolute right-3 top-3 text-muted-foreground/20 group-hover:text-muted-foreground/30 transition-colors">
             <span className="material-symbols-outlined text-4xl">folder</span>
           </div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">测试项目</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dash.cardProjects")}</p>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-foreground font-mono">{projects.length}</span>
-            <span className="text-xs text-muted-foreground">个活跃项目</span>
+            <span className="text-xs text-muted-foreground">{t("dash.cardProjectsUnit")}</span>
           </div>
           <div className="mt-3 text-[11px] text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => setActiveSection("projects")}>
-            查看所有项目 <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
+            {t("dash.viewAllProjects")} <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
           </div>
         </div>
 
@@ -75,13 +76,13 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
           <div className="absolute right-3 top-3 text-muted-foreground/20 group-hover:text-muted-foreground/30 transition-colors">
             <span className="material-symbols-outlined text-4xl">fact_check</span>
           </div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">用例总数</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dash.cardCases")}</p>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-foreground font-mono">{testCases.length}</span>
-            <span className="text-xs text-muted-foreground">条测试用例</span>
+            <span className="text-xs text-muted-foreground">{t("dash.cardCasesUnit")}</span>
           </div>
           <div className="mt-3 text-[11px] text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => setActiveSection("cases")}>
-            设计测试集用例 <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
+            {t("dash.designCases")} <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
           </div>
         </div>
 
@@ -90,12 +91,12 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
           <div className="absolute right-3 top-3 text-emerald-500/20 group-hover:text-emerald-500/30 transition-colors">
             <span className="material-symbols-outlined text-4xl">analytics</span>
           </div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">执行通过率</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dash.cardPassRate")}</p>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-foreground font-mono">{executionRate}%</span>
             <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center font-medium">
               <span className="material-symbols-outlined text-[12px] mr-0.5">trending_up</span>
-              平均值
+              {t("dash.average")}
             </span>
           </div>
           <div className="mt-3 w-full bg-secondary h-1 rounded-full overflow-hidden">
@@ -111,10 +112,10 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
           <div className="absolute right-3 top-3 text-muted-foreground/20 group-hover:text-muted-foreground/30 transition-colors">
             <span className="material-symbols-outlined text-4xl animate-pulse">play_circle</span>
           </div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">运行中任务</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dash.cardRunning")}</p>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-foreground font-mono">{activeCount}</span>
-            <span className="text-xs text-muted-foreground">个验证实例</span>
+            <span className="text-xs text-muted-foreground">{t("dash.cardRunningUnit")}</span>
           </div>
           <div
             className="mt-3 text-[11px] text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
@@ -124,7 +125,7 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
               setActiveSection("runs")
             }}
           >
-            进入运行监控 <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
+            {t("dash.goRunMonitor")} <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
           </div>
         </div>
       </div>
@@ -136,15 +137,15 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-lg">diagnosis</span>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">前端运行诊断</h3>
+                <h3 className="text-sm font-semibold text-foreground">{t("dash.diagTitle")}</h3>
                 <p className="text-[11px] text-muted-foreground">
-                  收集浏览器未捕获异常、Promise 拒绝、React 渲染错误，以及已处理的 API 请求失败。
+                  {t("dash.diagDesc")}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full border border-border/60 bg-secondary px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
-                最近 {frontendDiagnostics.items.length} 条
+                {t("dash.diagRecentCount", { count: frontendDiagnostics.items.length })}
               </span>
               <button
                 type="button"
@@ -152,7 +153,7 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
                 disabled={frontendDiagnostics.items.length === 0}
                 className="rounded-lg border border-border/60 bg-background px-3 py-1.5 text-[11px] text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
               >
-                清空诊断
+                {t("dash.clearDiagnostics")}
               </button>
             </div>
           </div>
@@ -160,17 +161,17 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
               <DiagnosticStatCard
-                label="未捕获异常"
+                label={t("dash.diagUncaught")}
                 value={countDiagnostics(frontendDiagnostics.items, ["window-error", "unhandled-rejection", "react-error-boundary"])}
                 tone="danger"
               />
               <DiagnosticStatCard
-                label="API 失败"
+                label={t("dash.diagApiFailures")}
                 value={countDiagnostics(frontendDiagnostics.items, ["api-request"])}
                 tone="warning"
               />
               <DiagnosticStatCard
-                label="最近路径"
+                label={t("dash.diagRecentPath")}
                 value={latestDiagnostic?.path ?? "-"}
                 tone="default"
               />
@@ -180,9 +181,9 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
               {frontendDiagnostics.items.length === 0 ? (
                 <div className="flex h-full min-h-[13rem] flex-col items-center justify-center gap-2 text-center text-muted-foreground">
                   <span className="material-symbols-outlined text-3xl text-emerald-500">verified</span>
-                  <p className="text-sm font-medium text-foreground">当前未记录到前端异常</p>
+                  <p className="text-sm font-medium text-foreground">{t("dash.diagEmptyTitle")}</p>
                   <p className="max-w-lg text-[11px] leading-relaxed">
-                    当页面出现未捕获异常、Promise 拒绝、React 渲染错误，或 API 请求返回失败状态时，这里会自动留下诊断记录。
+                    {t("dash.diagEmptyDesc")}
                   </p>
                 </div>
               ) : (
@@ -201,10 +202,10 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
           <div className="flex items-center justify-between pb-3 border-b border-border/40 mb-4">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-lg">history_toggle_off</span>
-              <h3 className="text-sm font-semibold text-foreground">项目最近运行轨迹</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t("dash.recentRunsTitle")}</h3>
             </div>
             <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border/40">
-              历史共 {projectRuns.length} 次
+              {t("dash.historyTotal", { count: projectRuns.length })}
             </span>
           </div>
 
@@ -213,17 +214,17 @@ export function DashboardSection({ controller }: DashboardSectionProps) {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-border/40 text-[10px] uppercase font-semibold tracking-wider text-muted-foreground select-none">
-                  <th className="pb-3 pl-2">运行 ID</th>
-                  <th className="pb-3">执行状态</th>
-                  <th className="pb-3">触发时间</th>
-                  <th className="pb-3 pr-2">运行耗时</th>
+                  <th className="pb-3 pl-2">{t("dash.colRunId")}</th>
+                  <th className="pb-3">{t("dash.colStatus")}</th>
+                  <th className="pb-3">{t("dash.colStartedAt")}</th>
+                  <th className="pb-3 pr-2">{t("dash.colDuration")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20 text-xs">
                 {projectRuns.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="py-12 text-center text-muted-foreground italic">
-                      目前尚无运行历史。选择用例后，在工作台中启动验证，运行结果将归档于此。
+                      {t("dash.noRunHistory")}
                     </td>
                   </tr>
                 ) : (
@@ -323,12 +324,12 @@ function DiagnosticEntryCard({ item }: { item: FrontendDiagnosticEntry }) {
       <div className="mt-3 space-y-3 border-t border-border/40 pt-3 text-[11px]">
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">路径</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t("dash.diagPath")}</p>
             <p className="mt-1 break-all font-mono text-foreground">{item.path}</p>
           </div>
           {item.meta ? (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">上下文</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t("dash.diagContext")}</p>
               <pre className="mt-1 whitespace-pre-wrap break-all rounded-xl border border-border/40 bg-background/60 p-2 font-mono text-foreground/90">
                 {JSON.stringify(item.meta, null, 2)}
               </pre>
@@ -337,7 +338,7 @@ function DiagnosticEntryCard({ item }: { item: FrontendDiagnosticEntry }) {
         </div>
         {item.componentStack ? (
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">组件栈</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t("dash.diagComponentStack")}</p>
             <pre className="mt-1 whitespace-pre-wrap break-all rounded-xl border border-border/40 bg-background/60 p-2 font-mono text-foreground/90">
               {item.componentStack}
             </pre>
@@ -345,7 +346,7 @@ function DiagnosticEntryCard({ item }: { item: FrontendDiagnosticEntry }) {
         ) : null}
         {item.stack ? (
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">错误堆栈</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t("dash.diagErrorStack")}</p>
             <pre className="mt-1 whitespace-pre-wrap break-all rounded-xl border border-border/40 bg-background/60 p-2 font-mono text-foreground/90">
               {item.stack}
             </pre>

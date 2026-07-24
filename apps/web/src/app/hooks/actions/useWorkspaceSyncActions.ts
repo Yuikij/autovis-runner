@@ -1,6 +1,7 @@
 import type { WorkspaceActionParams } from "../types.js"
 import { request } from "../../api.js"
 import { apiRoutes } from "../../apiRoutes.js"
+import { t } from "../../../i18n/index.js"
 import type {
   GitAuthProfile,
   ProjectWorkspace,
@@ -27,7 +28,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
 
   const saveWorkspace = async () => {
     if (!selectedProject) {
-      setError("请先选择项目。")
+      setError(t("actions.selectProjectFirst"))
       return
     }
 
@@ -42,7 +43,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
         }),
       })
       await loadProjectResources(selectedProject.id)
-      setSuccessMessage("工作区配置已保存！")
+      setSuccessMessage(t("actions.workspaceSaved"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)
@@ -53,12 +54,12 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
 
   const importLocalWorkspace = async (localPath?: string) => {
     if (!selectedProject) {
-      setError("请先选择项目。")
+      setError(t("actions.selectProjectFirst"))
       return
     }
     const nextPath = (localPath ?? workspaceForm.localSourcePath ?? "").trim()
     if (!nextPath) {
-      setError("请先填写本地目录路径。")
+      setError(t("actions.localPathRequired"))
       return
     }
 
@@ -70,7 +71,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
         body: JSON.stringify({ localPath: nextPath }),
       })
       await loadProjectResources(selectedProject.id)
-      setSuccessMessage("本地目录已导入到托管工作区！")
+      setSuccessMessage(t("actions.localImported"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)
@@ -81,7 +82,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
 
   const syncWorkspace = async () => {
     if (!selectedProject) {
-      setError("请先选择项目。")
+      setError(t("actions.selectProjectFirst"))
       return
     }
 
@@ -93,7 +94,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
         body: JSON.stringify({ branch: workspaceForm.branch || undefined, ref: workspaceForm.ref || undefined }),
       })
       await loadProjectResources(selectedProject.id)
-      setSuccessMessage("工作区同步成功！")
+      setSuccessMessage(t("actions.workspaceSynced"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)
@@ -104,7 +105,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
 
   const uploadWorkspace = async (file: File) => {
     if (!selectedProject) {
-      setError("请先选择项目。")
+      setError(t("actions.selectProjectFirst"))
       return
     }
 
@@ -119,7 +120,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
         body: formData,
       })
       await loadProjectResources(selectedProject.id)
-      setSuccessMessage("上传目录已导入到托管工作区！")
+      setSuccessMessage(t("actions.uploadImported"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)
@@ -139,7 +140,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
       if (selectedProjectId) {
         await loadProjectResources(selectedProjectId)
       }
-      setSuccessMessage("鉴权配置已保存！")
+      setSuccessMessage(t("actions.gitAuthSaved"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)
@@ -156,7 +157,7 @@ export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
       if (selectedProjectId) {
         await loadProjectResources(selectedProjectId)
       }
-      setSuccessMessage("鉴权配置已删除！")
+      setSuccessMessage(t("actions.gitAuthDeleted"))
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (reason) {
       setError((reason as Error).message)

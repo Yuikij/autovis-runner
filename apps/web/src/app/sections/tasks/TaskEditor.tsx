@@ -5,6 +5,7 @@ import type { TargetUrl, TaskItem, TaskModeConfig, TestCase, UpsertTaskRequest }
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Field, inputClassName } from "../../components/ui/field"
+import { t } from "../../../i18n/index.js"
 
 type TaskEditorProps = {
   addItem: () => void
@@ -46,27 +47,27 @@ export function TaskEditor({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{savedTaskId ? `编辑任务 · ${selectedTaskName ?? ""}` : "新建任务"}</CardTitle>
-        <CardDescription>配置任务的基本信息，对测试用例进行顺序编排并设置运行时的触发模式。</CardDescription>
+        <CardTitle>{savedTaskId ? t("tasks.editTaskTitle", { name: selectedTaskName ?? "" }) : t("tasks.newTask")}</CardTitle>
+        <CardDescription>{t("tasks.editorDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="任务名称" description="该任务在项目中的唯一识别标识">
-            <input className={inputClassName} value={taskForm.name} onChange={(event) => setTaskForm((current) => ({ ...current, name: event.target.value }))} placeholder="例如：每日冒烟回归" />
+          <Field label={t("tasks.nameLabel")} description={t("tasks.nameDescription")}>
+            <input className={inputClassName} value={taskForm.name} onChange={(event) => setTaskForm((current) => ({ ...current, name: event.target.value }))} placeholder={t("tasks.namePlaceholder")} />
           </Field>
-          <Field label="描述（选填）" description="简述此任务的用途与回归范围">
-            <input className={inputClassName} value={taskForm.description ?? ""} onChange={(event) => setTaskForm((current) => ({ ...current, description: event.target.value }))} placeholder="例如：运行核心微博模块评论回归用例" />
+          <Field label={t("tasks.descriptionLabel")} description={t("tasks.descriptionHint")}>
+            <input className={inputClassName} value={taskForm.description ?? ""} onChange={(event) => setTaskForm((current) => ({ ...current, description: event.target.value }))} placeholder={t("tasks.descriptionPlaceholder")} />
           </Field>
         </div>
 
         <div className="space-y-4 pt-2 border-t border-border/40">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-sm font-medium text-foreground block">有序用例编排</span>
-              <span className="text-xs text-muted-foreground">任务运行将严格按照此顺序依次执行用例；执行时跳过用例自带前置，默认失败即终止，也可按步骤配置失败后继续</span>
+              <span className="text-sm font-medium text-foreground block">{t("tasks.orchestrationTitle")}</span>
+              <span className="text-xs text-muted-foreground">{t("tasks.orchestrationHint")}</span>
             </div>
             <span className="text-xs font-semibold bg-secondary px-2.5 py-1 rounded-full text-muted-foreground border border-border">
-              共 {taskForm.items.length} 个步骤
+              {t("tasks.stepsTotal", { count: taskForm.items.length })}
             </span>
           </div>
 
@@ -75,13 +76,13 @@ export function TaskEditor({
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary border border-border/50 text-muted-foreground">
                 <span className="material-symbols-outlined text-xl">playlist_add</span>
               </div>
-              <strong className="text-xs text-foreground font-semibold">暂无步骤</strong>
+              <strong className="text-xs text-foreground font-semibold">{t("tasks.noStepsTitle")}</strong>
               <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-                当前任务尚未添加任何用例。您需要在此处编排至少一个测试用例，以便任务可保存并运行。
+                {t("tasks.noStepsHint")}
               </p>
               <Button variant="secondary" size="sm" onClick={addItem} disabled={projectCases.length === 0} className="mt-1 shadow-sm">
                 <span className="material-symbols-outlined text-sm">add</span>
-                添加用例步骤
+                {t("tasks.addStep")}
               </Button>
             </div>
           ) : (
@@ -99,21 +100,21 @@ export function TaskEditor({
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-primary tracking-wider uppercase">STEP {String(index + 1).padStart(2, "0")}</span>
                       <span className="h-1 w-1 rounded-full bg-border" />
-                      <span className="text-xs text-muted-foreground">设置用例、域名与失败处理</span>
+                      <span className="text-xs text-muted-foreground">{t("tasks.stepHint")}</span>
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <Button aria-label="上移" className="h-7 w-7 rounded-lg hover:bg-secondary/80 border border-border/60 text-muted-foreground hover:text-foreground" disabled={index === 0} onClick={() => moveItem(index, -1)} size="sm" type="button" variant="ghost"><span className="material-symbols-outlined text-sm">arrow_upward</span></Button>
-                      <Button aria-label="下移" className="h-7 w-7 rounded-lg hover:bg-secondary/80 border border-border/60 text-muted-foreground hover:text-foreground" disabled={index === taskForm.items.length - 1} onClick={() => moveItem(index, 1)} size="sm" type="button" variant="ghost"><span className="material-symbols-outlined text-sm">arrow_downward</span></Button>
-                      <Button aria-label="移除" className="h-7 w-7 rounded-lg hover:bg-rose-500/10 border border-border/60 text-rose-600 dark:text-rose-400" onClick={() => removeItem(index)} size="sm" type="button" variant="ghost"><span className="material-symbols-outlined text-sm">delete</span></Button>
+                      <Button aria-label={t("tasks.moveUp")} className="h-7 w-7 rounded-lg hover:bg-secondary/80 border border-border/60 text-muted-foreground hover:text-foreground" disabled={index === 0} onClick={() => moveItem(index, -1)} size="sm" type="button" variant="ghost"><span className="material-symbols-outlined text-sm">arrow_upward</span></Button>
+                      <Button aria-label={t("tasks.moveDown")} className="h-7 w-7 rounded-lg hover:bg-secondary/80 border border-border/60 text-muted-foreground hover:text-foreground" disabled={index === taskForm.items.length - 1} onClick={() => moveItem(index, 1)} size="sm" type="button" variant="ghost"><span className="material-symbols-outlined text-sm">arrow_downward</span></Button>
+                      <Button aria-label={t("tasks.remove")} className="h-7 w-7 rounded-lg hover:bg-rose-500/10 border border-border/60 text-rose-600 dark:text-rose-400" onClick={() => removeItem(index)} size="sm" type="button" variant="ghost"><span className="material-symbols-outlined text-sm">delete</span></Button>
                     </div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-semibold text-muted-foreground">选择执行用例</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground">{t("tasks.selectCaseLabel")}</span>
                       <select className={`${inputClassName} !h-9 text-xs bg-secondary/15 border-border/70`} value={item.caseId} onChange={(event) => updateItem(index, { caseId: event.target.value })}>
-                        <option value="">选择用例...</option>
+                        <option value="">{t("tasks.selectCasePlaceholder")}</option>
                         {projectCases.map((testCase) => (
                           <option key={testCase.id} value={testCase.id}>
                             {testCase.caseCode} {testCase.purpose ? `(${testCase.purpose})` : testCase.moduleName ? `[${testCase.moduleName}]` : ""}
@@ -123,9 +124,9 @@ export function TaskEditor({
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-semibold text-muted-foreground">指定初始 URL (可选覆盖)</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground">{t("tasks.targetUrlLabel")}</span>
                       <select className={`${inputClassName} !h-9 text-xs bg-secondary/15 border-border/70`} value={item.targetUrlId ?? ""} onChange={(event) => updateItem(index, { targetUrlId: event.target.value || undefined })}>
-                        <option value="">使用项目默认主域名</option>
+                        <option value="">{t("tasks.targetUrlDefaultOption")}</option>
                         {targetUrls.map((url) => (
                           <option key={url.id} value={url.id}>
                             {url.label} · {url.url}
@@ -135,7 +136,7 @@ export function TaskEditor({
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-semibold text-muted-foreground">真实浏览器（反检测有头）</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground">{t("tasks.stealthLabel")}</span>
                       <select
                         className={`${inputClassName} !h-9 text-xs bg-secondary/15 border-border/70`}
                         value={item.stealth === undefined ? "inherit" : item.stealth ? "on" : "off"}
@@ -144,43 +145,43 @@ export function TaskEditor({
                           updateItem(index, { stealth: next === "inherit" ? undefined : next === "on" })
                         }}
                       >
-                        <option value="inherit">继承站点设置</option>
-                        <option value="on">强制开启（有头真实 Chrome）</option>
-                        <option value="off">强制关闭（后台无头）</option>
+                        <option value="inherit">{t("tasks.stealthInherit")}</option>
+                        <option value="on">{t("tasks.stealthOn")}</option>
+                        <option value="off">{t("tasks.stealthOff")}</option>
                       </select>
-                      <span className="text-[10px] text-muted-foreground">置空（继承）时跟随该站点的「使用真实浏览器」开关；演示等场景可在此单独覆盖。</span>
+                      <span className="text-[10px] text-muted-foreground">{t("tasks.stealthHint")}</span>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-semibold text-muted-foreground">失败后处理</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground">{t("tasks.onFailureLabel")}</span>
                       <select
                         className={`${inputClassName} !h-9 text-xs bg-secondary/15 border-border/70`}
                         value={item.onFailure ?? "stop"}
                         onChange={(event) => updateItem(index, { onFailure: event.target.value === "continue" ? "continue" : undefined })}
                       >
-                        <option value="stop">终止后续步骤（默认）</option>
-                        <option value="continue">继续后续步骤</option>
+                        <option value="stop">{t("tasks.onFailureStop")}</option>
+                        <option value="continue">{t("tasks.onFailureContinue")}</option>
                       </select>
                       <span className="text-[10px] text-muted-foreground">
-                        继续时会记录该步骤失败并执行后续步骤；任务最终仍会标记为失败。
+                        {t("tasks.onFailureHint")}
                       </span>
                     </div>
 
                     <div className="flex flex-col gap-1.5 sm:col-span-2">
-                      <span className="text-[11px] font-semibold text-muted-foreground">会话衔接</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground">{t("tasks.sessionLabel")}</span>
                       <select
                         className={`${inputClassName} !h-9 text-xs bg-secondary/15 border-border/70`}
                         disabled={index === 0}
                         value={index > 0 && item.continueSession ? "continue" : "fresh"}
                         onChange={(event) => updateItem(index, { continueSession: event.target.value === "continue" || undefined })}
                       >
-                        <option value="fresh">全新会话（按上方初始 URL 打开新浏览器会话）</option>
-                        <option value="continue">续用上一个用例的会话（承接登录态、停留页面与执行输出）</option>
+                        <option value="fresh">{t("tasks.sessionFresh")}</option>
+                        <option value="continue">{t("tasks.sessionContinue")}</option>
                       </select>
                       {index === 0 ? (
-                        <span className="text-[10px] text-muted-foreground">首个用例总是以全新会话启动。</span>
+                        <span className="text-[10px] text-muted-foreground">{t("tasks.sessionFirstHint")}</span>
                       ) : item.continueSession ? (
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400">续用会话时初始页面承接上一个用例的停留位置；上方初始 URL 仅作为脚本 baseUrl 使用。上一个用例失败时整个任务将快速失败。</span>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400">{t("tasks.sessionContinueHint")}</span>
                       ) : null}
                     </div>
                   </div>
@@ -189,7 +190,7 @@ export function TaskEditor({
 
               <button onClick={addItem} disabled={projectCases.length === 0} type="button" className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/80 hover:border-primary/50 hover:bg-primary/5 py-3 text-xs text-muted-foreground hover:text-primary transition-all duration-300 hover:shadow-sm">
                 <span className="material-symbols-outlined text-sm">add_circle</span>
-                添加下一个用例步骤
+                {t("tasks.addNextStep")}
               </button>
             </div>
           )}
@@ -197,45 +198,45 @@ export function TaskEditor({
 
         <div className="space-y-4 pt-2 border-t border-border/40">
           <div>
-            <span className="text-sm font-medium text-foreground block">执行模式配置</span>
-            <span className="text-xs text-muted-foreground">配置该任务在被触发或调度时的真实执行模式</span>
+            <span className="text-sm font-medium text-foreground block">{t("tasks.modeTitle")}</span>
+            <span className="text-xs text-muted-foreground">{t("tasks.modeHint")}</span>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <button type="button" onClick={() => setMode({ kind: "oneshot" })} className={`flex flex-col text-left p-4 rounded-xl border transition-all duration-300 hover:scale-[1.01] ${mode.kind === "oneshot" ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm" : "border-border/80 bg-secondary/15 hover:bg-secondary/30 hover:border-border"}`}>
               <div className="flex items-center justify-between mb-2"><div className={`p-1.5 rounded-lg ${mode.kind === "oneshot" ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"}`}><span className="material-symbols-outlined text-base">bolt</span></div>{mode.kind === "oneshot" ? <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> : null}</div>
-              <strong className="text-xs font-semibold text-foreground">即时单次 (Oneshot)</strong>
-              <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">任务运行且按编排顺序仅执行一次，适用于普通流水线回归或单次环境校验。</p>
+              <strong className="text-xs font-semibold text-foreground">{t("tasks.modeOneshot")}</strong>
+              <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">{t("tasks.modeOneshotHint")}</p>
             </button>
 
             <button type="button" onClick={() => setMode({ kind: "polling", intervalMs: 5000, maxAttempts: 30, stopOn: "success", attemptTimeoutMs: 5 * 60 * 1000 })} className={`flex flex-col text-left p-4 rounded-xl border transition-all duration-300 hover:scale-[1.01] ${mode.kind === "polling" ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm" : "border-border/80 bg-secondary/15 hover:bg-secondary/30 hover:border-border"}`}>
               <div className="flex items-center justify-between mb-2"><div className={`p-1.5 rounded-lg ${mode.kind === "polling" ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"}`}><span className="material-symbols-outlined text-base">sync</span></div>{mode.kind === "polling" ? <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> : null}</div>
-              <strong className="text-xs font-semibold text-foreground">循环轮询 (Polling)</strong>
-              <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">脚本失败后自动间隔重试，直至通过或满上限。适用于抢占动作或等待特定就绪条件。</p>
+              <strong className="text-xs font-semibold text-foreground">{t("tasks.modePolling")}</strong>
+              <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">{t("tasks.modePollingHint")}</p>
             </button>
 
             <button type="button" onClick={() => setMode({ kind: "deadline" })} className={`flex flex-col text-left p-4 rounded-xl border transition-all duration-300 hover:scale-[1.01] ${mode.kind === "deadline" ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm" : "border-border/80 bg-secondary/15 hover:bg-secondary/30 hover:border-border"}`}>
               <div className="flex items-center justify-between mb-2"><div className={`p-1.5 rounded-lg ${mode.kind === "deadline" ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"}`}><span className="material-symbols-outlined text-base">schedule</span></div>{mode.kind === "deadline" ? <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> : null}</div>
-              <strong className="text-xs font-semibold text-foreground">定时预热 (Deadline)</strong>
-              <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">配合下方 At/Cron 触发器使用：在触发时刻前自动提前完成浏览器实例化、登录及资源预热，卡到触发时刻瞬时精准执行。</p>
+              <strong className="text-xs font-semibold text-foreground">{t("tasks.modeDeadline")}</strong>
+              <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">{t("tasks.modeDeadlineHint")}</p>
             </button>
           </div>
 
           {mode.kind === "polling" ? (
             <div className="p-4 rounded-xl border border-border/80 bg-secondary/10 grid gap-4 sm:grid-cols-2 animate-fade-in">
-              <Field label="重试间隔 (毫秒)" description="每次运行结束到下一次开始的等待时间"><input className={inputClassName} type="number" min={0} value={mode.intervalMs} onChange={(event) => setMode({ ...mode, intervalMs: Number(event.target.value) })} /></Field>
-              <Field label="最大尝试次数" description="重试达到该上限后停止"><input className={inputClassName} type="number" min={1} value={mode.maxAttempts} onChange={(event) => setMode({ ...mode, maxAttempts: Number(event.target.value) })} /></Field>
-              <Field label="终止条件" description="何种状态下提前终止轮询"><select className={inputClassName} value={mode.stopOn ?? "success"} onChange={(event) => setMode({ ...mode, stopOn: event.target.value as "success" | "exhausted" })}><option value="success">出现任何一次运行通过时停止</option><option value="exhausted">不管成败，全部跑满最大次数</option></select></Field>
-              <Field label="单次运行超时 (毫秒)" description="单次脚本的最长运行期限，超时自动中断重试"><input className={inputClassName} type="number" min={1000} value={mode.attemptTimeoutMs ?? 0} onChange={(event) => setMode({ ...mode, attemptTimeoutMs: Number(event.target.value) || undefined })} /></Field>
+              <Field label={t("tasks.pollingIntervalLabel")} description={t("tasks.pollingIntervalHint")}><input className={inputClassName} type="number" min={0} value={mode.intervalMs} onChange={(event) => setMode({ ...mode, intervalMs: Number(event.target.value) })} /></Field>
+              <Field label={t("tasks.pollingMaxAttemptsLabel")} description={t("tasks.pollingMaxAttemptsHint")}><input className={inputClassName} type="number" min={1} value={mode.maxAttempts} onChange={(event) => setMode({ ...mode, maxAttempts: Number(event.target.value) })} /></Field>
+              <Field label={t("tasks.pollingStopOnLabel")} description={t("tasks.pollingStopOnHint")}><select className={inputClassName} value={mode.stopOn ?? "success"} onChange={(event) => setMode({ ...mode, stopOn: event.target.value as "success" | "exhausted" })}><option value="success">{t("tasks.pollingStopOnSuccess")}</option><option value="exhausted">{t("tasks.pollingStopOnExhausted")}</option></select></Field>
+              <Field label={t("tasks.pollingTimeoutLabel")} description={t("tasks.pollingTimeoutHint")}><input className={inputClassName} type="number" min={1000} value={mode.attemptTimeoutMs ?? 0} onChange={(event) => setMode({ ...mode, attemptTimeoutMs: Number(event.target.value) || undefined })} /></Field>
             </div>
           ) : null}
 
           {mode.kind === "deadline" ? (
             <div className="p-4 rounded-xl border border-border/80 bg-secondary/10 animate-fade-in">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                目标时刻由下方的 <span className="font-medium text-foreground">At / Cron 触发器</span> 决定，无需在此配置。系统会在触发时刻前自动提前启动并完成预热（浏览器实例化、登录态、首页与前置步骤），到点瞬时执行脚本正文。预热提前量与执行窗口均由系统自动管理。
+                {t("tasks.deadlineNotePrefix")} <span className="font-medium text-foreground">{t("tasks.deadlineNoteTriggers")}</span> {t("tasks.deadlineNoteSuffix")}
                 <br />
-                <span className="text-[10px]">未配置触发器时，手动“立即执行”会按普通预热执行、不卡点。</span>
+                <span className="text-[10px]">{t("tasks.deadlineNoteManual")}</span>
               </p>
             </div>
           ) : null}
@@ -246,7 +247,7 @@ export function TaskEditor({
             {savedTaskId ? (
               <Button variant="ghost" className="h-10 px-4 text-rose-600 dark:text-rose-400 border border-rose-500/10 hover:border-rose-500/30 hover:bg-rose-500/10 rounded-xl" disabled={busy} onClick={() => deleteTask(savedTaskId)}>
                 <span className="material-symbols-outlined text-base">delete</span>
-                删除任务
+                {t("tasks.deleteTask")}
               </Button>
             ) : null}
           </div>
@@ -255,13 +256,13 @@ export function TaskEditor({
             {savedTaskId ? (
               <Button variant="secondary" className="h-10 px-5 font-semibold border border-border/60 hover:bg-secondary/80 rounded-xl" disabled={busy} onClick={() => startTaskRun(savedTaskId)}>
                 <span className="material-symbols-outlined text-base text-primary">play_arrow</span>
-                立即执行
+                {t("tasks.runNow")}
               </Button>
             ) : null}
 
             <Button disabled={busy} onClick={() => saveTask()} className="h-10 px-5 font-semibold bg-primary text-primary-foreground hover:opacity-90 rounded-xl shadow-md shadow-primary/10 flex items-center gap-2">
               {busy ? <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent animate-spin rounded-full" /> : <span className="material-symbols-outlined text-base">save</span>}
-              保存任务
+              {t("tasks.saveTask")}
             </Button>
           </div>
         </div>

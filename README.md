@@ -13,7 +13,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-<img src="docs/assets/screenshot-dashboard.png" alt="AutoVis Runner dashboard" width="880" />
+<img src="docs/assets/screenshot-dashboard-en.png" alt="AutoVis Runner dashboard" width="880" />
 
 </div>
 
@@ -28,7 +28,8 @@ everything.
   real page step by step, then produces a replayable automation script. Works
   with any OpenAI-compatible API.
 - **Local web UI** — projects, test cases, tasks, live runs, and artifacts, all
-  managed from the browser.
+  managed from the browser. Bilingual interface (English / 简体中文), switchable
+  from the top bar.
 - **Login state management** — capture cookies + localStorage from a real
   browser session and re-inject them into automation runs, so scripts skip the
   login wall.
@@ -147,7 +148,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1 -SkipService
 Execution center with run history, live progress, and artifacts:
 
 <div align="center">
-  <img src="docs/assets/screenshot-runs.png" alt="AutoVis Runner execution center" width="880" />
+  <img src="docs/assets/screenshot-runs-en.png" alt="AutoVis Runner execution center" width="880" />
 </div>
 
 ## Architecture

@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Button } from "./button"
+import { t } from "../../../i18n/index.js"
 
 type ConfirmOptions = {
   title?: string
@@ -81,7 +82,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="flex-1 space-y-1">
                   <h3 className="text-base font-semibold leading-6 text-foreground">
-                    {state.options.title || "确认操作"}
+                    {state.options.title || t("confirm.title")}
                   </h3>
                   <p className="text-sm text-muted-foreground break-words whitespace-pre-line">
                     {state.options.message}
@@ -95,14 +96,14 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                   onClick={handleCancel}
                   className="cursor-pointer min-w-[70px]"
                 >
-                  {state.options.cancelText || "取消"}
+                  {state.options.cancelText || t("confirm.cancel")}
                 </Button>
                 <Button
                   variant={state.options.variant === "danger" ? "danger" : "primary"}
                   onClick={handleConfirm}
                   className="cursor-pointer min-w-[70px]"
                 >
-                  {state.options.confirmText || "确定"}
+                  {state.options.confirmText || t("confirm.ok")}
                 </Button>
               </div>
             </div>

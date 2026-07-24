@@ -3,6 +3,7 @@ import type { TaskKind } from "@autovis/shared"
 import { request } from "../api"
 import { taskActionUrl } from "../apiRoutes"
 import { Button } from "./ui/button"
+import { t } from "../../i18n/index.js"
 
 interface TaskControlBarProps {
   kind: TaskKind
@@ -65,25 +66,25 @@ export function TaskControlBar({ kind, id, status, onChange, onSettled, classNam
   }
 
   return (
-    <div className={className ?? "task-control-bar"} role="group" aria-label="任务控制">
+    <div className={className ?? "task-control-bar"} role="group" aria-label={t("ctrl.ariaLabel")}>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         {canPause && (
           <Button variant="ghost" size={size} disabled={busy !== null} onClick={() => call("pause")}>
-            {busy === "pause" ? "暂停中…" : "暂停"}
+            {busy === "pause" ? t("ctrl.pausing") : t("ctrl.pause")}
           </Button>
         )}
         {canResume && (
           <Button variant="secondary" size={size} disabled={busy !== null} onClick={() => call("resume")}>
-            {busy === "resume" ? "恢复中…" : "继续"}
+            {busy === "resume" ? t("ctrl.resuming") : t("ctrl.resume")}
           </Button>
         )}
         {canCancel && (
           <Button variant="danger" size={size} disabled={busy !== null} onClick={() => call("cancel")}>
-            {busy === "cancel" ? "停止中…" : "停止"}
+            {busy === "cancel" ? t("ctrl.stopping") : t("ctrl.stop")}
           </Button>
         )}
-        {status === "cancelling" && <span style={{ fontSize: 12, color: "var(--muted-foreground, #888)" }}>等待安全停止…</span>}
-        {status === "paused" && <span style={{ fontSize: 12, color: "var(--muted-foreground, #888)" }}>已暂停（将在下个检查点恢复）</span>}
+        {status === "cancelling" && <span style={{ fontSize: 12, color: "var(--muted-foreground, #888)" }}>{t("ctrl.waitingSafeStop")}</span>}
+        {status === "paused" && <span style={{ fontSize: 12, color: "var(--muted-foreground, #888)" }}>{t("ctrl.pausedHint")}</span>}
         {error && <span style={{ fontSize: 12, color: "var(--destructive, #dc2626)" }}>{error}</span>}
       </div>
     </div>

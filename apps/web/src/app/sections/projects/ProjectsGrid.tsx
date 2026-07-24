@@ -1,5 +1,6 @@
 import type { ProjectsGridProps } from "./types"
 import { formatDateTime, translateStatus } from "../../utils"
+import { t } from "../../../i18n/index.js"
 
 // Git Host Badge mapping
 function getGitBadgeInfo(url: string | undefined) {
@@ -50,7 +51,7 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
               {/* Selected Badge */}
               {isActive && (
                 <span className="absolute top-0 right-0 rounded-bl-xl bg-primary px-2.5 py-0.5 text-[9px] font-bold text-primary-foreground tracking-wider uppercase shadow-sm">
-                  当前活动
+                  {t("proj.activeBadge")}
                 </span>
               )}
 
@@ -81,7 +82,7 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
                 {/* Test URL */}
                 <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
                   <span className="material-symbols-outlined text-sm shrink-0">language</span>
-                  <span className="text-muted-foreground/60 w-16 select-none shrink-0">测试网站</span>
+                  <span className="text-muted-foreground/60 w-16 select-none shrink-0">{t("proj.metaTestSite")}</span>
                   {project.testBaseUrl ? (
                     <a
                       href={project.testBaseUrl}
@@ -92,14 +93,14 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
                       {project.testBaseUrl}
                     </a>
                   ) : (
-                    <span className="text-muted-foreground/40 italic">未配置</span>
+                    <span className="text-muted-foreground/40 italic">{t("proj.notConfigured")}</span>
                   )}
                 </div>
 
                 {/* Git URL */}
                 <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
                   <span className="material-symbols-outlined text-sm shrink-0">code</span>
-                  <span className="text-muted-foreground/60 w-16 select-none shrink-0">工作区</span>
+                  <span className="text-muted-foreground/60 w-16 select-none shrink-0">{t("proj.metaWorkspace")}</span>
                   {project.id === selectedProject.id && projectWorkspace ? (
                     <div className="flex items-center gap-1.5 truncate flex-1">
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold border shrink-0 bg-primary/10 text-primary border-primary/20">
@@ -119,14 +120,14 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
                       </span>
                     </div>
                   ) : (
-                    <span className="text-muted-foreground/40 italic">未关联</span>
+                    <span className="text-muted-foreground/40 italic">{t("proj.notLinked")}</span>
                   )}
                 </div>
 
                 {/* Local Path */}
                 <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
                   <span className="material-symbols-outlined text-sm shrink-0">sync</span>
-                  <span className="text-muted-foreground/60 w-16 select-none shrink-0">同步状态</span>
+                  <span className="text-muted-foreground/60 w-16 select-none shrink-0">{t("proj.metaSyncStatus")}</span>
                   {project.id === selectedProject.id && projectWorkspace ? (
                     <span className="font-mono text-foreground truncate flex-1" title={projectWorkspace.lastError ?? projectWorkspace.status}>
                       {projectWorkspace.status}{projectWorkspace.lastSyncedAt ? ` · ${formatDateTime(projectWorkspace.lastSyncedAt)}` : ""}
@@ -136,7 +137,7 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
                       {projectWorkspace?.localSourcePath}
                     </span>
                   ) : (
-                    <span className="text-muted-foreground/40 italic">未指定</span>
+                    <span className="text-muted-foreground/40 italic">{t("proj.notSpecified")}</span>
                   )}
                 </div>
               </div>
@@ -145,11 +146,11 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
               <div className="flex items-center justify-between text-[10px] text-muted-foreground/80 mt-5 pt-3 border-t border-border/30 select-none">
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[12px]">analytics</span>
-                  {project.summary.totalCases} 个测试用例
+                  {t("proj.caseCount", { count: project.summary.totalCases })}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[12px]">schedule</span>
-                  {formatDateTime(project.updatedAt)} 更新
+                  {t("proj.updatedAt", { time: formatDateTime(project.updatedAt) })}
                 </span>
               </div>
 
@@ -157,7 +158,7 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
               <div className="mt-5 flex items-center justify-between gap-2.5 min-h-[32px]">
                 {confirmDeleteId === project.id ? (
                   <div className="w-full flex items-center justify-between bg-rose-500/5 border border-rose-500/20 p-1.5 rounded-xl animate-fade-in gap-2">
-                    <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold truncate pl-1">确认永久删除项目？</span>
+                    <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold truncate pl-1">{t("proj.confirmDeleteProject")}</span>
                     <div className="flex gap-1.5 shrink-0">
                       <button
                         type="button"
@@ -168,14 +169,14 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
                         }}
                         disabled={busy}
                       >
-                        确认
+                        {t("proj.confirm")}
                       </button>
                       <button
                         type="button"
                         className="px-2.5 py-1 text-[10px] font-semibold rounded border border-border bg-card hover:bg-secondary text-muted-foreground transition-all cursor-pointer"
                         onClick={() => setConfirmDeleteId(null)}
                       >
-                        取消
+                        {t("proj.cancel")}
                       </button>
                     </div>
                   </div>
@@ -191,7 +192,7 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
                       disabled={busy}
                     >
                       <span className="material-symbols-outlined text-sm">login</span>
-                      {isActive ? "进入项目 (活动)" : "进入项目"}
+                      {isActive ? t("proj.enterProjectActive") : t("proj.enterProject")}
                     </button>
                     <button
                       type="button"
@@ -225,7 +226,7 @@ export function ProjectsGrid({ controller, setIsEditing, setEditTab, confirmDele
                       }}
                       disabled={busy}
                     >
-                      编辑
+                      {t("proj.edit")}
                     </button>
                     <button
                       type="button"

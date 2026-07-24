@@ -1,5 +1,6 @@
 import { useState } from "react"
 import type { TargetUrl } from "@autovis/shared"
+import { t } from "../../i18n/index.js"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -57,8 +58,8 @@ export function TargetUrlsSection({ controller }: Props) {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         eyebrow="Target URLs"
-        title="目标网址管理"
-        description="为当前项目配置多个目标网址（如测试环境、预发环境、生产环境等），所有需要选 URL 的地方都会以下拉框形式引用这些配置。"
+        title={t("urls.title")}
+        description={t("urls.description")}
         actions={
           <Button
             size="sm"
@@ -67,7 +68,7 @@ export function TargetUrlsSection({ controller }: Props) {
             className="cursor-pointer"
           >
             <span className="material-symbols-outlined text-sm mr-1">{showCreate ? "close" : "add"}</span>
-            {showCreate ? "取消" : "添加网址"}
+            {showCreate ? t("urls.cancel") : t("urls.addUrl")}
           </Button>
         }
       />
@@ -75,18 +76,18 @@ export function TargetUrlsSection({ controller }: Props) {
       {showCreate ? (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">新增目标网址</CardTitle>
+            <CardTitle className="text-sm">{t("urls.createTitle")}</CardTitle>
             <CardDescription className="text-[11px]">
-              添加后，任务执行、AI 工作台、录制、登录态刷新等操作均可选择此 URL。
+              {t("urls.createDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-[200px_1fr_auto] items-end">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">标签</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t("urls.labelField")}</label>
                 <input
                   className={inputCls}
-                  placeholder="例如：测试环境"
+                  placeholder={t("urls.labelPlaceholder")}
                   value={createLabel}
                   onChange={(e) => setCreateLabel(e.target.value)}
                 />
@@ -107,7 +108,7 @@ export function TargetUrlsSection({ controller }: Props) {
                 className="h-9 rounded-lg cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm mr-1">add</span>
-                创建
+                {t("urls.create")}
               </Button>
             </div>
             <label className="mt-3 flex items-start gap-2 text-xs text-foreground cursor-pointer select-none">
@@ -118,9 +119,9 @@ export function TargetUrlsSection({ controller }: Props) {
                 onChange={(e) => setCreateNeedsStealth(e.target.checked)}
               />
               <span>
-                使用真实浏览器（反检测有头回放）
+                {t("urls.stealthLabel")}
                 <span className="block text-[10px] text-muted-foreground mt-0.5">
-                  仅京东等反检测敏感站点需要开启；内网/普通站点保持关闭即可后台无头执行。任务编排里可对单个用例单独覆盖。
+                  {t("urls.stealthHintCreate")}
                 </span>
               </span>
             </label>
@@ -130,9 +131,9 @@ export function TargetUrlsSection({ controller }: Props) {
 
       {targetUrls.length === 0 ? (
         <EmptyState
-          title="暂无目标网址"
-          description="点击上方『添加网址』按钮，为项目配置第一个目标网址。项目设置里的『主域名』会自动同步成主网址，但日常 AI 生成 / 运行 / 录制都改在工作台下拉显式选 URL。"
-          actionLabel="添加网址"
+          title={t("urls.emptyTitle")}
+          description={t("urls.emptyDescription")}
+          actionLabel={t("urls.addUrl")}
           onAction={() => setShowCreate(true)}
         />
       ) : (
@@ -145,7 +146,7 @@ export function TargetUrlsSection({ controller }: Props) {
                   {isEditing ? (
                     <div className="grid gap-3 sm:grid-cols-[200px_1fr_auto] items-end">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">标签</label>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t("urls.labelField")}</label>
                         <input
                           className={inputCls}
                           value={editLabel}
@@ -168,7 +169,7 @@ export function TargetUrlsSection({ controller }: Props) {
                           className="h-8 rounded-lg cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-sm mr-1">save</span>
-                          保存
+                          {t("urls.save")}
                         </Button>
                         <Button
                           size="sm"
@@ -176,7 +177,7 @@ export function TargetUrlsSection({ controller }: Props) {
                           onClick={() => setEditingId(null)}
                           className="h-8 rounded-lg cursor-pointer border border-border/60"
                         >
-                          取消
+                          {t("urls.cancel")}
                         </Button>
                       </div>
                       <label className="sm:col-span-3 flex items-start gap-2 text-xs text-foreground cursor-pointer select-none">
@@ -187,9 +188,9 @@ export function TargetUrlsSection({ controller }: Props) {
                           onChange={(e) => setEditNeedsStealth(e.target.checked)}
                         />
                         <span>
-                          使用真实浏览器（反检测有头回放）
+                          {t("urls.stealthLabel")}
                           <span className="block text-[10px] text-muted-foreground mt-0.5">
-                            仅京东等反检测敏感站点需要开启；内网/普通站点保持关闭即可后台无头执行。
+                            {t("urls.stealthHintEdit")}
                           </span>
                         </span>
                       </label>
@@ -202,10 +203,10 @@ export function TargetUrlsSection({ controller }: Props) {
                           <div className="flex items-center gap-2">
                             <strong className="text-sm font-semibold text-foreground">{tu.label}</strong>
                             {tu.isPrimary ? (
-                              <Badge tone="info" className="text-[9px]">主域名</Badge>
+                              <Badge tone="info" className="text-[9px]">{t("urls.primaryBadge")}</Badge>
                             ) : null}
                             {tu.needsStealth ? (
-                              <Badge tone="warning" className="text-[9px]">真实浏览器</Badge>
+                              <Badge tone="warning" className="text-[9px]">{t("urls.stealthBadge")}</Badge>
                             ) : null}
                           </div>
                           <p className="text-xs font-mono text-muted-foreground truncate mt-0.5" title={tu.url}>{tu.url}</p>
@@ -234,7 +235,7 @@ export function TargetUrlsSection({ controller }: Props) {
                             <span className="material-symbols-outlined text-sm">delete</span>
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground/60 italic">主域名不可删除</span>
+                          <span className="text-[10px] text-muted-foreground/60 italic">{t("urls.primaryCannotDelete")}</span>
                         )}
                       </div>
                     </div>
@@ -251,15 +252,15 @@ export function TargetUrlsSection({ controller }: Props) {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-muted-foreground">info</span>
-            使用说明
+            {t("urls.usageTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="text-xs text-muted-foreground space-y-1.5 leading-relaxed list-disc list-inside">
-            <li><strong className="text-foreground">主域名</strong> 来自项目设置里的「主域名」字段，仅在首次创建项目时自动同步，不可删除。</li>
-            <li><strong className="text-foreground">project.testBaseUrl 已不再作为业务运行 URL 兜底</strong>：AI 生成 / 录制 / 任务执行均必须在工作台下拉里显式选一个目标 URL。</li>
-            <li>所有"选择 URL"的下拉框（任务执行、AI 工作台、录制、登录态管理等）都引用此处的网址列表。</li>
-            <li>登录状态按 URL 维度独立存储 storageState，新增 URL 后可以到『登录状态』页面为其单独刷新登录态。</li>
+            <li><strong className="text-foreground">{t("urls.usagePrimaryTerm")}</strong> {t("urls.usagePrimaryDesc")}</li>
+            <li><strong className="text-foreground">{t("urls.usageBaseUrlTerm")}</strong>{t("urls.usageBaseUrlDesc")}</li>
+            <li>{t("urls.usageDropdown")}</li>
+            <li>{t("urls.usageStorageState")}</li>
           </ul>
         </CardContent>
       </Card>

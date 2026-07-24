@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react"
 
 import { recordFrontendDiagnostic } from "./frontendDiagnostics"
+import { t } from "../i18n/index.js"
 
 type FrontendErrorBoundaryProps = {
   section: string
@@ -25,8 +26,8 @@ export class FrontendErrorBoundary extends Component<FrontendErrorBoundaryProps,
     recordFrontendDiagnostic({
       source: "react-error-boundary",
       level: "error",
-      title: "页面组件渲染失败",
-      message: error.message || "组件渲染期间发生错误",
+      title: t("boundary.diagTitle"),
+      message: error.message || t("boundary.diagMessage"),
       stack: error.stack,
       componentStack: info.componentStack ?? undefined,
       meta: {
@@ -52,9 +53,9 @@ export class FrontendErrorBoundary extends Component<FrontendErrorBoundaryProps,
           <span className="material-symbols-outlined text-destructive">error</span>
           <div className="min-w-0 flex-1 space-y-2">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">当前页面组件渲染失败</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t("boundary.renderFailed")}</h3>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                错误已经写入仪表盘中的前端诊断面板。你可以切回总览查看详情，或刷新页面后重试。
+                {t("boundary.body")}
               </p>
             </div>
             <p className="break-all rounded-xl border border-destructive/20 bg-background/50 px-3 py-2 font-mono text-[11px] text-destructive">
@@ -66,14 +67,14 @@ export class FrontendErrorBoundary extends Component<FrontendErrorBoundaryProps,
                 onClick={this.props.onGoDashboard}
                 className="rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-secondary"
               >
-                前往总览
+                {t("boundary.goDashboard")}
               </button>
               <button
                 type="button"
                 onClick={() => window.location.reload()}
                 className="rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-secondary"
               >
-                刷新页面
+                {t("boundary.reload")}
               </button>
             </div>
           </div>

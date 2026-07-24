@@ -9,6 +9,7 @@ import { PageHeader } from "../components/page-header"
 import { request } from "../api"
 import { apiRoutes } from "../apiRoutes"
 import { apiBase } from "../constants"
+import { t } from "../../i18n/index.js"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
 import { formatDateTime } from "../utils"
 
@@ -230,7 +231,7 @@ function TreeNode({
             onDelete(entry)
           }}
           className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-foreground/60 opacity-0 transition hover:bg-rose-500/10 hover:text-rose-600 group-hover:opacity-100 cursor-pointer"
-          title={entry.kind === "directory" ? "删除目录" : "删除文件"}
+          title={entry.kind === "directory" ? t("kb.deleteDirTooltip") : t("kb.deleteFileTooltip")}
         >
           <span className="material-symbols-outlined text-sm">delete</span>
         </button>
@@ -320,7 +321,7 @@ function MarkdownView({ projectId, filePath, content }: { projectId: string; fil
       <div className="min-w-0 flex-1 space-y-4">
         {meta.length > 0 ? (
           <div className="rounded-lg border border-border/60 bg-secondary/20 px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">来源信息</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{t("kb.sourceInfo")}</p>
             <dl className="grid gap-x-6 gap-y-1.5 sm:grid-cols-[auto_1fr] text-xs">
               {meta.map(([key, value]) => (
                 <div key={key} className="contents">
@@ -341,7 +342,7 @@ function MarkdownView({ projectId, filePath, content }: { projectId: string; fil
       </div>
       {showToc ? (
         <nav className="sticky top-0 hidden w-52 shrink-0 xl:block">
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">目录</p>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("kb.tocTitle")}</p>
           <div className="max-h-[70vh] space-y-0.5 overflow-y-auto border-l border-border/60 pr-1">
             {toc.map((item) => (
               <button
@@ -576,8 +577,8 @@ export function KnowledgeSection({ controller }: Props) {
   }
 
   const handleDelete = async (entry: KnowledgeEntry) => {
-    const label = entry.kind === "directory" ? `目录「${entry.path}」及其全部内容` : `文件「${entry.path}」`
-    if (!window.confirm(`确定删除${label}吗？此操作不可恢复。`)) return
+    const message = entry.kind === "directory" ? t("kb.confirmDeleteDir", { path: entry.path }) : t("kb.confirmDeleteFile", { path: entry.path })
+    if (!window.confirm(message)) return
     const ok = await run(() => request(apiRoutes.projects.knowledgeEntry(projectId, entry.path), { method: "DELETE" }))
     if (ok) {
       if (selected?.path === entry.path || selected?.path.startsWith(`${entry.path}/`)) {
@@ -668,19 +669,19 @@ export function KnowledgeSection({ controller }: Props) {
     <div className="flex items-center gap-2">
       <Button size="sm" variant="ghost" onClick={() => startCreate("dir")} disabled={busy} className="h-8 rounded-lg border border-border/60 text-[11px] whitespace-nowrap cursor-pointer">
         <span className="material-symbols-outlined text-sm mr-1">create_new_folder</span>
-        新建目录
+        {t("kb.newDir")}
       </Button>
       <Button size="sm" variant="ghost" onClick={() => startCreate("file")} disabled={busy} className="h-8 rounded-lg border border-border/60 text-[11px] whitespace-nowrap cursor-pointer">
         <span className="material-symbols-outlined text-sm mr-1">note_add</span>
-        新建文档
+        {t("kb.newDoc")}
       </Button>
       <Button size="sm" variant="ghost" onClick={() => setFullscreen((value) => !value)} className="h-8 rounded-lg border border-border/60 text-[11px] whitespace-nowrap cursor-pointer">
         <span className="material-symbols-outlined text-sm mr-1">{fullscreen ? "close_fullscreen" : "open_in_full"}</span>
-        {fullscreen ? "退出全屏" : "全屏阅读"}
+        {fullscreen ? t("kb.exitFullscreen") : t("kb.fullscreenRead")}
       </Button>
       <Button size="sm" onClick={() => void refresh()} disabled={loading || busy} className="h-8 rounded-lg text-[11px] whitespace-nowrap cursor-pointer">
         <span className="material-symbols-outlined text-sm mr-1">refresh</span>
-        刷新
+        {t("kb.refresh")}
       </Button>
     </div>
   )
@@ -691,15 +692,15 @@ export function KnowledgeSection({ controller }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Knowledge Base</p>
-            <h2 className="text-xl font-semibold text-foreground">知识库</h2>
+            <h2 className="text-xl font-semibold text-foreground">{t("kb.title")}</h2>
           </div>
           {toolbar}
         </div>
       ) : (
         <PageHeader
           eyebrow="Knowledge Base"
-          title="知识库"
-          description="跟随项目的多层级 Markdown 内容空间。AI 任务与脚本通过 knowledge.* 把采集、整理的内容沉淀到这里；左侧浏览目录树，右侧渲染文档。"
+          title={t("kb.title")}
+          description={t("kb.description")}
           actions={toolbar}
         />
       )}
@@ -710,19 +711,19 @@ export function KnowledgeSection({ controller }: Props) {
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-end">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                  {creating === "dir" ? "目录路径" : "文档路径（缺省补 .md）"}
+                  {creating === "dir" ? t("kb.dirPathLabel") : t("kb.docPathLabel")}
                 </label>
                 <input
                   id="knowledge-create-path"
                   className={inputCls}
-                  placeholder={creating === "dir" ? "例如：scys/文章/AI" : "例如：scys/文章/AI/如何用AI获客.md"}
+                  placeholder={creating === "dir" ? t("kb.dirPathPlaceholder") : t("kb.docPathPlaceholder")}
                   value={createPath}
                   onChange={(e) => setCreatePath(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") void handleCreate() }}
                 />
               </div>
               <Button size="sm" onClick={() => void handleCreate()} disabled={busy || !createPath.trim()} className="h-9 rounded-lg cursor-pointer">
-                创建
+                {t("kb.create")}
               </Button>
             </div>
           </CardContent>
@@ -732,12 +733,12 @@ export function KnowledgeSection({ controller }: Props) {
       {error ? <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-600 dark:text-rose-400">{error}</div> : null}
 
       {loading ? (
-        <div className="text-xs text-muted-foreground">加载中...</div>
+        <div className="text-xs text-muted-foreground">{t("kb.loading")}</div>
       ) : entries.length === 0 ? (
         <EmptyState
-          title="知识库还是空的"
-          description="给 AI 任务下达采集/整理指令，或点击上方『新建文档』手动开始。脚本运行时也可以用 knowledge.write('路径.md', 内容) 沉淀内容。"
-          actionLabel="新建第一篇文档"
+          title={t("kb.emptyTitle")}
+          description={t("kb.emptyDescription")}
+          actionLabel={t("kb.emptyAction")}
           onAction={() => startCreate("file")}
         />
       ) : (
@@ -749,7 +750,7 @@ export function KnowledgeSection({ controller }: Props) {
                 <span className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">search</span>
                 <input
                   className={`${inputCls} pl-8 pr-7`}
-                  placeholder="搜索标题 / 全文关键字…"
+                  placeholder={t("kb.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Escape") setSearchQuery("") }}
@@ -759,7 +760,7 @@ export function KnowledgeSection({ controller }: Props) {
                     type="button"
                     onClick={() => setSearchQuery("")}
                     className="absolute right-1.5 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:text-foreground cursor-pointer"
-                    title="清空搜索"
+                    title={t("kb.clearSearch")}
                   >
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
@@ -768,13 +769,17 @@ export function KnowledgeSection({ controller }: Props) {
               {searchQuery.trim() ? (
                 <div className={`${fullscreen ? "h-full" : "max-h-[72vh]"} min-h-0 space-y-1 overflow-y-auto pr-1`}>
                   {searching ? (
-                    <p className="px-2 py-3 text-[11px] text-muted-foreground">搜索中…</p>
+                    <p className="px-2 py-3 text-[11px] text-muted-foreground">{t("kb.searching")}</p>
                   ) : !searchResult || searchResult.hits.length === 0 ? (
-                    <p className="px-2 py-3 text-[11px] text-muted-foreground">没有匹配「{searchQuery.trim()}」的文档</p>
+                    <p className="px-2 py-3 text-[11px] text-muted-foreground">{t("kb.noSearchMatch", { query: searchQuery.trim() })}</p>
                   ) : (
                     <>
                       <p className="px-2 pb-1 text-[10px] text-muted-foreground">
-                        命中 {searchResult.hits.length} 篇{searchResult.truncated ? "（已截断）" : ""} · 扫描 {searchResult.scannedFiles} 个文件
+                        {t("kb.searchStats", {
+                          hits: searchResult.hits.length,
+                          truncated: searchResult.truncated ? t("kb.searchTruncated") : "",
+                          scanned: searchResult.scannedFiles,
+                        })}
                       </p>
                       {searchResult.hits.map((hit) => (
                         <button
@@ -792,7 +797,7 @@ export function KnowledgeSection({ controller }: Props) {
                               <HighlightedSnippet text={hit.name.replace(/\.md$/, "")} term={searchQuery.trim().split(/\s+/)[0] ?? ""} />
                             </span>
                             {hit.matchCount > 0 ? (
-                              <span className="ml-auto shrink-0 text-[9px] text-muted-foreground/70">{hit.matchCount} 处</span>
+                              <span className="ml-auto shrink-0 text-[9px] text-muted-foreground/70">{t("kb.matchCount", { count: hit.matchCount })}</span>
                             ) : null}
                           </span>
                           {hit.snippets[0] ? (
@@ -815,7 +820,7 @@ export function KnowledgeSection({ controller }: Props) {
                     onDragLeave={() => setDropTargetPath(null)}
                     onDrop={handleRootDrop}
                   >
-                    拖到这里移动到知识库根目录
+                    {t("kb.dropToRoot")}
                   </div>
                   <div className={`${fullscreen ? "h-full" : "max-h-[72vh]"} min-h-0 overflow-y-auto pr-1`}>
                     {entries.map((entry) => (
@@ -843,8 +848,8 @@ export function KnowledgeSection({ controller }: Props) {
                 </>
               )}
               <div className="mt-2 border-t border-border/60 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
-                {stats ? `${stats.totalFiles} 个文件 · ${stats.totalDirectories} 个目录 · ${formatBytes(stats.totalBytes)}` : null}
-                {truncated ? "（目录过大，仅展示部分）" : null}
+                {stats ? t("kb.statsSummary", { files: stats.totalFiles, dirs: stats.totalDirectories, size: formatBytes(stats.totalBytes) }) : null}
+                {truncated ? t("kb.treeTruncated") : null}
               </div>
             </CardContent>
           </Card>
@@ -855,7 +860,7 @@ export function KnowledgeSection({ controller }: Props) {
               {!selected ? (
                 <div className="flex min-h-[62vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
                   <span className="material-symbols-outlined text-5xl opacity-40">auto_stories</span>
-                  <p className="text-sm">从左侧选择一篇文档开始阅读</p>
+                  <p className="text-sm">{t("kb.selectDocHint")}</p>
                 </div>
               ) : (
                 <div className="flex h-full min-h-0 flex-col">
@@ -868,10 +873,10 @@ export function KnowledgeSection({ controller }: Props) {
                       </h3>
                       <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">{selected.path}</p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                        {selected.kind === "directory" ? <Badge tone="default" className="text-[9px]">目录</Badge> : null}
+                        {selected.kind === "directory" ? <Badge tone="default" className="text-[9px]">{t("kb.dirBadge")}</Badge> : null}
                         {selected.extension ? <Badge tone="info" className="text-[9px] uppercase">{selected.extension}</Badge> : null}
                         {selected.size != null ? <span className="text-[10px] text-muted-foreground">{formatBytes(selected.size)}</span> : null}
-                        {selected.updatedAt ? <span className="text-[10px] text-muted-foreground">更新于 {formatDateTime(selected.updatedAt)}</span> : null}
+                        {selected.updatedAt ? <span className="text-[10px] text-muted-foreground">{t("kb.updatedAt", { time: formatDateTime(selected.updatedAt) })}</span> : null}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
@@ -879,24 +884,24 @@ export function KnowledgeSection({ controller }: Props) {
                         <>
                           <Button size="sm" variant="ghost" onClick={() => startCreate("dir")} disabled={busy} className="h-8 rounded-lg border border-border/60 text-[11px] whitespace-nowrap cursor-pointer">
                             <span className="material-symbols-outlined text-sm mr-1">create_new_folder</span>
-                            子目录
+                            {t("kb.subDir")}
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => startCreate("file")} disabled={busy} className="h-8 rounded-lg border border-border/60 text-[11px] whitespace-nowrap cursor-pointer">
                             <span className="material-symbols-outlined text-sm mr-1">note_add</span>
-                            文档
+                            {t("kb.doc")}
                           </Button>
                         </>
                       ) : null}
                       {selected.kind === "file" && isTextFile(selected) && file && !editing ? (
                         <Button size="sm" variant="ghost" onClick={() => { setDraft(file.content); setEditing(true) }} disabled={busy} className="h-8 rounded-lg border border-border/60 text-[11px] whitespace-nowrap cursor-pointer">
                           <span className="material-symbols-outlined text-sm mr-1">edit</span>
-                          编辑
+                          {t("kb.edit")}
                         </Button>
                       ) : null}
                       {rawUrl ? (
                         <a href={rawUrl} target="_blank" rel="noreferrer noopener" className="flex h-8 items-center rounded-lg border border-border/60 px-2.5 text-[11px] text-muted-foreground transition hover:bg-secondary/50 hover:text-foreground">
                           <span className="material-symbols-outlined text-sm mr-1">download</span>
-                          原文件
+                          {t("kb.rawFile")}
                         </a>
                       ) : null}
                       <Button size="sm" variant="ghost" onClick={() => void handleDelete(selected)} disabled={busy} className="h-8 rounded-lg border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-[11px] cursor-pointer">
@@ -911,12 +916,12 @@ export function KnowledgeSection({ controller }: Props) {
                       <div className="flex min-h-[46vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
                         <span className="material-symbols-outlined text-5xl text-amber-500/60">folder_open</span>
                         <div>
-                          <p className="text-sm font-medium text-foreground">已选择目录</p>
+                          <p className="text-sm font-medium text-foreground">{t("kb.dirSelected")}</p>
                           <p className="mt-1 text-xs">
-                            {folderCounts ? `${folderCounts.files} 个文件 · ${folderCounts.directories} 个子目录` : "空目录"}
+                            {folderCounts ? t("kb.folderCounts", { files: folderCounts.files, dirs: folderCounts.directories }) : t("kb.emptyDir")}
                           </p>
                         </div>
-                        <p className="max-w-md text-xs leading-5">可以在这里新建子目录或文档，也可以把左侧文件/目录拖进这个目录来调整层级。</p>
+                        <p className="max-w-md text-xs leading-5">{t("kb.dirHint")}</p>
                       </div>
                     ) : editing && file ? (
                       <div className="space-y-3">
@@ -929,15 +934,15 @@ export function KnowledgeSection({ controller }: Props) {
                         <div className="flex items-center gap-2">
                           <Button size="sm" onClick={() => void handleSaveEdit()} disabled={busy} className="h-8 rounded-lg cursor-pointer text-[11px]">
                             <span className="material-symbols-outlined text-sm mr-1">save</span>
-                            保存
+                            {t("kb.save")}
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy} className="h-8 rounded-lg border border-border/60 cursor-pointer text-[11px]">
-                            取消
+                            {t("kb.cancel")}
                           </Button>
                         </div>
                       </div>
                     ) : fileLoading ? (
-                      <div className="py-10 text-center text-xs text-muted-foreground">加载文档...</div>
+                      <div className="py-10 text-center text-xs text-muted-foreground">{t("kb.loadingDoc")}</div>
                     ) : isImageFile(selected) && rawUrl ? (
                       <div className="flex justify-center py-4">
                         <img src={rawUrl} alt={selected.name} className={`${fullscreen ? "max-h-[calc(100vh-230px)]" : "max-h-[65vh]"} max-w-full rounded-lg border border-border/60`} />
@@ -948,7 +953,7 @@ export function KnowledgeSection({ controller }: Props) {
                       <pre className={`${fullscreen ? "max-h-[calc(100vh-230px)]" : "max-h-[65vh]"} overflow-auto whitespace-pre-wrap rounded-lg border border-border/60 bg-background/40 p-4 font-mono text-xs leading-relaxed text-foreground`}>{file.content}</pre>
                     ) : (
                       <div className="py-10 text-center text-xs text-muted-foreground">
-                        该文件类型暂不支持在线预览，可点击上方「原文件」下载查看。
+                        {t("kb.previewUnsupported")}
                       </div>
                     )}
                   </div>

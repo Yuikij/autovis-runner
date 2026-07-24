@@ -2,6 +2,7 @@ import type { WorkspaceActionParams } from "../types.js"
 import { request, type RequestError } from "../../api.js"
 import { apiRoutes } from "../../apiRoutes.js"
 import { useConfirm } from "../../components/ui/confirm.js"
+import { t } from "../../../i18n/index.js"
 import type {
   AgentSession,
   ConflictTaskResponse,
@@ -94,7 +95,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
       .then((result) => result.data)
       .catch(() => buildFallbackAgentSession(conflict, { ...ctx, mode }))
     setAgentSession(adopted)
-    setError(`该用例已有进行中的${mode === "direct" ? "直接执行" : "脚本生成"}任务（${conflict.status}），已自动接管。`)
+    setError(t(mode === "direct" ? "actions.adoptedAgentDirect" : "actions.adoptedAgentGenerate", { status: conflict.status }))
     return true
   }
 
@@ -104,7 +105,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
     const adoptedRun = await request<ExecutionRun>(apiRoutes.runs.detail(conflict.id)).then((result) => result.data)
     setActiveRun(adoptedRun)
     setWorkbenchVerificationRunId(adoptedRun.id)
-    setError(`该用例已有进行中的运行任务（${conflict.status}），已自动接管。`)
+    setError(t("actions.adoptedRun", { status: conflict.status }))
     return true
   }
 
@@ -134,7 +135,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
       if (result.data?.id) {
         setSelectedCaseId(result.data.id)
       }
-      setSuccessMessage("测试用例保存成功！")
+      setSuccessMessage(t("actions.caseSaved"))
       setTimeout(() => setSuccessMessage(null), 3000)
       return true
     } catch (reason) {
@@ -148,7 +149,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
   const deleteTestCase = async (testCaseId: string) => {
     if (!selectedProject) return false
 
-    if (!await confirm("确定要删除该测试用例及其脚本、版本和运行记录吗？此操作不可恢复。")) {
+    if (!await confirm(t("actions.caseDeleteConfirm"))) {
       return false
     }
 
@@ -158,7 +159,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
     try {
       await request(apiRoutes.testCases.remove(testCaseId), { method: "DELETE" })
       await Promise.all([loadTestCases(selectedProject.id), loadAllTestCases(), loadProjectResources(selectedProject.id)])
-      setSuccessMessage("测试用例删除成功！")
+      setSuccessMessage(t("actions.caseDeleted"))
       setTimeout(() => setSuccessMessage(null), 3000)
       return true
     } catch (reason) {
@@ -172,7 +173,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
   // AI 改写「对话」阶段：纯文本多轮对话，不启动浏览器。前端持有 messages 历史逐轮回传。
   const rewriteChat = async (messages: RewriteChatMessage[], baseScriptId?: string): Promise<string> => {
     if (!selectedProject || !selectedCase) {
-      throw new Error("请先选择测试用例。")
+      throw new Error(t("actions.selectCaseFirst"))
     }
     const result = await request<RewriteChatResponse>(apiRoutes.scripts.rewriteChat(), {
       method: "POST",
@@ -189,7 +190,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
   // AI 改写「计划」阶段：把对话整理成可执行的改写方案，供用户确认。
   const rewritePlan = async (messages: RewriteChatMessage[], baseScriptId?: string): Promise<string> => {
     if (!selectedProject || !selectedCase) {
-      throw new Error("请先选择测试用例。")
+      throw new Error(t("actions.selectCaseFirst"))
     }
     const result = await request<RewritePlanResponse>(apiRoutes.scripts.rewritePlan(), {
       method: "POST",
@@ -205,11 +206,11 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
 
   const generateScript = async (baseScriptId?: string, promptOverride?: string) => {
     if (!selectedProject || !selectedCase) {
-      setError("请先选择测试用例后再生成脚本。")
+      setError(t("actions.selectCaseBeforeGenerate"))
       return
     }
     if (!lastTargetUrlId) {
-      setError("请先在生成模式侧栏的下拉框里选择一个目标 URL，再开始生成脚本。")
+      setError(t("actions.selectTargetUrlFirst"))
       return
     }
 
@@ -282,7 +283,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
 
   const startDirectAgent = async (targetUrlId: string) => {
     if (!selectedProject || !selectedCase) {
-      setError("请先选择测试用例后再开始直接执行。")
+      setError(t("actions.selectCaseBeforeDirect"))
       return
     }
 
@@ -323,7 +324,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
 
   const startVerification = async (scriptId: string, targetUrlId: string) => {
     if (!selectedProject || !selectedCase) {
-      setError("请先选择测试用例和脚本后再执行验证。")
+      setError(t("actions.selectCaseScriptFirst"))
       return
     }
 
@@ -406,7 +407,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
 
   const saveEditedScript = async (code: string, baseScriptId?: string, editPrompt?: string) => {
     if (!selectedCase) {
-      throw new Error("请先选择测试用例。")
+      throw new Error(t("actions.selectCaseFirst"))
     }
     setBusy(true)
     setError(null)
@@ -431,7 +432,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
 
   const deleteScriptVersion = async (scriptId: string) => {
     if (!selectedCase) {
-      throw new Error("请先选择测试用例。")
+      throw new Error(t("actions.selectCaseFirst"))
     }
     setBusy(true)
     setError(null)
@@ -453,7 +454,7 @@ export function useTestActions(params: WorkspaceActionParams, refreshWorkspace: 
 
   const deleteScriptVersions = async (scriptIds: string[]) => {
     if (!selectedCase) {
-      throw new Error("请先选择测试用例。")
+      throw new Error(t("actions.selectCaseFirst"))
     }
     setBusy(true)
     setError(null)

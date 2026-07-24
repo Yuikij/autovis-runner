@@ -1,5 +1,6 @@
 import { apiBase } from "./constants.js"
 import { recordFrontendDiagnostic } from "./frontendDiagnostics.js"
+import { t } from "../i18n/index.js"
 
 export interface RequestError<TData = unknown> extends Error {
   status: number
@@ -75,15 +76,15 @@ export const request = async <T,>(path: string, init?: RequestOptions) => {
     }
 
     const message = didTimeout()
-      ? `请求超时（${timeoutMs}ms）`
+      ? t("api.timeout", { ms: timeoutMs })
       : error instanceof Error
         ? error.message
-        : "请求未能发送到服务端"
+        : t("api.networkFailed")
 
     recordFrontendDiagnostic({
       source: "api-request",
       level: "error",
-      title: didTimeout() ? "API 请求超时" : "API 请求网络失败",
+      title: didTimeout() ? t("api.diagTimeoutTitle") : t("api.diagNetworkTitle"),
       message,
       stack: error instanceof Error ? error.stack : undefined,
       meta: {
@@ -114,7 +115,7 @@ export const request = async <T,>(path: string, init?: RequestOptions) => {
     recordFrontendDiagnostic({
       source: "api-request",
       level: response.status >= 500 ? "error" : "warning",
-      title: "API 返回非成功状态",
+      title: t("api.diagBadStatus"),
       message,
       stack: error.stack,
       meta: {

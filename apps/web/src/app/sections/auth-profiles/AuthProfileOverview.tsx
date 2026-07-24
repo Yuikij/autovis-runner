@@ -4,6 +4,7 @@ import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { formatDateTime } from "../../utils"
+import { t } from "../../../i18n/index.js"
 import type { ActiveRefresh } from "./useAuthProfilesState"
 
 export function StatusTile({
@@ -44,15 +45,15 @@ function formatCookieExpires(expires?: number) {
 
 export function runStatusLabel(status?: string) {
   switch (status) {
-    case "queued": return "排队中"
-    case "running": return "执行中"
-    case "paused": return "已暂停"
-    case "cancelling": return "取消中"
-    case "cancelled": return "已取消"
-    case "interrupted": return "已中断"
-    case "passed": return "已完成"
-    case "failed": return "失败"
-    default: return "启动中"
+    case "queued": return t("auth.statusQueued")
+    case "running": return t("auth.statusRunning")
+    case "paused": return t("auth.statusPaused")
+    case "cancelling": return t("auth.statusCancelling")
+    case "cancelled": return t("auth.statusCancelled")
+    case "interrupted": return t("auth.statusInterrupted")
+    case "passed": return t("auth.statusCompleted")
+    case "failed": return t("auth.statusFailed")
+    default: return t("auth.statusStarting")
   }
 }
 
@@ -67,7 +68,7 @@ export function StorageStateCompact({ summary }: { summary: StorageStateSummary 
         onClick={() => setExpanded((v) => !v)}
       >
         <span className="material-symbols-outlined text-[12px]">{expanded ? "expand_less" : "expand_more"}</span>
-        {expanded ? "收起" : "展开"} StorageState 详情
+        {expanded ? t("auth.collapseStorageState") : t("auth.expandStorageState")}
       </button>
       {expanded ? (
         <div className="mt-1.5 space-y-2 pl-2 border-l-2 border-border/40">
@@ -78,9 +79,9 @@ export function StorageStateCompact({ summary }: { summary: StorageStateSummary 
                 <table className="w-full text-[10px]">
                   <thead className="bg-secondary/40 text-muted-foreground">
                     <tr>
-                      <th className="px-2 py-0.5 text-left font-medium">名称</th>
-                      <th className="px-2 py-0.5 text-left font-medium">域</th>
-                      <th className="px-2 py-0.5 text-left font-medium">过期</th>
+                      <th className="px-2 py-0.5 text-left font-medium">{t("auth.cookieName")}</th>
+                      <th className="px-2 py-0.5 text-left font-medium">{t("auth.cookieDomain")}</th>
+                      <th className="px-2 py-0.5 text-left font-medium">{t("auth.cookieExpires")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -157,15 +158,15 @@ export function PostLoginUrlEditor({
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="material-symbols-outlined text-[14px] text-muted-foreground shrink-0">my_location</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground shrink-0">登录后 URL</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground shrink-0">{t("auth.postLoginUrl")}</span>
           {effective ? (
             isOverridden ? (
-              <Badge tone="info">手动</Badge>
+              <Badge tone="info">{t("auth.manual")}</Badge>
             ) : (
-              <Badge tone="default">自动</Badge>
+              <Badge tone="default">{t("auth.auto")}</Badge>
             )
           ) : (
-            <Badge tone="warning">未设置</Badge>
+            <Badge tone="warning">{t("auth.notSet")}</Badge>
           )}
         </div>
         {!editing ? (
@@ -176,7 +177,7 @@ export function PostLoginUrlEditor({
               onClick={() => setEditing(true)}
               disabled={disabled || saving}
             >
-              {effective ? "改写" : "设置"}
+              {effective ? t("auth.override") : t("auth.set")}
             </button>
             {isOverridden ? (
               <button
@@ -184,9 +185,9 @@ export function PostLoginUrlEditor({
                 className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer ml-1 disabled:opacity-50"
                 onClick={handleResetAuto}
                 disabled={disabled || saving}
-                title={autoValue ? `回退到自动采集值：${autoValue}` : "清除手动覆盖（当前没有自动采集值）"}
+                title={autoValue ? t("auth.resetAutoTitleWithValue", { value: autoValue }) : t("auth.resetAutoTitleNoValue")}
               >
-                {saving ? "重置中…" : "重置为自动"}
+                {saving ? t("auth.resetting") : t("auth.resetToAuto")}
               </button>
             ) : null}
           </div>
@@ -194,8 +195,8 @@ export function PostLoginUrlEditor({
       </div>
 
       {!editing ? (
-        <p className="mt-0.5 text-[11px] font-mono text-foreground/90 break-all leading-relaxed" title={effective ?? `未设置时回退到 ${targetUrl}`}>
-          {effective ?? <span className="text-muted-foreground italic">未设置 · 回放将回退到 {targetUrl}</span>}
+        <p className="mt-0.5 text-[11px] font-mono text-foreground/90 break-all leading-relaxed" title={effective ?? t("auth.fallbackTitle", { url: targetUrl })}>
+          {effective ?? <span className="text-muted-foreground italic">{t("auth.notSetFallback", { url: targetUrl })}</span>}
         </p>
       ) : (
         <div className="mt-1 space-y-1.5">
@@ -209,14 +210,14 @@ export function PostLoginUrlEditor({
           />
           {autoValue && draft !== autoValue ? (
             <p className="text-[10px] text-muted-foreground leading-tight">
-              自动采集值：<span className="font-mono">{autoValue}</span>
+              {t("auth.autoValueLabel")}<span className="font-mono">{autoValue}</span>
               <button
                 type="button"
                 className="ml-1 text-primary hover:underline cursor-pointer"
                 onClick={() => setDraft(autoValue)}
                 disabled={saving}
               >
-                填回
+                {t("auth.fillBack")}
               </button>
             </p>
           ) : null}
@@ -227,7 +228,7 @@ export function PostLoginUrlEditor({
               onClick={() => { setEditing(false); setDraft(effective ?? "") }}
               disabled={saving}
             >
-              取消
+              {t("auth.cancel")}
             </button>
             <button
               type="button"
@@ -235,7 +236,7 @@ export function PostLoginUrlEditor({
               onClick={handleSave}
               disabled={saving || draft.trim() === (effective ?? "")}
             >
-              {saving ? "保存中…" : (draft.trim() === "" ? "清除覆盖" : "保存为手动覆盖")}
+              {saving ? t("auth.urlSaving") : (draft.trim() === "" ? t("auth.clearOverride") : t("auth.saveOverride"))}
             </button>
           </div>
         </div>
@@ -291,7 +292,7 @@ export function AuthProfileOverview({
           {profile.description ? (
             <p className="text-sm text-muted-foreground max-w-2xl">{profile.description}</p>
           ) : (
-            <p className="text-xs text-muted-foreground/70 italic">未填写描述</p>
+            <p className="text-xs text-muted-foreground/70 italic">{t("auth.noDescription")}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -303,7 +304,7 @@ export function AuthProfileOverview({
             disabled={busy}
           >
             <span className="material-symbols-outlined text-base">edit</span>
-            编辑
+            {t("auth.edit")}
           </Button>
           <Button
             size="sm"
@@ -313,7 +314,7 @@ export function AuthProfileOverview({
             disabled={busy}
           >
             <span className="material-symbols-outlined text-base">delete</span>
-            删除
+            {t("auth.delete")}
           </Button>
         </div>
       </div>
@@ -321,22 +322,22 @@ export function AuthProfileOverview({
       {/* Summary tiles */}
       <div className="grid gap-3 sm:grid-cols-3">
         <StatusTile
-          label="来源登录用例"
+          label={t("auth.sourceCase")}
           tone="default"
-          value={caseLabel ?? "未绑定"}
+          value={caseLabel ?? t("auth.notBound")}
           hint={`profileId · ${profile.id}`}
         />
         <StatusTile
-          label="失效校验脚本"
+          label={t("auth.validationScript")}
           tone={hasScript ? "info" : "warning"}
-          value={hasScript ? "已生成" : "未生成"}
-          hint={hasScript ? `生成时间 ${formatDateTime(profile.validationScriptGeneratedAt)}` : "用于在执行前检测登录态是否仍然有效"}
+          value={hasScript ? t("auth.generated") : t("auth.notGenerated")}
+          hint={hasScript ? t("auth.generatedAt", { time: formatDateTime(profile.validationScriptGeneratedAt) }) : t("auth.validationScriptHint")}
         />
         <StatusTile
-          label="URL 状态数"
+          label={t("auth.urlStateCount")}
           tone={profile.states.length > 0 ? "success" : "danger"}
-          value={`${profile.states.filter((s) => Boolean(s.storageStateJson)).length} / ${targetUrls.length} 已注入`}
-          hint="每个 URL 独立采集和维护 storageState"
+          value={t("auth.injectedRatio", { injected: profile.states.filter((s) => Boolean(s.storageStateJson)).length, total: targetUrls.length })}
+          hint={t("auth.urlStateCountHint")}
         />
       </div>
 
@@ -345,15 +346,15 @@ export function AuthProfileOverview({
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-muted-foreground">grid_view</span>
-            登录态 × URL 矩阵
+            {t("auth.matrixTitle")}
           </CardTitle>
           <CardDescription className="text-[11px] leading-relaxed">
-            每个项目 URL 对应一份独立的 storageState。点击"刷新"可独立跑来源登录用例采集该 URL 的登录数据。
+            {t("auth.matrixDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {targetUrls.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic py-4 text-center">项目还没有配置任何 URL，请先在项目设置里添加。</p>
+            <p className="text-xs text-muted-foreground italic py-4 text-center">{t("auth.noUrlsConfigured")}</p>
           ) : (
             <>
               <div className="flex items-center gap-3">
@@ -364,7 +365,7 @@ export function AuthProfileOverview({
                 >
                   {targetUrls.map((tu) => (
                     <option key={tu.id} value={tu.id}>
-                      {tu.label} {tu.isPrimary ? "(主)" : ""} · {tu.url}
+                      {tu.label} {tu.isPrimary ? t("auth.primaryMark") : ""} · {tu.url}
                     </option>
                   ))}
                 </select>
@@ -386,18 +387,18 @@ export function AuthProfileOverview({
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={`size-2 rounded-full shrink-0 ${hasState ? "bg-emerald-500" : "bg-rose-500"}`} />
                         <div className="min-w-0">
-                          <p className="text-xs font-medium text-foreground truncate">{tu.label}{tu.isPrimary ? " (主)" : ""}</p>
+                          <p className="text-xs font-medium text-foreground truncate">{tu.label}{tu.isPrimary ? ` ${t("auth.primaryMark")}` : ""}</p>
                           <p className="text-[10px] font-mono text-muted-foreground truncate" title={tu.url}>{tu.url}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {hasState ? (
                           <span className="text-[10px] text-muted-foreground">
-                            {state!.storageStateSummary ? `${state!.storageStateSummary.cookieCount} cookie · ${state!.storageStateSummary.originCount} origin` : "已注入"}
+                            {state!.storageStateSummary ? `${state!.storageStateSummary.cookieCount} cookie · ${state!.storageStateSummary.originCount} origin` : t("auth.injected")}
                             {state!.lastRefreshedAt ? ` · ${formatDateTime(state!.lastRefreshedAt)}` : ""}
                           </span>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">未采集</span>
+                          <span className="text-[10px] text-muted-foreground italic">{t("auth.notCollected")}</span>
                         )}
                         <Button
                           size="sm"
@@ -405,10 +406,10 @@ export function AuthProfileOverview({
                           className="h-7 px-2 rounded-lg border border-border/60 hover:bg-secondary/60 text-[11px] cursor-pointer"
                           onClick={() => onOpenSandbox(tu.id, tu.label)}
                           disabled={busy}
-                          title="打开真浏览器手动登录，保存登录态"
+                          title={t("auth.sandboxButtonTitle")}
                         >
                           <span className="material-symbols-outlined text-sm mr-0.5">login</span>
-                          {hasState ? "续期" : "手动登录"}
+                          {hasState ? t("auth.renew") : t("auth.manualLogin")}
                         </Button>
                         <Button
                           size="sm"
@@ -416,10 +417,10 @@ export function AuthProfileOverview({
                           className="h-7 px-2 rounded-lg border border-border/60 hover:bg-secondary/60 text-[11px] cursor-pointer"
                           onClick={() => onRefreshState(tu.id)}
                           disabled={busy || refreshRunning}
-                          title="跑来源登录用例自动采集登录态"
+                          title={t("auth.refreshButtonTitle")}
                         >
                           <span className="material-symbols-outlined text-sm mr-0.5">play_arrow</span>
-                          {refreshRunning ? "刷新中…" : "刷新"}
+                          {refreshRunning ? t("auth.refreshing") : t("auth.refresh")}
                         </Button>
                       </div>
                     </div>
@@ -437,12 +438,12 @@ export function AuthProfileOverview({
                           </Badge>
                         </div>
                         {refreshTerminal && refreshRun?.status === "passed" ? (
-                          <p className="text-emerald-600 dark:text-emerald-400">storageState 已写回</p>
+                          <p className="text-emerald-600 dark:text-emerald-400">{t("auth.storageStateWritten")}</p>
                         ) : refreshTerminal ? (
-                          <p className="text-rose-600 dark:text-rose-400">来源登录用例未通过，storageState 未更新</p>
+                          <p className="text-rose-600 dark:text-rose-400">{t("auth.refreshFailed")}</p>
                         ) : null}
                         <button type="button" className="text-primary hover:underline cursor-pointer" onClick={onOpenRuns}>
-                          查看详情 →
+                          {t("auth.viewDetails")}
                         </button>
                       </div>
                     ) : null}
@@ -472,15 +473,15 @@ export function AuthProfileOverview({
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-muted-foreground">info</span>
-            注入行为约定
+            {t("auth.injectionTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="text-xs text-muted-foreground space-y-1.5 leading-relaxed list-disc list-inside">
-            <li>用例执行时，Playwright 用 <span className="font-mono text-foreground">newContext(&#123;storageState&#125;)</span> 整体注入：<strong className="text-foreground">全部 cookie 和 origin 的 localStorage 会被替换覆盖</strong>。</li>
-            <li>注入完成后浏览器首跳到<strong className="text-foreground">"登录后 URL"</strong>（若未配置则回退到 targetUrl 根域名），脚本看到的是用户登录完成后的真实落地页。</li>
-            <li>"登录后 URL"在刷新登录态时自动采集（取来源测试集跑完后浏览器停留的页面）；也可以在下方手动覆盖，刷新不会冲掉手改。</li>
-            <li>每个 URL 的 storageState 和登录后 URL 都独立维护，刷新一个不会影响其他 URL 的数据。</li>
+            <li>{t("auth.injectionLi1a")}<span className="font-mono text-foreground">newContext(&#123;storageState&#125;)</span>{t("auth.injectionLi1b")}<strong className="text-foreground">{t("auth.injectionLi1c")}</strong>{t("auth.injectionLi1d")}</li>
+            <li>{t("auth.injectionLi2a")}<strong className="text-foreground">{t("auth.injectionLi2b")}</strong>{t("auth.injectionLi2c")}</li>
+            <li>{t("auth.injectionLi3")}</li>
+            <li>{t("auth.injectionLi4")}</li>
           </ul>
         </CardContent>
       </Card>

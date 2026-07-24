@@ -10,6 +10,7 @@ import { Drawer } from "../components/ui/drawer"
 import { Badge } from "../components/ui/badge"
 import { inputClassName } from "../components/ui/field"
 import { translateStatus, translateTestType, formatDateTime } from "../utils"
+import { t } from "../../i18n/index.js"
 
 export function CasesSection({ controller }: CasesSectionProps) {
   const {
@@ -146,7 +147,7 @@ export function CasesSection({ controller }: CasesSectionProps) {
                 <button onClick={handleCloseDrawer} className="hover:bg-secondary/40 p-1.5 rounded-lg transition-colors text-foreground flex items-center">
                    <span className="material-symbols-outlined text-base">arrow_back</span>
                 </button>
-                返回列表
+                {t("cases.backToList")}
               </div>
               <span className="text-[10px] bg-background border border-border/60 rounded-full px-2 py-0.5">{filteredCases.length}</span>
            </div>
@@ -175,7 +176,7 @@ export function CasesSection({ controller }: CasesSectionProps) {
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-background relative">
           <div className="md:hidden mb-4">
              <Button variant="ghost" size="sm" onClick={handleCloseDrawer} className="-ml-3">
-               <span className="material-symbols-outlined text-base mr-1">arrow_back</span> 返回列表
+               <span className="material-symbols-outlined text-base mr-1">arrow_back</span> {t("cases.backToList")}
              </Button>
           </div>
           <div className="max-w-5xl mx-auto">
@@ -194,13 +195,13 @@ export function CasesSection({ controller }: CasesSectionProps) {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Test Cases"
-        title="用例管理"
-        description="管理项目下的测试用例与有序前置用例，并串联到 AI 工作台。"
+        title={t("cases.pageTitle")}
+        description={t("cases.pageDescription")}
         actions={
           <div className="flex flex-wrap gap-3">
             <Button disabled={busy} onClick={openNewCase}>
               <span className="material-symbols-outlined text-base">add</span>
-              新建用例
+              {t("cases.newCase")}
             </Button>
           </div>
         }
@@ -212,14 +213,14 @@ export function CasesSection({ controller }: CasesSectionProps) {
            <span className="material-symbols-outlined text-muted-foreground text-sm">search</span>
            <input 
              className={`${inputClassName} bg-transparent border-0 shadow-none focus-visible:ring-0 px-0 h-auto w-full`}
-             placeholder="搜索编号、模块或测试目的..."
+             placeholder={t("cases.searchPlaceholder")}
              value={searchQuery}
              onChange={e => setSearchQuery(e.target.value)}
            />
         </div>
         <div className="hidden sm:block h-6 w-[1px] bg-border/60 mx-2"></div>
         <div className="flex flex-1 sm:flex-none items-center gap-2">
-          <span className="text-xs text-muted-foreground font-medium shrink-0">当前项目:</span>
+          <span className="text-xs text-muted-foreground font-medium shrink-0">{t("cases.currentProject")}</span>
           <select 
             className={`${inputClassName} h-9 py-1 text-sm bg-secondary/30 w-full sm:w-auto`}
             value={controller.selectedProjectId ?? ""}
@@ -241,19 +242,19 @@ export function CasesSection({ controller }: CasesSectionProps) {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-secondary/30 text-xs text-muted-foreground">
               <tr>
-                <th className="px-6 py-4 font-medium">编号</th>
-                <th className="px-6 py-4 font-medium">模块</th>
-                <th className="px-6 py-4 font-medium">测试类型</th>
-                <th className="px-6 py-4 font-medium min-w-[200px] w-full">测试目的</th>
-                <th className="px-6 py-4 font-medium">状态</th>
-                <th className="px-6 py-4 font-medium text-right">更新时间</th>
+                <th className="px-6 py-4 font-medium">{t("cases.colCode")}</th>
+                <th className="px-6 py-4 font-medium">{t("cases.colModule")}</th>
+                <th className="px-6 py-4 font-medium">{t("cases.testType")}</th>
+                <th className="px-6 py-4 font-medium min-w-[200px] w-full">{t("cases.purpose")}</th>
+                <th className="px-6 py-4 font-medium">{t("cases.colStatus")}</th>
+                <th className="px-6 py-4 font-medium text-right">{t("cases.colUpdatedAt")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {filteredCases.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                    暂无匹配的测试用例
+                    {t("cases.emptyFiltered")}
                   </td>
                 </tr>
               ) : (

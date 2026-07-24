@@ -1,15 +1,16 @@
 import type { ScheduleTrigger, TaskModeConfig } from "@autovis/shared"
 
 import { formatDateTime } from "../../utils.js"
+import { t } from "../../../i18n/index.js"
 
 export const describeTaskMode = (mode?: TaskModeConfig) => {
-  if (!mode || mode.kind === "oneshot") return "oneshot · 跑一次"
-  if (mode.kind === "polling") return `polling · 每 ${(mode.intervalMs / 1000).toFixed(1)}s 重试，最多 ${mode.maxAttempts} 次（${mode.stopOn ?? "success"}）`
-  return "deadline · 触发时刻前预热，到点卡点执行"
+  if (!mode || mode.kind === "oneshot") return t("tasks.modeDescOneshot")
+  if (mode.kind === "polling") return t("tasks.modeDescPolling", { interval: (mode.intervalMs / 1000).toFixed(1), attempts: mode.maxAttempts, stopOn: mode.stopOn ?? "success" })
+  return t("tasks.modeDescDeadline")
 }
 
 export const describeTriggerKind = (trigger: ScheduleTrigger) => {
-  if (trigger.kind === "at") return `at · ${trigger.atTime ? formatDateTime(trigger.atTime) : "未设置"}`
+  if (trigger.kind === "at") return `at · ${trigger.atTime ? formatDateTime(trigger.atTime) : t("tasks.notSet")}`
   return `cron · ${trigger.cronExpr ?? ""}`
 }
 

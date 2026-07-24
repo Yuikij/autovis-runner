@@ -3,6 +3,7 @@ import type { AuthProfile, ValidationProgressStep, ValidationTask } from "@autov
 import { Badge } from "../../components/ui/badge"
 import { EmptyState } from "../../components/empty-state"
 import { resolveUrl } from "../../utils"
+import { t } from "../../../i18n/index.js"
 
 const STEP_ICON: Record<NonNullable<ValidationProgressStep["kind"]>, string> = {
   init: "settings",
@@ -104,18 +105,18 @@ export function AuthProfileTimeline({ profile, task }: { profile: AuthProfile; t
     return (
       <div className="p-6">
         <EmptyState
-          title="暂无执行日志"
+          title={t("auth.timelineEmptyTitle")}
           description={
             profile.validationScript
-              ? "上一次生成结果已落库到『失效校验脚本』标签页。再次点击『生成』或『检查登录状态』时，这里会实时展示每一步过程。"
-              : "点击右上角『生成失效条件』开始，AI 会在这里逐步展示双对照采集 → LLM → 验证回归 → 落库的执行过程。"
+              ? t("auth.timelineEmptyWithScript")
+              : t("auth.timelineEmptyNoScript")
           }
         />
       </div>
     )
   }
 
-  const titleByKind = task.kind === "check" ? "登录状态重放" : "失效校验脚本生成"
+  const titleByKind = task.kind === "check" ? t("auth.timelineTitleCheck") : t("auth.timelineTitleGenerate")
 
   return (
     <div className="p-6 space-y-4 overflow-y-auto h-full">
@@ -123,11 +124,11 @@ export function AuthProfileTimeline({ profile, task }: { profile: AuthProfile; t
         <div className="flex items-center gap-2">
           <h4 className="text-sm font-semibold text-foreground">{titleByKind}</h4>
           <Badge tone={task.status === "completed" ? "success" : task.status === "error" ? "danger" : "warning"}>
-            {task.status === "running" ? "执行中" : task.status === "completed" ? "已完成" : "失败"}
+            {task.status === "running" ? t("auth.statusRunning") : task.status === "completed" ? t("auth.statusCompleted") : t("auth.statusFailed")}
           </Badge>
           {task.kind === "check" && task.checkResult ? (
             <Badge tone={task.checkResult.valid ? "success" : "danger"}>
-              {task.checkResult.valid ? "登录有效" : "登录无效"}
+              {task.checkResult.valid ? t("auth.loginValid") : t("auth.loginInvalid")}
             </Badge>
           ) : null}
         </div>
@@ -141,14 +142,14 @@ export function AuthProfileTimeline({ profile, task }: { profile: AuthProfile; t
         {task.steps.length === 0 ? (
           <li className="flex items-center gap-3 text-xs text-muted-foreground">
             <div className="size-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            正在启动…
+            {t("auth.startingUp")}
           </li>
         ) : null}
       </ol>
 
       {task.status === "error" && task.error ? (
         <div className="rounded-xl border border-rose-500/40 bg-rose-500/5 px-3 py-2">
-          <p className="text-xs font-medium text-rose-700 dark:text-rose-300">任务终止</p>
+          <p className="text-xs font-medium text-rose-700 dark:text-rose-300">{t("auth.taskAborted")}</p>
           <p className="mt-1 text-[11px] font-mono text-rose-600 dark:text-rose-400 break-all">{task.error}</p>
         </div>
       ) : null}

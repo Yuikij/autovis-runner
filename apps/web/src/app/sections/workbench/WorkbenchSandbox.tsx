@@ -8,14 +8,20 @@ import { BrowserFrame } from "../../components/browser-frame"
 import { LogPanel } from "../../components/log-panel"
 import { TaskControlBar } from "../../components/TaskControlBar"
 import { translateStatus, translateArtifactKind, resolveUrl } from "../../utils"
+import { t } from "../../../i18n/index.js"
 import type { AgentStep } from "@autovis/shared"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
-const stageLabel: Record<string, string> = {
-  code: "代码",
-  page: "页面",
-  generation: "生成",
-  verification: "验证",
+const stageLabelKeys: Record<string, string> = {
+  code: "wb.stageCode",
+  page: "wb.stagePage",
+  generation: "wb.stageGeneration",
+  verification: "wb.stageVerification",
+}
+
+function stageLabel(stage: string): string {
+  const key = stageLabelKeys[stage]
+  return key ? t(key) : stage
 }
 
 function getAgentStepVisuals(step: AgentStep) {
@@ -140,7 +146,7 @@ export function WorkbenchSandbox({
     const totalSeconds = Math.max(0, Math.floor((Date.now() - started) / 1000))
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
-    return minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`
+    return minutes > 0 ? t("wb.durationMinSec", { minutes, seconds }) : t("wb.durationSec", { seconds })
   }, [agentRunning, agentSession?.startedAt, clockTick])
 
   const verificationRun = useMemo(() => {
@@ -195,8 +201,8 @@ export function WorkbenchSandbox({
     ? verificationRun?.liveViewport
     : undefined
 
-  const displayTitle = mode === "record" ? "录制浏览器画面" : isShowingAgent ? "生成过程实时画面" : "验证浏览器画面"
-  const displayEmptyText = mode === "record" ? "启动录制后，这里会显示远程浏览器画面。" : isShowingAgent ? "启动生成后，此窗口将实时展示智能体的操作画面。" : "执行验证后，此窗口将实时展示浏览器画面。"
+  const displayTitle = mode === "record" ? t("wb.recordBrowserTitle") : isShowingAgent ? t("wb.generationLiveTitle") : t("wb.verificationBrowserTitle")
+  const displayEmptyText = mode === "record" ? t("wb.recordEmptyText") : isShowingAgent ? t("wb.generationEmptyText") : t("wb.verificationEmptyText")
 
   const latestVerifyStep = verificationRun?.steps.at(-1)
   const latestAgentStep = agentSession?.steps.at(-1)
@@ -223,7 +229,7 @@ export function WorkbenchSandbox({
         {/* Top-left corner small status indicator for last pointer */}
         {lastPointer && mode === "record" && (
           <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-xl bg-background/80 backdrop-blur border border-border/60 shadow-sm text-[10px] text-muted-foreground font-mono pointer-events-none">
-            上次点击: ({lastPointer.x}, {lastPointer.y})
+            {t("wb.lastClickAt", { x: lastPointer.x, y: lastPointer.y })}
           </div>
         )}
       </div>
@@ -246,15 +252,15 @@ export function WorkbenchSandbox({
                       <span className="flex size-2 rounded-full bg-slate-400 shrink-0" />
                     )}
                     <span className="text-sm font-semibold text-foreground truncate max-w-[200px] shrink-0">
-                      {latestAgentStep?.title || (agentRunning ? "正在连接生成任务…" : "等待生成开始...")}
+                      {latestAgentStep?.title || (agentRunning ? t("wb.connectingGenerationTask") : t("wb.waitingGenerationStart"))}
                     </span>
                     {agentElapsedLabel && (
                       <span className="text-[10px] font-mono text-muted-foreground bg-secondary/40 border border-border/40 rounded px-1.5 py-0.5 shrink-0">
-                        已用时 {agentElapsedLabel}
+                        {t("wb.elapsedTime", { time: agentElapsedLabel })}
                       </span>
                     )}
                     <span className="text-xs text-muted-foreground truncate hidden sm:block">
-                      {latestAgentStep?.content || "首次启动浏览器可能较慢，请稍候。"}
+                      {latestAgentStep?.content || t("wb.firstLaunchSlow")}
                     </span>
                   </div>
                 ) : (
@@ -265,7 +271,7 @@ export function WorkbenchSandbox({
                       <span className="flex size-2 rounded-full bg-slate-400 shrink-0" />
                     )}
                     <span className="text-sm font-semibold text-foreground truncate max-w-[200px] shrink-0">
-                      {latestVerifyStep?.title || "等待验证开始..."}
+                      {latestVerifyStep?.title || t("wb.waitingVerificationStart")}
                     </span>
                     <span className="text-xs text-muted-foreground truncate hidden sm:block">
                       {latestVerifyStep?.log || ""}
@@ -280,10 +286,10 @@ export function WorkbenchSandbox({
                     <span className="flex size-2 rounded-full bg-slate-400 shrink-0" />
                   )}
                   <span className="text-sm font-semibold text-foreground truncate max-w-[200px] shrink-0">
-                    {latestAction?.type || "录制就绪"}
+                    {latestAction?.type || t("wb.recorderReady")}
                   </span>
                   <span className="text-xs text-muted-foreground truncate hidden sm:block">
-                    {latestAction?.detail || latestAction?.url || "在下方画面中进行操作..."}
+                    {latestAction?.detail || latestAction?.url || t("wb.operateInViewBelow")}
                   </span>
                 </div>
               )}
@@ -303,7 +309,7 @@ export function WorkbenchSandbox({
                 variant="ghost"
                 size="sm"
                 className="shrink-0 rounded-full size-8 p-0 hover:bg-muted"
-                title={isSandboxFullscreen ? "退出全屏 (Esc)" : "全屏沙盒"}
+                title={isSandboxFullscreen ? t("wb.exitFullscreen") : t("wb.fullscreenSandbox")}
                 onClick={(e) => { e.stopPropagation(); toggleSandboxFullscreen() }}
               >
                 <span className="material-symbols-outlined text-base">{isSandboxFullscreen ? "fullscreen_exit" : "fullscreen"}</span>
@@ -314,7 +320,7 @@ export function WorkbenchSandbox({
                 </Button>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground hidden sm:inline font-medium tracking-wide">点击展开全部</span>
+                  <span className="text-[10px] text-muted-foreground hidden sm:inline font-medium tracking-wide">{t("wb.clickToExpandAll")}</span>
                   <span className="material-symbols-outlined text-muted-foreground shrink-0 text-sm">expand_more</span>
                 </div>
               )}
@@ -334,7 +340,7 @@ export function WorkbenchSandbox({
                 }`}
                 onClick={() => setSandboxTab('steps')}
               >
-                {mode === "generate" ? (isShowingAgent ? "智能体思考链" : "验证步骤") : "录制动作"}
+                {mode === "generate" ? (isShowingAgent ? t("wb.agentThoughtChain") : t("wb.verificationSteps")) : t("wb.recordedActions")}
               </button>
               <button
                 type="button"
@@ -345,7 +351,7 @@ export function WorkbenchSandbox({
                 }`}
                 onClick={() => setSandboxTab('logs')}
               >
-                {mode === "generate" ? "输出日志" : "动作日志"}
+                {mode === "generate" ? t("wb.outputLogs") : t("wb.actionLogs")}
               </button>
             </div>
 
@@ -356,8 +362,8 @@ export function WorkbenchSandbox({
                   isShowingAgent ? (
                     !agentSession || agentSession.steps.length === 0 ? (
                       <EmptyState 
-                        title="暂无生成步骤" 
-                        description="点击“生成脚本”开始让智能体接管。" 
+                        title={t("wb.noGenerationSteps")} 
+                        description={t("wb.noGenerationStepsDescription")} 
                       />
                     ) : (
                       <div className="space-y-4 pl-2 pr-1 pb-4">
@@ -388,7 +394,7 @@ export function WorkbenchSandbox({
                                       <span className={`text-sm tracking-wide ${visuals.textClass}`}>{step.title}</span>
                                     </div>
                                     <span className="text-[10px] text-muted-foreground font-mono bg-background/50 px-2 py-0.5 rounded border border-border/40 inline-block w-fit">
-                                      {step.type.toUpperCase()} {step.stage ? `· ${stageLabel[step.stage] || step.stage}` : ""}
+                                      {step.type.toUpperCase()} {step.stage ? `· ${stageLabel(step.stage)}` : ""}
                                     </span>
                                   </div>
                                   <Badge 
@@ -454,8 +460,8 @@ export function WorkbenchSandbox({
                   ) : (
                     !verificationRun ? (
                       <EmptyState 
-                        title="未执行验证" 
-                        description="在顶部输入 URL 并启动验证后，这里会显示步骤检查项。" 
+                        title={t("wb.noVerificationRun")} 
+                        description={t("wb.noVerificationRunDescription")} 
                       />
                     ) : (
                       <div className="space-y-3">
@@ -468,16 +474,16 @@ export function WorkbenchSandbox({
                               {verificationRun.id}
                             </span>
                             {verificationRun.orchestrationPhase ? (
-                              <Badge>{verificationRun.orchestrationPhase === "preconditions" ? "前置依赖中" : verificationRun.orchestrationPhase === "target" ? "目标脚本中" : "归档中"}</Badge>
+                              <Badge>{verificationRun.orchestrationPhase === "preconditions" ? t("wb.phasePreconditions") : verificationRun.orchestrationPhase === "target" ? t("wb.phaseTargetScript") : t("wb.phaseArchiving")}</Badge>
                             ) : null}
                           </div>
                         </div>
                         {verificationNeedsHumanInput ? (
                           <Card className="border-warning/40 bg-warning/5 shadow-sm">
                             <CardHeader className="pb-3">
-                              <CardTitle className="text-sm">等待人工输入</CardTitle>
+                              <CardTitle className="text-sm">{t("wb.awaitingHumanInput")}</CardTitle>
                               <CardDescription>
-                                {verificationNeedsHumanInput.scope === "precondition" ? "前置依赖执行中需要人工输入。" : "目标脚本执行中需要人工输入。"}
+                                {verificationNeedsHumanInput.scope === "precondition" ? t("wb.humanInputPrecondition") : t("wb.humanInputTargetScript")}
                                 {" "}
                                 {verificationNeedsHumanInput.instruction}
                               </CardDescription>
@@ -485,7 +491,7 @@ export function WorkbenchSandbox({
                             <CardContent className="space-y-3">
                               <div className="overflow-hidden rounded-xl border border-border/60 bg-slate-100 dark:bg-black/20">
                                 <img
-                                  alt={verificationNeedsHumanInput.inputLabel ?? "人工输入参考图"}
+                                  alt={verificationNeedsHumanInput.inputLabel ?? t("wb.humanInputReferenceAlt")}
                                   className="max-h-52 w-full object-contain bg-slate-200 dark:bg-black"
                                   src={verificationNeedsHumanInput.imageUrl ?? verificationRun.currentViewport}
                                 />
@@ -494,7 +500,7 @@ export function WorkbenchSandbox({
                                 <input
                                   className={`${inputClassName} text-xs flex-1 bg-secondary/20 border-border/60`}
                                   onChange={(event) => setHumanInputValue(event.target.value)}
-                                  placeholder={verificationNeedsHumanInput.placeholder ?? verificationNeedsHumanInput.inputLabel ?? "请输入内容"}
+                                  placeholder={verificationNeedsHumanInput.placeholder ?? verificationNeedsHumanInput.inputLabel ?? t("wb.enterContentPlaceholder")}
                                   value={humanInputValue}
                                 />
                                 <Button
@@ -505,7 +511,7 @@ export function WorkbenchSandbox({
                                     setHumanInputValue("")
                                   }}
                                 >
-                                  {verificationNeedsHumanInput.confirmText ?? "确定并继续"}
+                                  {verificationNeedsHumanInput.confirmText ?? t("wb.confirmAndContinue")}
                                 </Button>
                               </div>
                             </CardContent>
@@ -537,7 +543,7 @@ export function WorkbenchSandbox({
                         </div>
                         {verificationRun.artifacts.length > 0 && (
                           <div className="space-y-2 pt-2 border-t border-border/40">
-                            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">验证产物</div>
+                            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("wb.verificationArtifacts")}</div>
                             {verificationRun.artifacts.map((artifact) => (
                               <a 
                                 className="flex items-center justify-between rounded-xl border border-border bg-card/40 px-3 py-2 text-xs transition hover:bg-secondary/40 animate-fade-in" 
@@ -558,8 +564,8 @@ export function WorkbenchSandbox({
                 ) : (
                   !(activeRecorderSession?.actions ?? []).length ? (
                     <EmptyState 
-                      title="暂无录制动作" 
-                      description="在左侧浏览器画面中进行点击、输入等操作，此处会实时显示录制动作。" 
+                      title={t("wb.noRecordedActions")} 
+                      description={t("wb.noRecordedActionsDescription")} 
                     />
                   ) : (
                     <div className="space-y-2">
@@ -580,22 +586,22 @@ export function WorkbenchSandbox({
                   isShowingAgent ? (
                       <LogPanel 
                       noCard 
-                      title="智能体日志" 
-                      content={agentSession?.steps?.map(s => s.content).filter(Boolean).join("\n") || "无输出日志"} 
+                      title={t("wb.agentLogs")} 
+                      content={agentSession?.steps?.map(s => s.content).filter(Boolean).join("\n") || t("wb.noOutputLogs")} 
                       className="h-full bg-transparent dark:bg-transparent p-0 max-h-none border-0 shadow-none text-xs leading-5"
                     />
                   ) : (
                     <LogPanel 
                       noCard 
-                      title="验证日志" 
-                      content={verificationRun?.logs.join("\n") || "无输出日志"} 
+                      title={t("wb.verificationLogs")} 
+                      content={verificationRun?.logs.join("\n") || t("wb.noOutputLogs")} 
                       className="h-full bg-transparent dark:bg-transparent p-0 max-h-none border-0 shadow-none text-xs leading-5"
                     />
                   )
                 ) : (
                   <LogPanel 
                     noCard 
-                    title="录制日志" 
+                    title={t("wb.recordingLogs")} 
                     content={(activeRecorderSession?.actions ?? []).map((action) => `${action.timestamp.slice(11, 19)} · ${action.type} · ${action.detail ?? action.url}`).join("\n")} 
                     className="h-full bg-transparent dark:bg-transparent p-0 max-h-none border-0 shadow-none text-xs leading-5"
                   />

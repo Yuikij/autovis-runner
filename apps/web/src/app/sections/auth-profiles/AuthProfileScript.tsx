@@ -3,6 +3,7 @@ import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/empty-state"
 import { formatDateTime } from "../../utils"
+import { t } from "../../../i18n/index.js"
 
 export function AuthProfileScript({
   profile,
@@ -21,9 +22,9 @@ export function AuthProfileScript({
     return (
       <div className="p-6">
         <EmptyState
-          title="尚未生成失效条件脚本"
-          description="点击右上角『生成失效条件』，AI 会基于「登录态浏览器」和「匿名浏览器」对同一 URL 的实际差异自动产出 Playwright 校验脚本，并通过双向回归后才落库。"
-          actionLabel={busy ? "生成中…" : "立即生成"}
+          title={t("auth.scriptEmptyTitle")}
+          description={t("auth.scriptEmptyDescription")}
+          actionLabel={busy ? t("auth.generating") : t("auth.generateNow")}
           onAction={busy ? undefined : onGenerate}
         />
       </div>
@@ -35,7 +36,7 @@ export function AuthProfileScript({
       <div className="flex items-center justify-between gap-3 border-b border-border/40 px-4 py-2 bg-secondary/20">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="material-symbols-outlined text-base">javascript</span>
-          <span>Playwright 校验脚本</span>
+          <span>{t("auth.scriptPaneTitle")}</span>
           {profile.validationScriptGeneratedAt ? (
             <Badge tone="default">{formatDateTime(profile.validationScriptGeneratedAt)}</Badge>
           ) : null}
@@ -47,7 +48,7 @@ export function AuthProfileScript({
           onClick={onCopy}
         >
           <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
-          {copied ? "已复制" : "复制脚本"}
+          {copied ? t("auth.copied") : t("auth.copyScript")}
         </Button>
       </div>
       <pre className="flex-1 m-0 p-4 text-[12px] leading-relaxed font-mono text-foreground/90 bg-background/40 overflow-auto whitespace-pre-wrap break-all">
