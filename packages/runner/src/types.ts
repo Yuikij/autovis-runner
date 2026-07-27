@@ -8,7 +8,7 @@ import type {
   Project,
   ScriptArtifact,
   TestCase,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import type { LiveStreamController } from "./live-streamer.js"
 
 export interface CreateExecutionTemplateInput {

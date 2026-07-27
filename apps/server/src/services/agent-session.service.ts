@@ -1,6 +1,6 @@
-import { type AgentSession, type AgentStep } from "@autovis/shared"
+import { type AgentSession, type AgentStep } from "@browsewright/shared"
 
-import type { AutoVisDatabase } from "../db.js"
+import type { BrowsewrightDatabase } from "../db.js"
 import { now } from "./common.js"
 import { type TaskController, TaskControlRegistry } from "./task-control.js"
 
@@ -8,7 +8,7 @@ export class AgentSessionService {
   private readonly agentSubscribers = new Map<string, Set<(session: AgentSession) => void>>()
 
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly tasks: TaskControlRegistry,
   ) {}
 

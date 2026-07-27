@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import type { TestCase, AuthProfile } from "@autovis/shared"
+import type { TestCase, AuthProfile } from "@browsewright/shared"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { t } from "../../../i18n/index.js"

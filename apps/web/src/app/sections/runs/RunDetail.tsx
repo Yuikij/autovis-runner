@@ -1,4 +1,4 @@
-import type { ExecutionRun, ExecutionStep, PersistedTaskControlCommand, Task, TaskKind, TaskRun, TestCase } from "@autovis/shared"
+import type { ExecutionRun, ExecutionStep, PersistedTaskControlCommand, Task, TaskKind, TaskRun, TestCase } from "@browsewright/shared"
 
 import { BrowserFrame } from "../../components/browser-frame"
 import { EmptyState } from "../../components/empty-state"

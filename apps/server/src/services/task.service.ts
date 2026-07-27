@@ -1,13 +1,13 @@
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { createId } from "./common.js"
-import { type Task, type TaskItem, type UpsertTaskRequest } from "@autovis/shared"
+import { type Task, type TaskItem, type UpsertTaskRequest } from "@browsewright/shared"
 
 /**
  * 任务（Task）：可持久化、可编辑的编排实体。负责 Task/TaskItem 的增删改查与校验。
  * 触发器（ScheduleTrigger）与执行（TaskRun）分别由 SchedulerService / RunService 处理。
  */
 export class TaskService {
-  constructor(private readonly db: AutoVisDatabase) {}
+  constructor(private readonly db: BrowsewrightDatabase) {}
 
   public listTasks(projectId: string): Task[] {
     return this.db.listTasks(projectId)

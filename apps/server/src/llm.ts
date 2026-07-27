@@ -1,4 +1,4 @@
-import type { LlmSessionConfig } from "@autovis/shared"
+import type { LlmSessionConfig } from "@browsewright/shared"
 import {
   analyzeImageWithCopilot,
   callCopilotWithTools,

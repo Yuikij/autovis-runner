@@ -8,7 +8,7 @@ import type {
   DataTableRowPage,
   DataTableScriptApi,
   Identifier,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 interface DataTableTableRow {
   id: string

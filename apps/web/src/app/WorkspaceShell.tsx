@@ -53,7 +53,7 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
     <div className="grid min-h-screen grid-cols-1 bg-background text-foreground lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="border-b border-border/80 bg-slate-50/80 dark:bg-slate-950/80 px-5 py-6 backdrop-blur lg:border-b-0 lg:border-r lg:px-6 lg:py-8">
         <div className="flex items-center gap-4">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/15 text-xl font-semibold text-primary">A</div>
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/15 text-xl font-semibold text-primary">B</div>
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-tight">{appName}</h1>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{appVersion}</p>
@@ -113,7 +113,7 @@ export function WorkspaceShell({ authSession, controller, onLogout }: WorkspaceS
         <header className="border-b border-border/80 bg-background/80 px-6 py-5 backdrop-blur lg:px-10">
           <PageHeader
             description={currentSection.description}
-            eyebrow="AutoVis Workspace"
+            eyebrow="Browsewright Workspace"
             title={currentSection.title}
             actions={
               <div className="flex items-center gap-2.5">

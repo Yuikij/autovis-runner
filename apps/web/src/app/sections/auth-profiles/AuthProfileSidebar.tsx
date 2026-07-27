@@ -1,4 +1,4 @@
-import type { AuthProfile } from "@autovis/shared"
+import type { AuthProfile } from "@browsewright/shared"
 import { t } from "../../../i18n/index.js"
 
 export function AuthProfileSidebar({

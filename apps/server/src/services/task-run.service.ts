@@ -1,4 +1,4 @@
-import type { AutoVisDatabase } from "../db.js"
+import type { BrowsewrightDatabase } from "../db.js"
 import { createId, now } from "./common.js"
 import { log } from "../log.js"
 import type { TaskControlRegistry } from "./task-control.js"
@@ -10,7 +10,7 @@ import type {
   StartTaskRunRequest,
   AgentSession,
   RuntimeOutput,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 /** deadline 目标时刻之后再给脚本的执行窗口（用于算脚本超时上限）。用户不配置，系统默认。 */
 const DEFAULT_DEADLINE_POST_WINDOW_MS = 10 * 60 * 1000
@@ -50,7 +50,7 @@ export class TaskRunService {
   public recoverAgentCallback: ((sessionId: string) => Promise<AgentSession | undefined>) | null = null
 
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly tasks: TaskControlRegistry,
     private readonly runService: RunService,
   ) {}
@@ -228,7 +228,7 @@ export class TaskRunService {
   private async executeTaskRunLoop(
     task: Task,
     taskRun: TaskRun,
-    resolvedItems: Array<{ item: Task["items"][number]; testCase: ReturnType<AutoVisDatabase["getTestCase"]> }>,
+    resolvedItems: Array<{ item: Task["items"][number]; testCase: ReturnType<BrowsewrightDatabase["getTestCase"]> }>,
     taskController: ReturnType<TaskRunService["createManagedTaskRunController"]>,
     opts: {
       projectId: string

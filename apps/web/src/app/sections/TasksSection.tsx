@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { ScheduleTrigger, TaskItem, TaskModeConfig, TaskRun } from "@autovis/shared"
+import type { ScheduleTrigger, TaskItem, TaskModeConfig, TaskRun } from "@browsewright/shared"
 
 import { Button } from "../components/ui/button"
 import { PageHeader } from "../components/page-header"

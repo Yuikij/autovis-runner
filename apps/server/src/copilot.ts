@@ -1,4 +1,4 @@
-import type { GenerateScriptRequest, LlmSessionConfig, Project, TestCase, AgentStep } from "@autovis/shared"
+import type { GenerateScriptRequest, LlmSessionConfig, Project, TestCase, AgentStep } from "@browsewright/shared"
 
 const GITHUB_OAUTH_BASE = "https://github.com/login"
 const GITHUB_API_BASE = "https://api.github.com"
@@ -251,7 +251,7 @@ const exchangeGitHubTokenForCopilotToken = async (githubAccessToken: string) => 
     headers: {
       Accept: "application/json",
       Authorization: `token ${githubAccessToken}`,
-      "User-Agent": "AutoVis/0.1",
+      "User-Agent": "Browsewright/0.1",
     },
   })
 
@@ -285,7 +285,7 @@ export const fetchCopilotModels = async (session: LlmSessionConfig, secrets: Cop
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${accessToken}`,
-      "User-Agent": "AutoVis/0.1",
+      "User-Agent": "Browsewright/0.1",
       "editor-version": "vscode/1.99.0",
       "editor-plugin-version": "copilot-chat/0.26.0",
       "copilot-integration-id": "vscode-chat",
@@ -391,7 +391,7 @@ export const copilotHeaders = (accessToken: string) => ({
   Accept: "application/json",
   Authorization: `Bearer ${accessToken}`,
   "Content-Type": "application/json",
-  "User-Agent": "AutoVis/0.1",
+  "User-Agent": "Browsewright/0.1",
   "editor-version": "vscode/1.99.0",
   "editor-plugin-version": "copilot-chat/0.26.0",
   "copilot-integration-id": "vscode-chat",

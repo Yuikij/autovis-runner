@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react"
 
-import type { ExecutionRun } from "@autovis/shared"
+import type { ExecutionRun } from "@browsewright/shared"
 
 import { apiRoutes, streamUrl } from "../../apiRoutes.js"
 import type { WorkspaceEffectsParams } from "../types.js"

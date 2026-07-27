@@ -1,4 +1,4 @@
-# AutoVis 全局收束（Convergence）计划
+# Browsewright 全局收束（Convergence）计划
 
 > 目标不是加功能、加复杂度，而是**收束**：用更少、更清晰的"接缝（seam）"承载横切关注点，建立可被验证的**不变量（invariants）**，让整套系统变得可预测、可稳定验收。
 
@@ -56,6 +56,6 @@
 
 ## 六、验证
 
-- 类型检查：`pnpm --filter @autovis/server check` 与 `pnpm --filter @autovis/web check`。
+- 类型检查：`pnpm --filter @browsewright/server check` 与 `pnpm --filter @browsewright/web check`。
 - 验收冒烟：服务端运行后执行 `pnpm acceptance`（可用 `BASE_URL` / `--base` 指定地址）。
 - 手动回归：跑完一个 run 后停留观察——`/stream` 不再无限重连；终态后只按作用域刷新对应的少量接口（不再连续触发 9 接口全量重拉）。

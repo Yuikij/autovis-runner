@@ -6,7 +6,7 @@ import {
   type CaseContract,
   type InvokeCaseResponse,
   type TestCase,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { store } from "../store.js"
 import { getRequestLlmOwnerKey } from "../auth.js"
 

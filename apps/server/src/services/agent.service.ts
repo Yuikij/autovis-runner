@@ -4,8 +4,8 @@ import {
   type GenerateScriptRequest,
   type ScriptArtifact,
   type StartDirectAgentRequest,
-} from "@autovis/shared"
-import { AutoVisDatabase } from "../db.js"
+} from "@browsewright/shared"
+import { BrowsewrightDatabase } from "../db.js"
 import { type SuiteService } from "./suite.service.js"
 import { type LlmConfigService } from "./llm-config.service.js"
 import { type ProjectService } from "./project.service.js"
@@ -27,7 +27,7 @@ export class AgentService {
   private readonly recoveryService: AgentRecoveryService
 
   constructor(
-    db: AutoVisDatabase,
+    db: BrowsewrightDatabase,
     _suiteService: SuiteService,
     llmService: LlmConfigService,
     projectService: ProjectService,
@@ -86,13 +86,13 @@ export class AgentService {
   }
 
   public async rewriteChat(
-    request: { projectId: string; testCaseId: string; baseScriptId?: string; messages: import("@autovis/shared").RewriteChatMessage[] } & LlmOwned,
+    request: { projectId: string; testCaseId: string; baseScriptId?: string; messages: import("@browsewright/shared").RewriteChatMessage[] } & LlmOwned,
   ) {
     return this.generationService.rewriteChat(request)
   }
 
   public async rewritePlan(
-    request: { projectId: string; testCaseId: string; baseScriptId?: string; messages: import("@autovis/shared").RewriteChatMessage[] } & LlmOwned,
+    request: { projectId: string; testCaseId: string; baseScriptId?: string; messages: import("@browsewright/shared").RewriteChatMessage[] } & LlmOwned,
   ) {
     return this.generationService.rewritePlan(request)
   }

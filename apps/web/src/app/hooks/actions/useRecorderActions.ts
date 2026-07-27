@@ -1,7 +1,7 @@
 import type { WorkspaceActionParams } from "../types.js"
 import { request } from "../../api.js"
 import { apiRoutes } from "../../apiRoutes.js"
-import type { ExecutionRun, RecorderInteractionRequest, RecorderSession, ScriptArtifact } from "@autovis/shared"
+import type { ExecutionRun, RecorderInteractionRequest, RecorderSession, ScriptArtifact } from "@browsewright/shared"
 
 export function useRecorderActions(params: WorkspaceActionParams) {
   const {

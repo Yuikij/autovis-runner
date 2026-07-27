@@ -90,8 +90,8 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
             setTargetUrlId(next)
             setLastTargetUrlId(next)
             if (typeof window !== "undefined") {
-              if (next) localStorage.setItem("autovis_last_target_url_id", next)
-              else localStorage.removeItem("autovis_last_target_url_id")
+              if (next) localStorage.setItem("browsewright_last_target_url_id", next)
+              else localStorage.removeItem("browsewright_last_target_url_id")
             }
           }}
           setWorkspaceTab={setWorkspaceTab}
@@ -168,8 +168,8 @@ export function WorkbenchSection({ controller }: WorkbenchSectionProps) {
                         setTargetUrlId(next)
                         setLastTargetUrlId(next)
                         if (typeof window !== "undefined") {
-                          if (next) localStorage.setItem("autovis_last_target_url_id", next)
-                          else localStorage.removeItem("autovis_last_target_url_id")
+                          if (next) localStorage.setItem("browsewright_last_target_url_id", next)
+                          else localStorage.removeItem("browsewright_last_target_url_id")
                         }
                       }}
                     >

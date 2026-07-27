@@ -18,7 +18,7 @@ import type {
   UpsertProjectRequest,
   UpsertProjectWorkspaceRequest,
   UpsertTestCaseRequest,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import {
   mapAgentSession,
   mapAgentStep,

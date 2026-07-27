@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { resolveUrl, resolveWebSocketUrl } from "../utils"
 import { t } from "../../i18n/index.js"
-import type { LiveViewportState } from "@autovis/shared"
+import type { LiveViewportState } from "@browsewright/shared"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 
 type BrowserFrameProps = {

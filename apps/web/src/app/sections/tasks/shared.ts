@@ -1,4 +1,4 @@
-import type { ScheduleTrigger, TaskModeConfig } from "@autovis/shared"
+import type { ScheduleTrigger, TaskModeConfig } from "@browsewright/shared"
 
 import { formatDateTime } from "../../utils.js"
 import { t } from "../../../i18n/index.js"

@@ -15,14 +15,14 @@ export interface AuthSession {
   llmScope: LlmScope
 }
 
-export const authEnabled = ["1", "true", "yes", "on"].includes((process.env.AUTOVIS_AUTH_ENABLED ?? "").toLowerCase())
-export const llmScope: LlmScope = process.env.AUTOVIS_LLM_SCOPE === "per_user" ? "per_user" : "shared"
+export const authEnabled = ["1", "true", "yes", "on"].includes((process.env.BROWSEWRIGHT_AUTH_ENABLED ?? "").toLowerCase())
+export const llmScope: LlmScope = process.env.BROWSEWRIGHT_LLM_SCOPE === "per_user" ? "per_user" : "shared"
 
 export const sharedLlmOwnerKey = "shared"
 export const llmOwnerForUser = (user?: AuthUser | null) =>
   authEnabled && llmScope === "per_user" && user ? `user:${user.id}` : sharedLlmOwnerKey
 
-const cookieName = "autovis_session"
+const cookieName = "browsewright_session"
 const sessionTtlMs = 1000 * 60 * 60 * 24 * 14
 const appOrigin = process.env.APP_ORIGIN ?? ""
 

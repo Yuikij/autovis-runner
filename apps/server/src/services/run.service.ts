@@ -1,4 +1,4 @@
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { appOrigin, artifactsDir, createId, now, resolvePersistentProfileDir } from "./common.js"
 import { type SuiteService } from "./suite.service.js"
 import { type LlmConfigService } from "./llm-config.service.js"
@@ -11,7 +11,7 @@ import {
   finalizeRunnerSession,
   validateAuthState,
   type RunnerSession,
-} from "@autovis/runner"
+} from "@browsewright/runner"
 import {
   type ExecutionRun,
   type InvokeCaseResponse,
@@ -20,7 +20,7 @@ import {
   type StartRunRequest,
   type TestCase,
   validateAgainstFields,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { analyzeImageWithLlm, generateTextWithLlm } from "../llm.js"
 import { knowledgeService } from "../knowledge.js"
 import { log } from "../log.js"
@@ -76,7 +76,7 @@ export class RunService {
   private readonly chainStates = new Map<string, RunChainState>()
 
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly suiteService: SuiteService,
     private readonly llmService: LlmConfigService,
     private readonly tasks: TaskControlRegistry,
@@ -256,7 +256,7 @@ export class RunService {
 
   private launchRunExecution(
     run: ExecutionRun,
-    project: NonNullable<ReturnType<AutoVisDatabase["getProject"]>>,
+    project: NonNullable<ReturnType<BrowsewrightDatabase["getProject"]>>,
     testCase: TestCase,
     script: ScriptArtifact,
     preconditionPlan: ReturnType<SuiteService["buildPreconditionPlan"]>,
@@ -357,7 +357,7 @@ export class RunService {
 
   public async executeRunWithPreconditions(
     run: ExecutionRun,
-    project: ReturnType<AutoVisDatabase["getProject"]>,
+    project: ReturnType<BrowsewrightDatabase["getProject"]>,
     targetTestCase: TestCase,
     targetScript: ScriptArtifact,
     preconditionPlan: ReturnType<SuiteService["buildPreconditionPlan"]>,
@@ -745,7 +745,7 @@ export class RunService {
   /**
    * API 网关：把一个「已开启 API + 已冻结契约」的用例当接口调用。
    * 入参校验 → 注入 params 起 run → 等待完成 → 出参校验 → 返回结构化响应。
-   * 入参不合法直接拒绝，不进浏览器（与「做 AutoVis 就是为了稳定」一致）。
+   * 入参不合法直接拒绝，不进浏览器（与「做 Browsewright 就是为了稳定」一致）。
    */
   public async invokeCase(input: {
     testCaseId: string

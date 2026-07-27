@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify"
 import { z } from "zod"
-import type { ApiEnvelope, ScheduleTrigger, TaskRun, UpsertScheduleTriggerRequest } from "@autovis/shared"
+import type { ApiEnvelope, ScheduleTrigger, TaskRun, UpsertScheduleTriggerRequest } from "@browsewright/shared"
 import { store } from "../store.js"
 
 const upsertSchema = z.object({

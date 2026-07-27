@@ -1,4 +1,4 @@
-import { type AgentStage } from "@autovis/shared"
+import { type AgentStage } from "@browsewright/shared"
 import { type ToolDefinition } from "../../llm.js"
 import { type LocatorQuery, type ToolExecutionResult, type ToolRuntimeContext } from "../types.js"
 import { executeClickElement, executeFillInput, executePressKey, pageInteractionTools } from "./page-interaction.js"

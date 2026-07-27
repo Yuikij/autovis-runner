@@ -1,4 +1,4 @@
-import type { Project } from "@autovis/shared"
+import type { Project } from "@browsewright/shared"
 import type { ScriptGenerationContext } from "../copilot.js"
 
 export const buildScriptSystemPrompt = () =>

@@ -5,7 +5,7 @@ import { apiRoutes } from "../../apiRoutes.js"
 import { emptyProjectForm, emptyWorkspaceForm } from "../../workspaceForms.js"
 import { useConfirm } from "../../components/ui/confirm.js"
 import { t } from "../../../i18n/index.js"
-import type { Module, Project, AuthProfile, TargetUrl, UpsertAuthProfileRequest } from "@autovis/shared"
+import type { Module, Project, AuthProfile, TargetUrl, UpsertAuthProfileRequest } from "@browsewright/shared"
 
 export function useProjectActions(params: WorkspaceActionParams) {
   const confirm = useConfirm()

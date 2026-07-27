@@ -1,5 +1,5 @@
 import type { Browser } from "@playwright/test"
-import type { ExecutionRun } from "@autovis/shared"
+import type { ExecutionRun } from "@browsewright/shared"
 import type { CreateExecutionTemplateInput, ExecutePlaywrightRunInput, ValidateAuthStateInput } from "./types.js"
 import { createRunnerSession, finalizeRunnerSession, failRunnerSession, waitForSpaContent } from "./browser-manager.js"
 import { executeScriptInSession, runValidationOnPage, extractScriptBody } from "./script-executor.js"

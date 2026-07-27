@@ -7,10 +7,10 @@ _get_version() {
   node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('package.json','utf8')).version)" 2>/dev/null \
     || grep -m1 '"version"' package.json | sed 's/.*"version": *"\([^"]*\)".*/\1/'
 }
-VERSION="${AUTOVIS_VERSION:-$(_get_version)}"
+VERSION="${BROWSEWRIGHT_VERSION:-$(_get_version)}"
 DIST_DIR="$ROOT_DIR/dist-packages"
-STAGE_DIR="$DIST_DIR/autovis-runner-$VERSION"
-ARCHIVE="$DIST_DIR/autovis-runner-$VERSION.tar.gz"
+STAGE_DIR="$DIST_DIR/browsewright-runner-$VERSION"
+ARCHIVE="$DIST_DIR/browsewright-runner-$VERSION.tar.gz"
 
 cd "$ROOT_DIR"
 
@@ -32,11 +32,11 @@ tar -cf - \
 rm -rf "$STAGE_DIR/app/apps/server/screenshots"
 rm -f "$STAGE_DIR/app/apps/server"/login-*.png "$STAGE_DIR/app/apps/server/last-llm-curl.sh"
 
-cat > "$STAGE_DIR/bin/autovis-runner" <<'EOF'
+cat > "$STAGE_DIR/bin/browsewright-runner" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resolve symlinks (e.g. /opt/homebrew/bin/autovis-runner) back to the real
+# Resolve symlinks (e.g. /opt/homebrew/bin/browsewright-runner) back to the real
 # install location so relative paths like ../app work.
 SOURCE="${BASH_SOURCE[0]:-$0}"
 while [ -L "$SOURCE" ]; do
@@ -47,8 +47,8 @@ done
 HERE="$(cd "$(dirname "$SOURCE")" && pwd)"
 APP_DIR="$(cd "$HERE/../app" && pwd)"
 INSTALL_ROOT="$(cd "$HERE/.." && pwd)"
-SERVICE_NAME="${AUTOVIS_SERVICE_NAME:-autovis-runner}"
-LAUNCHD_LABEL="com.autovis.runner"
+SERVICE_NAME="${BROWSEWRIGHT_SERVICE_NAME:-browsewright-runner}"
+LAUNCHD_LABEL="com.browsewright.runner"
 OS="$(uname -s)"
 
 ensure_pnpm() {
@@ -59,7 +59,7 @@ ensure_pnpm() {
     echo "npm is required to install pnpm." >&2
     exit 127
   fi
-  npm install -g "pnpm@${AUTOVIS_PNPM_VERSION:-10.20.0}"
+  npm install -g "pnpm@${BROWSEWRIGHT_PNPM_VERSION:-10.20.0}"
 }
 
 has_systemd() {
@@ -102,7 +102,7 @@ svc() {
       logs) exec journalctl -u "$SERVICE_NAME" -f ;;
     esac
   else
-    echo "no supported service manager found (launchd/systemd); run 'autovis-runner start' in the foreground" >&2
+    echo "no supported service manager found (launchd/systemd); run 'browsewright-runner start' in the foreground" >&2
     return 1
   fi
 }
@@ -110,7 +110,7 @@ svc() {
 case "${1:-start}" in
   start)
     shift || true
-    AUTOVIS_APP_DIR="$APP_DIR" "$APP_DIR/scripts/start-runner.sh" "$@"
+    BROWSEWRIGHT_APP_DIR="$APP_DIR" "$APP_DIR/scripts/start-runner.sh" "$@"
     ;;
   status|stop|restart|logs|enable|disable)
     svc "$1"
@@ -140,21 +140,21 @@ case "${1:-start}" in
       esac
     done
     if [ -z "$token" ]; then
-      echo "usage: autovis-runner register --token <device-token>" >&2
+      echo "usage: browsewright-runner register --token <device-token>" >&2
       exit 1
     fi
-    mkdir -p "${AUTOVIS_CONFIG_DIR:-$HOME/.autovis}"
+    mkdir -p "${BROWSEWRIGHT_CONFIG_DIR:-$HOME/.browsewright}"
     {
-      printf 'AUTOVIS_DEVICE_TOKEN=%s\n' "$token"
+      printf 'BROWSEWRIGHT_DEVICE_TOKEN=%s\n' "$token"
       if [ -n "$cloud_url" ]; then
-        printf 'AUTOVIS_CLOUD_URL=%s\n' "$cloud_url"
+        printf 'BROWSEWRIGHT_CLOUD_URL=%s\n' "$cloud_url"
       fi
-    } > "${AUTOVIS_CONFIG_DIR:-$HOME/.autovis}/runner.env"
-    echo "AutoVis Runner device token saved."
+    } > "${BROWSEWRIGHT_CONFIG_DIR:-$HOME/.browsewright}/runner.env"
+    echo "Browsewright Runner device token saved."
     ;;
   *)
     cat >&2 <<'USAGE'
-usage: autovis-runner <command>
+usage: browsewright-runner <command>
 
 commands:
   start          run the runner in the foreground
@@ -172,9 +172,9 @@ USAGE
 esac
 EOF
 
-chmod +x "$STAGE_DIR/bin/autovis-runner" "$STAGE_DIR/app/scripts/start-runner.sh"
+chmod +x "$STAGE_DIR/bin/browsewright-runner" "$STAGE_DIR/app/scripts/start-runner.sh"
 # perl -i works on both GNU/Linux and macOS (BSD sed -i needs a suffix arg)
-find "$STAGE_DIR" -type f \( -name "*.sh" -o -name "autovis-runner" \) -exec perl -i -pe 's/\r$//' {} +
+find "$STAGE_DIR" -type f \( -name "*.sh" -o -name "browsewright-runner" \) -exec perl -i -pe 's/\r$//' {} +
 
-tar -C "$DIST_DIR" -czf "$ARCHIVE" "autovis-runner-$VERSION"
+tar -C "$DIST_DIR" -czf "$ARCHIVE" "browsewright-runner-$VERSION"
 echo "Created $ARCHIVE"

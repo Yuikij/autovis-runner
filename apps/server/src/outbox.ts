@@ -1,4 +1,4 @@
-import type { ExecutionRun, OutboxItem } from "@autovis/shared"
+import type { ExecutionRun, OutboxItem } from "@browsewright/shared"
 
 /**
  * 把若干 run 的 runtimeOutputs 摊平成「产出收件箱」卡片，按时间倒序取前 limit 条。

@@ -1,4 +1,4 @@
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { WorkspaceService } from "../workspace.js"
 import { knowledgeService } from "../knowledge.js"
 import { createId, now, removeArtifactDirs } from "./common.js"
@@ -16,11 +16,11 @@ import {
   type UpsertTestCaseRequest,
   type UpsertAuthProfileRequest,
   type AuthProfile,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 export class ProjectService {
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly workspace: WorkspaceService,
     private readonly suiteService: SuiteService,
     private readonly llmService: LlmConfigService

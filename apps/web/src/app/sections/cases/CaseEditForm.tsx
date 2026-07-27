@@ -1,5 +1,5 @@
 import type { CaseDetailsProps } from "./types"
-import type { TestCase } from "@autovis/shared"
+import type { TestCase } from "@browsewright/shared"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Field, inputClassName, textareaClassName } from "../../components/ui/field"

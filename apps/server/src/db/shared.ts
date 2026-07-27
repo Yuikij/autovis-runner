@@ -1,8 +1,8 @@
-import type { Identifier, LlmSessionConfig, LlmState, PersistedTaskControlCommand, TaskControlAction, TaskControlCommandStatus, TaskKind } from "@autovis/shared"
+import type { Identifier, LlmSessionConfig, LlmState, PersistedTaskControlCommand, TaskControlAction, TaskControlCommandStatus, TaskKind } from "@browsewright/shared"
 import type { LegacyProjectState, PersistedState } from "./types.js"
 import type { CopilotSecretState } from "../copilot.js"
 
-export type { PersistedTaskControlCommand, TaskControlCommandStatus } from "@autovis/shared"
+export type { PersistedTaskControlCommand, TaskControlCommandStatus } from "@browsewright/shared"
 
 export type TaskLeaseStatus = "active" | "released" | "expired" | "recovering" | "terminated"
 export type TaskRecoveryPolicy = "resume" | "restart" | "terminate"

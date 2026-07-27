@@ -4,11 +4,11 @@ export type WorkspaceSection = "dashboard" | "projects" | "cases" | "tasks" | "t
 
 const runtimeApiBase = typeof window === "undefined"
   ? undefined
-  : (window as Window & { __AUTOVIS_API_BASE__?: string }).__AUTOVIS_API_BASE__
+  : (window as Window & { __BROWSEWRIGHT_API_BASE__?: string }).__BROWSEWRIGHT_API_BASE__
 
 export const apiBase = runtimeApiBase ?? import.meta.env.VITE_API_BASE_URL ?? ""
-export const appName = "AutoVis"
-export const appVersion = "v1.0.0-alpha"
+export const appName = "Browsewright"
+export const appVersion = "v0.11.0-alpha"
 export const defaultCopilotModel = "gpt-4o"
 export const defaultScriptPrompt = ""
 export const defaultRecorderUrl = ""

@@ -1,4 +1,4 @@
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { createId, now } from "./common.js"
 import { CopilotSessionError, type CopilotSecretState } from "../copilot.js"
 import {
@@ -8,10 +8,10 @@ import {
   startCopilotDeviceFlowForConfig,
   type LlmSecretState,
 } from "../llm.js"
-import { type UpsertLlmConfigRequest, type LlmSessionConfig, type LlmState } from "@autovis/shared"
+import { type UpsertLlmConfigRequest, type LlmSessionConfig, type LlmState } from "@browsewright/shared"
 
 export class LlmConfigService {
-  constructor(private readonly db: AutoVisDatabase) {}
+  constructor(private readonly db: BrowsewrightDatabase) {}
 
   public applyCopilotSessionError(
     state: {
@@ -43,7 +43,7 @@ export class LlmConfigService {
     return this.db.getLlmConfigStateForOwner(ownerKey)
   }
 
-  public saveLlmConfigState(state: ReturnType<AutoVisDatabase["getLlmConfigState"]>, ownerKey = "shared") {
+  public saveLlmConfigState(state: ReturnType<BrowsewrightDatabase["getLlmConfigState"]>, ownerKey = "shared") {
     this.db.saveLlmConfigStateForOwner(ownerKey, state)
   }
 

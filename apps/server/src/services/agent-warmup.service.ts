@@ -1,11 +1,11 @@
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { appOrigin, artifactsDir, createId, now } from "./common.js"
 import { type SuiteService } from "./suite.service.js"
 import { type RunService } from "./run.service.js"
 import { getPageSnapshot } from "../agent/helpers.js"
 import { knowledgeService } from "../knowledge.js"
 import { type InitialPageState, type PreconditionReport } from "../agent/types.js"
-import { createExecutionStep, createExecutionTemplate, createRunnerSession, executeScriptInSession, type RunnerSession } from "@autovis/runner"
+import { createExecutionStep, createExecutionTemplate, createRunnerSession, executeScriptInSession, type RunnerSession } from "@browsewright/runner"
 import {
   type AgentStep,
   type ExecutionRun,
@@ -14,7 +14,7 @@ import {
   type Project,
   type RuntimeOutput,
   type TestCase,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 export type ExecuteWarmupResult = {
   warmupSession: RunnerSession | null
@@ -49,7 +49,7 @@ export type WarmupOptions = {
 
 export class AgentWarmupService {
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly suiteService: SuiteService,
     private readonly runService: RunService,
   ) {}
@@ -297,7 +297,7 @@ export class AgentWarmupService {
       const isBrowserMissing = warmupMsg.includes("Executable doesn't exist") || warmupMsg.includes("browserType.launch")
       const wasCancelled = signal?.aborted || warmupMsg.includes("Run cancelled") || warmupMsg.includes("Task cancelled")
       const finalErrorMsg = isBrowserMissing
-        ? `浏览器内核未安装，无法进行页面探索与前置依赖预热。\n默认使用 patchright 内核（注意不是 playwright），请在 autovis-runner 目录执行：\n  pnpm --filter @autovis/server exec patchright install chromium\n（如设置了 BROWSER_BACKEND=playwright，则改用 pnpm --filter @autovis/server exec playwright install chromium）\n详细错误: ${warmupMsg}`
+        ? `浏览器内核未安装，无法进行页面探索与前置依赖预热。\n默认使用 patchright 内核（注意不是 playwright），请在 browsewright-runner 目录执行：\n  pnpm --filter @browsewright/server exec patchright install chromium\n（如设置了 BROWSER_BACKEND=playwright，则改用 pnpm --filter @browsewright/server exec playwright install chromium）\n详细错误: ${warmupMsg}`
         : wasCancelled
           ? `已被用户停止（warmup 阶段取消）。`
           : `前置依赖执行失败，已中止 Agent 运行。\n详细错误: ${warmupMsg}`

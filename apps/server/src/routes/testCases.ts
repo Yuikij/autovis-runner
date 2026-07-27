@@ -7,7 +7,7 @@ import type {
   ScriptArtifact,
   TestCase,
   UpsertTestCaseRequest,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { store } from "../store.js"
 import { wrapDeleteOperation } from "./errorHandlers.js"
 

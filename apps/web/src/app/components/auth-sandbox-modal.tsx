@@ -4,7 +4,7 @@ import type {
   AuthProfileState,
   RecorderInteractionRequest,
   SaveAuthLoginSandboxResponse,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { request } from "../api"
 import { apiRoutes } from "../apiRoutes"
 import { resolveWebSocketUrl } from "../utils"

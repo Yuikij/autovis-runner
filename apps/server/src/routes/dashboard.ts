@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify"
-import type { ApiEnvelope } from "@autovis/shared"
+import type { ApiEnvelope } from "@browsewright/shared"
 import { store } from "../store.js"
 
 export async function dashboardRoutes(app: FastifyInstance) {

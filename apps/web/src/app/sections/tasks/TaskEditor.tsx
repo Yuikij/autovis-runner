@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react"
 
-import type { TargetUrl, TaskItem, TaskModeConfig, TestCase, UpsertTaskRequest } from "@autovis/shared"
+import type { TargetUrl, TaskItem, TaskModeConfig, TestCase, UpsertTaskRequest } from "@browsewright/shared"
 
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"

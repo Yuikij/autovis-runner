@@ -1,6 +1,6 @@
-import type { AutoVisDatabase } from "../db.js"
+import type { BrowsewrightDatabase } from "../db.js"
 import { createId, now } from "./common.js"
-import type { ExecutionRun, HumanHandoffRequest } from "@autovis/shared"
+import type { ExecutionRun, HumanHandoffRequest } from "@browsewright/shared"
 
 export interface LiveViewportController {
   /** 按观众数量开关底层 screencast 抓帧。 */
@@ -16,7 +16,7 @@ export class RunStateService {
     { handoffId: string; resolve: (value: string) => void; reject: (error: Error) => void }
   >()
 
-  constructor(private readonly db: AutoVisDatabase) {}
+  constructor(private readonly db: BrowsewrightDatabase) {}
 
   public saveRunSnapshot(run: ExecutionRun) {
     this.db.upsertRun(run)

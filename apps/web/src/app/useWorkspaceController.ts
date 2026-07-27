@@ -10,7 +10,7 @@ import type {
   UpsertProjectRequest,
   UpsertTaskRequest,
   UpsertTestCaseRequest,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { request } from "./api.js"
 import { apiRoutes } from "./apiRoutes.js"
 import { defaultCopilotModel, defaultScriptPrompt, type WorkspaceSection } from "./constants.js"
@@ -42,7 +42,7 @@ export function useWorkspaceController() {
   const [clock, setClock] = useState(() => Date.now())
   const [lastTargetUrlId, setLastTargetUrlId] = useState(() => {
     if (typeof window === "undefined") return ""
-    return localStorage.getItem("autovis_last_target_url_id") || ""
+    return localStorage.getItem("browsewright_last_target_url_id") || ""
   })
   const [projectForm, setProjectForm] = useState<UpsertProjectRequest>(emptyProjectForm)
   const [taskForm, setTaskForm] = useState<Omit<UpsertTaskRequest, "projectId">>(emptyTaskForm)
@@ -57,13 +57,13 @@ export function useWorkspaceController() {
 
   const [theme, setThemeState] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light"
-    return (localStorage.getItem("autovis_theme") as "light" | "dark") || "light"
+    return (localStorage.getItem("browsewright_theme") as "light" | "dark") || "light"
   })
 
   const setTheme = useCallback((nextTheme: "light" | "dark") => {
     setThemeState(nextTheme)
     if (typeof window !== "undefined") {
-      localStorage.setItem("autovis_theme", nextTheme)
+      localStorage.setItem("browsewright_theme", nextTheme)
       if (nextTheme === "dark") {
         document.documentElement.classList.add("dark")
       } else {

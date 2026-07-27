@@ -1,6 +1,6 @@
-import type { PersistedTaskControlCommand, TaskControlAction, TaskKind } from "@autovis/shared"
+import type { PersistedTaskControlCommand, TaskControlAction, TaskKind } from "@browsewright/shared"
 
-import type { AutoVisDatabase } from "../db.js"
+import type { BrowsewrightDatabase } from "../db.js"
 import { now } from "../db/shared.js"
 import type { TaskRecoveryPolicy, TaskLeaseStatus } from "../db/shared.js"
 
@@ -150,7 +150,7 @@ export class TaskControlRegistry {
   private readonly controllers = new Map<string, ManagedTaskController>()
 
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly leaseOwner = `lease_owner_${process.pid}_${Math.random().toString(36).slice(2, 10)}`,
   ) {}
 

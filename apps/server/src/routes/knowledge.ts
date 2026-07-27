@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs"
 import { extname } from "node:path"
 import type { FastifyInstance } from "fastify"
 import { z } from "zod"
-import type { ApiEnvelope, KnowledgeEntry, KnowledgeFileContent, KnowledgeSearchResult, KnowledgeStats } from "@autovis/shared"
+import type { ApiEnvelope, KnowledgeEntry, KnowledgeFileContent, KnowledgeSearchResult, KnowledgeStats } from "@browsewright/shared"
 import { knowledgeService } from "../knowledge.js"
 
 const projectParams = z.object({ projectId: z.string() })

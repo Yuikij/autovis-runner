@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { TargetUrl } from "@autovis/shared"
+import type { TargetUrl } from "@browsewright/shared"
 import { t } from "../../i18n/index.js"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"

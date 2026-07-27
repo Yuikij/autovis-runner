@@ -9,12 +9,12 @@ FROM node:25-bookworm-slim
 
 ENV NODE_ENV=production \
     PORT=8787 \
-    DATA_DIR=/var/lib/autovis \
+    DATA_DIR=/var/lib/browsewright \
     APP_ORIGIN=http://localhost:8787 \
     HEADLESS=false \
     BROWSER_BACKEND=patchright
 
-WORKDIR /opt/autovis-runner
+WORKDIR /opt/browsewright-runner
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -22,15 +22,15 @@ RUN apt-get update \
     libnss3 libatk-bridge2.0-0 libgtk-3-0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 \
   && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /src/dist-packages/autovis-runner-*/ /opt/autovis-runner/
+COPY --from=builder /src/dist-packages/browsewright-runner-*/ /opt/browsewright-runner/
 
 RUN npm install -g pnpm@10.20.0 \
-  && cd /opt/autovis-runner/app \
+  && cd /opt/browsewright-runner/app \
   && pnpm install --prod --frozen-lockfile \
-  && pnpm --filter @autovis/server exec playwright install chromium chrome \
-  && pnpm --filter @autovis/server exec patchright install chromium
+  && pnpm --filter @browsewright/server exec playwright install chromium chrome \
+  && pnpm --filter @browsewright/server exec patchright install chromium
 
-VOLUME ["/var/lib/autovis"]
+VOLUME ["/var/lib/browsewright"]
 EXPOSE 8787
 
-CMD ["/opt/autovis-runner/bin/autovis-runner", "start"]
+CMD ["/opt/browsewright-runner/bin/browsewright-runner", "start"]

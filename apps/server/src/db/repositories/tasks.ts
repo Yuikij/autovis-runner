@@ -1,6 +1,6 @@
 import type { DatabaseSync, SQLOutputValue } from "node:sqlite"
 
-import type { Task, TaskRun, UpsertTaskRequest } from "@autovis/shared"
+import type { Task, TaskRun, UpsertTaskRequest } from "@browsewright/shared"
 import { mapTask, mapTaskRun, type TaskRow, type TaskRunRow } from "../mappers.js"
 import { now } from "../shared.js"
 

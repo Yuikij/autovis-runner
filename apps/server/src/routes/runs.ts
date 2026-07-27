@@ -11,7 +11,7 @@ import type {
   StartVerificationRequest,
   StartVerificationResponse,
   TaskRun,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { store } from "../store.js"
 import { getRequestLlmOwnerKey } from "../auth.js"
 import { createSseStream } from "../sse.js"

@@ -39,7 +39,7 @@ import type {
   WorkspaceFileContent,
   WorkspaceSearchMatch,
   WorkspaceTreeEntry,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { store } from "../store.js"
 import { getRequestLlmOwnerKey } from "../auth.js"
 

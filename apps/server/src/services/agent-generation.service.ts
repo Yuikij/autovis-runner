@@ -3,7 +3,7 @@ import { generateScriptWithLlm, generateTextWithLlm, callLlmWithTools, type Chat
 import { buildRewriteChatSystemPrompt, buildRewritePlanInstruction } from "../agent/prompts.js"
 import { CopilotSessionError } from "../copilot.js"
 import { log } from "../log.js"
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { knowledgeService } from "../knowledge.js"
 import {
   type AgentStep,
@@ -13,7 +13,7 @@ import {
   type RewriteChatMessage,
   type RuntimeOutput,
   type ScriptArtifact,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 import { appOrigin, artifactsDir, createId, escapeSingleQuotedString, escapeTemplateComment, now } from "./common.js"
 import type { AgentWarmupService } from "./agent-warmup.service.js"
@@ -61,7 +61,7 @@ const sanitizeContractFields = (fields: unknown): ContractField[] => {
 
 export class AgentGenerationService {
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly projectService: ProjectService,
     private readonly llmService: LlmConfigService,
     private readonly runService: RunService,

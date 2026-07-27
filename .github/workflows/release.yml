@@ -39,5 +39,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist-packages/autovis-runner-${{ steps.meta.outputs.version }}.tar.gz
+          files: dist-packages/browsewright-runner-${{ steps.meta.outputs.version }}.tar.gz
           generate_release_notes: true

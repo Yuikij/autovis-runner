@@ -1,5 +1,5 @@
 {
-  "name": "@autovis/server",
+  "name": "@browsewright/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@autovis/runner": "workspace:*",
-    "@autovis/shared": "workspace:*",
+    "@browsewright/runner": "workspace:*",
+    "@browsewright/shared": "workspace:*",
     "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^9.4.0",
     "@fastify/static": "^9.1.3",

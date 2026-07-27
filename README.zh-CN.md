@@ -1,25 +1,25 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="AutoVis Runner logo" width="110" />
+<img src="docs/assets/logo.png" alt="Browsewright Runner logo" width="110" />
 
-# AutoVis Runner
+# Browsewright Runner
 
 **在你自己的机器上运行 AI 驱动的浏览器自动化——本地 Web UI、一行命令安装、数据完全留在本地。**
 
-[![Latest release](https://img.shields.io/github/v/release/Yuikij/autovis-runner)](https://github.com/Yuikij/autovis-runner/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/Yuikij/browsewright-runner)](https://github.com/Yuikij/browsewright-runner/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Docker](https://img.shields.io/docker/v/yuimax/autovis-runner?label=docker&logo=docker)](https://hub.docker.com/r/yuimax/autovis-runner)
+[![Docker](https://img.shields.io/docker/v/yuimax/browsewright-runner?label=docker&logo=docker)](https://hub.docker.com/r/yuimax/browsewright-runner)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-6366f1)
 
 [English](README.md) | 简体中文
 
-<img src="docs/assets/screenshot-dashboard.png" alt="AutoVis Runner 仪表盘" width="880" />
+<img src="docs/assets/screenshot-dashboard.png" alt="Browsewright Runner 仪表盘" width="880" />
 
 </div>
 
-## AutoVis Runner 是什么？
+## Browsewright Runner 是什么？
 
-AutoVis Runner 是 AutoVis 的本地执行节点。它在你自己的机器或服务器上运行基于
+Browsewright Runner 是 Browsewright 的本地执行节点。它在你自己的机器或服务器上运行基于
 [Playwright](https://playwright.dev) 的浏览器自动化任务，登录态和数据全部保存在
 本地，并提供一套 Web UI 和 API 来管理一切。
 
@@ -32,7 +32,7 @@ AutoVis Runner 是 AutoVis 的本地执行节点。它在你自己的机器或�
 - **任务与调度** —— 把用例组织成任务、按计划触发，每次运行都有完整历史记录。
 - **数据表与知识库** —— 用表格数据参数化运行，为 Agent 注入领域知识。
 - **运行与产物** —— 截图、HTML 报告，运行过程中还能实时观看浏览器画面。
-- **独立或联网** —— 可完全独立运行；也可以用设备令牌注册到 AutoVis Cloud。
+- **独立或联网** —— 可完全独立运行；也可以用设备令牌注册到 Browsewright Cloud。
 - **适合自托管** —— 可选的登录认证、多用户，以及敏感数据的静态加密。
 
 ## 快速开始
@@ -50,30 +50,30 @@ AutoVis Runner 是 AutoVis 的本地执行节点。它在你自己的机器或�
 ### macOS
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | bash
 ```
 
-安装到 `~/.autovis-runner`，配置在 `~/.autovis/runner.env`，注册 launchd 代理
-（`com.autovis.runner`），登录时启动、崩溃后自动重启。
+安装到 `~/.browsewright-runner`，配置在 `~/.browsewright/runner.env`，注册 launchd 代理
+（`com.browsewright.runner`），登录时启动、崩溃后自动重启。
 
 ### Linux
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash
 ```
 
-安装到 `/opt/autovis-runner`，配置在 `/etc/autovis/runner.env`，注册 systemd 服务
-（`autovis-runner`），开机自启。
+安装到 `/opt/browsewright-runner`，配置在 `/etc/browsewright/runner.env`，注册 systemd 服务
+（`browsewright-runner`），开机自启。
 
 ### Windows（PowerShell，以管理员身份运行）
 
 ```powershell
-irm https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.ps1 -OutFile install.ps1
+irm https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.ps1 -OutFile install.ps1
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-安装到 `C:\autovis-runner`，通过 [WinSW](https://github.com/winsw/winsw) 注册原生
-Windows 服务（`AutoVisRunner`），开机自启、崩溃重启、自动轮转日志。
+安装到 `C:\browsewright-runner`，通过 [WinSW](https://github.com/winsw/winsw) 注册原生
+Windows 服务（`BrowsewrightRunner`），开机自启、崩溃重启、自动轮转日志。
 
 ### Docker
 
@@ -87,25 +87,25 @@ docker compose up -d
 
 ```shell
 docker run -d \
-  --name autovis-runner \
+  --name browsewright-runner \
   --restart unless-stopped \
   --shm-size=2g \
   -p 8787:8787 \
-  -v autovis-data:/var/lib/autovis \
-  -e AUTOVIS_CONFIG_DIR=/var/lib/autovis/config \
-  -e AUTOVIS_CLOUD_URL=https://your-autovis-cloud.example.com \
-  -e AUTOVIS_DEVICE_TOKEN=<device-token> \
-  yuimax/autovis-runner:latest
+  -v browsewright-data:/var/lib/browsewright \
+  -e BROWSEWRIGHT_CONFIG_DIR=/var/lib/browsewright/config \
+  -e BROWSEWRIGHT_CLOUD_URL=https://your-browsewright-cloud.example.com \
+  -e BROWSEWRIGHT_DEVICE_TOKEN=<device-token> \
+  yuimax/browsewright-runner:latest
 ```
 
-Docker 部署推荐直接用 `AUTOVIS_CLOUD_URL` 和 `AUTOVIS_DEVICE_TOKEN` 环境变量完成
+Docker 部署推荐直接用 `BROWSEWRIGHT_CLOUD_URL` 和 `BROWSEWRIGHT_DEVICE_TOKEN` 环境变量完成
 注册。也可以在容器内用绝对路径调用 CLI 助手：
 
 ```shell
-docker exec -it autovis-runner /opt/autovis-runner/bin/autovis-runner register \
+docker exec -it browsewright-runner /opt/browsewright-runner/bin/browsewright-runner register \
   --token <device-token> \
-  --cloud-url https://your-autovis-cloud.example.com
-docker restart autovis-runner
+  --cloud-url https://your-browsewright-cloud.example.com
+docker restart browsewright-runner
 ```
 
 ### 安装脚本选项
@@ -125,7 +125,7 @@ curl -fsSL .../install.sh | sudo bash -s -- --no-service
 # Windows 对应命令：
 powershell -ExecutionPolicy Bypass -File install.ps1 -Version 0.9.1
 powershell -ExecutionPolicy Bypass -File install.ps1 -FromSource
-powershell -ExecutionPolicy Bypass -File install.ps1 -InstallDir D:\my-autovis
+powershell -ExecutionPolicy Bypass -File install.ps1 -InstallDir D:\my-browsewright
 powershell -ExecutionPolicy Bypass -File install.ps1 -SkipService
 ```
 
@@ -134,7 +134,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1 -SkipService
 执行中心：运行历史、实时进度与产物：
 
 <div align="center">
-  <img src="docs/assets/screenshot-runs.png" alt="AutoVis Runner 执行中心" width="880" />
+  <img src="docs/assets/screenshot-runs.png" alt="Browsewright Runner 执行中心" width="880" />
 </div>
 
 ## 架构
@@ -147,7 +147,7 @@ flowchart LR
     EX --> BR["Chromium"]
   end
   BR --> SITES["目标网站"]
-  API <-. "可选设备连接" .-> CLOUD["AutoVis Cloud"]
+  API <-. "可选设备连接" .-> CLOUD["Browsewright Cloud"]
 ```
 
 脚本、运行历史、登录态、LLM 配置——一切都保存在本地 SQLite 中。云端连接是可选
@@ -155,36 +155,36 @@ flowchart LR
 
 ## 服务管理
 
-安装器会把 `autovis-runner` 命令链接到 PATH（`/opt/homebrew/bin`、
+安装器会把 `browsewright-runner` 命令链接到 PATH（`/opt/homebrew/bin`、
 `/usr/local/bin` 或 `~/.local/bin`），在 macOS 和 Linux 上直接管理服务：
 
 ```shell
-autovis-runner status     # 服务状态
-autovis-runner restart    # 重启服务
-autovis-runner stop       # 停止服务
-autovis-runner logs       # 跟踪日志
-autovis-runner enable     # 启用开机自启
-autovis-runner disable    # 禁用服务
-autovis-runner start      # 前台运行（不走服务）
+browsewright-runner status     # 服务状态
+browsewright-runner restart    # 重启服务
+browsewright-runner stop       # 停止服务
+browsewright-runner logs       # 跟踪日志
+browsewright-runner enable     # 启用开机自启
+browsewright-runner disable    # 禁用服务
+browsewright-runner start      # 前台运行（不走服务）
 ```
 
 系统原生工具也可以直接使用：
 
 ```shell
 # Linux (systemd)
-sudo systemctl status autovis-runner
-sudo journalctl -u autovis-runner -f
+sudo systemctl status browsewright-runner
+sudo journalctl -u browsewright-runner -f
 
 # macOS (launchd)
-launchctl print gui/$(id -u)/com.autovis.runner
-tail -f ~/.autovis-runner/logs/runner.log
+launchctl print gui/$(id -u)/com.browsewright.runner
+tail -f ~/.browsewright-runner/logs/runner.log
 ```
 
 ```powershell
 # Windows (WinSW 服务)
-Get-Service AutoVisRunner
-C:\autovis-runner\winsw\autovis-service.exe status
-Get-Content C:\autovis-runner\logs\autovis-service.out.log -Wait
+Get-Service BrowsewrightRunner
+C:\browsewright-runner\winsw\browsewright-service.exe status
+Get-Content C:\browsewright-runner\logs\browsewright-service.out.log -Wait
 ```
 
 ## 升级
@@ -194,10 +194,10 @@ Get-Content C:\autovis-runner\logs\autovis-service.out.log -Wait
 
 ```shell
 # macOS
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | bash
 
 # Linux
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash
 ```
 
 ```powershell
@@ -209,10 +209,10 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 
 ```shell
 # macOS / Linux：移除服务和文件，保留配置与数据
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash -s -- --uninstall
 
 # 连配置和数据一起删除
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash -s -- --uninstall --purge
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash -s -- --uninstall --purge
 ```
 
 macOS 上不需要 `sudo`。
@@ -230,30 +230,30 @@ powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall -Purge
 认证默认关闭。要保护自托管的 runner，设置：
 
 ```shell
-AUTOVIS_AUTH_ENABLED=true
-AUTOVIS_ADMIN_USER=admin
-AUTOVIS_ADMIN_PASSWORD=<strong-password>
+BROWSEWRIGHT_AUTH_ENABLED=true
+BROWSEWRIGHT_ADMIN_USER=admin
+BROWSEWRIGHT_ADMIN_PASSWORD=<strong-password>
 ```
 
 生产环境中，当 `APP_ORIGIN` 不是 localhost 时，runner 会拒绝在未开启认证的情况下
 启动，除非显式设置：
 
 ```shell
-AUTOVIS_ALLOW_INSECURE_NO_AUTH=true
+BROWSEWRIGHT_ALLOW_INSECURE_NO_AUTH=true
 ```
 
 LLM 账号存储可以所有登录共享，也可以按用户隔离：
 
 ```shell
-AUTOVIS_LLM_SCOPE=shared    # 默认
-AUTOVIS_LLM_SCOPE=per_user  # 每个登录拥有自己的 LLM 配置和密钥
+BROWSEWRIGHT_LLM_SCOPE=shared    # 默认
+BROWSEWRIGHT_LLM_SCOPE=per_user  # 每个登录拥有自己的 LLM 配置和密钥
 ```
 
 要对存储的 API Key、Git 凭据和浏览器登录态做静态加密，在首次写入前设置一个稳定
 的服务端密钥：
 
 ```shell
-AUTOVIS_SECRET_KEY=<strong-random-secret>
+BROWSEWRIGHT_SECRET_KEY=<strong-random-secret>
 ```
 
 重启后保持同一个密钥。已有的明文数据仍可读取，但加密数据必须用同一密钥解密。
@@ -264,7 +264,7 @@ AUTOVIS_SECRET_KEY=<strong-random-secret>
 批量预置多个用户：
 
 ```shell
-AUTOVIS_USERS=alice:password:admin,bob:password:user
+BROWSEWRIGHT_USERS=alice:password:admin,bob:password:user
 ```
 
 ## 开发
@@ -280,8 +280,8 @@ pnpm start      # 运行构建产物中的服务端
 
 ## 发布
 
-本仓库是 AutoVis Runner 的公开源码。发布产物打包为
-`autovis-runner-<version>.tar.gz`。
+本仓库是 Browsewright Runner 的公开源码。发布产物打包为
+`browsewright-runner-<version>.tar.gz`。
 
 ## 许可证
 

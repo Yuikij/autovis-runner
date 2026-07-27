@@ -19,7 +19,7 @@ import type {
   TaskRun,
   TestCase,
   AuthProfile,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import {
   buildDefaultLlmState,
   buildDefaultSession,

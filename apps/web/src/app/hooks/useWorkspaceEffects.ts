@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import type { ActiveTasksResponse, AgentSession, CopilotSessionResponse, RecorderSession, TaskRun } from "@autovis/shared"
+import type { ActiveTasksResponse, AgentSession, CopilotSessionResponse, RecorderSession, TaskRun } from "@browsewright/shared"
 import { request } from "../api.js"
 import { apiRoutes } from "../apiRoutes.js"
 import { sectionAllows, writeHash } from "../hashRouter.js"
@@ -48,8 +48,8 @@ export function useWorkspaceEffects(params: WorkspaceEffectsParams) {
     const nextId = primary?.id ?? ""
     setLastTargetUrlId(nextId)
     if (typeof window !== "undefined") {
-      if (nextId) localStorage.setItem("autovis_last_target_url_id", nextId)
-      else localStorage.removeItem("autovis_last_target_url_id")
+      if (nextId) localStorage.setItem("browsewright_last_target_url_id", nextId)
+      else localStorage.removeItem("browsewright_last_target_url_id")
     }
   }, [selectedProject?.id, selectedProject?.targetUrls, lastTargetUrlId, setLastTargetUrlId])
 

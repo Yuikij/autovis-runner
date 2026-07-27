@@ -15,7 +15,7 @@ export interface I18nModule {
   en: Record<string, string>
 }
 
-const STORAGE_KEY = "autovis_lang"
+const STORAGE_KEY = "browsewright_lang"
 
 const detectLang = (): Lang => {
   if (typeof window === "undefined") return "zh"

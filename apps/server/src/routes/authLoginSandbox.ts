@@ -6,7 +6,7 @@ import type {
   RecorderInteractionRequest,
   SaveAuthLoginSandboxResponse,
   StartAuthLoginSandboxRequest,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { store } from "../store.js"
 
 const interactionSchema = z.object({

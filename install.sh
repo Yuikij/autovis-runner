@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# AutoVis Runner installer for macOS and Linux.
+# Browsewright Runner installer for macOS and Linux.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | bash          # macOS
-#   curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash     # Linux
+#   curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | bash          # macOS
+#   curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash     # Linux
 #
 # Options (pass after `bash -s --` when piping):
 #   --version <x.y.z>     Install a specific release instead of the latest
@@ -16,24 +16,24 @@
 #
 set -euo pipefail
 
-REPO="${AUTOVIS_RUNNER_REPO:-Yuikij/autovis-runner}"
-SERVICE_NAME="${AUTOVIS_SERVICE_NAME:-autovis-runner}"
-LAUNCHD_LABEL="com.autovis.runner"
+REPO="${BROWSEWRIGHT_RUNNER_REPO:-Yuikij/browsewright-runner}"
+SERVICE_NAME="${BROWSEWRIGHT_SERVICE_NAME:-browsewright-runner}"
+LAUNCHD_LABEL="com.browsewright.runner"
 NODE_MAJOR_REQUIRED=25
-PNPM_VERSION="${AUTOVIS_PNPM_VERSION:-10.20.0}"
+PNPM_VERSION="${BROWSEWRIGHT_PNPM_VERSION:-10.20.0}"
 
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
 # ── Platform-dependent defaults ─────────────────────────────────────────────
 if [ "$OS" = "Darwin" ]; then
-  INSTALL_DIR="${AUTOVIS_INSTALL_DIR:-$HOME/.autovis-runner}"
-  CONFIG_DIR="${AUTOVIS_CONFIG_DIR:-$HOME/.autovis}"
-  DATA_DIR="${AUTOVIS_DATA_DIR:-$HOME/.autovis-runner/data}"
+  INSTALL_DIR="${BROWSEWRIGHT_INSTALL_DIR:-$HOME/.browsewright-runner}"
+  CONFIG_DIR="${BROWSEWRIGHT_CONFIG_DIR:-$HOME/.browsewright}"
+  DATA_DIR="${BROWSEWRIGHT_DATA_DIR:-$HOME/.browsewright-runner/data}"
 else
-  INSTALL_DIR="${AUTOVIS_INSTALL_DIR:-/opt/autovis-runner}"
-  CONFIG_DIR="${AUTOVIS_CONFIG_DIR:-/etc/autovis}"
-  DATA_DIR="${AUTOVIS_DATA_DIR:-/var/lib/autovis}"
+  INSTALL_DIR="${BROWSEWRIGHT_INSTALL_DIR:-/opt/browsewright-runner}"
+  CONFIG_DIR="${BROWSEWRIGHT_CONFIG_DIR:-/etc/browsewright}"
+  DATA_DIR="${BROWSEWRIGHT_DATA_DIR:-/var/lib/browsewright}"
 fi
 LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
 
@@ -43,7 +43,7 @@ PURGE=false
 NO_SERVICE=false
 FROM_SOURCE=false
 REQUESTED_VERSION=""
-PACKAGE_URL="${AUTOVIS_PACKAGE_URL:-}"
+PACKAGE_URL="${BROWSEWRIGHT_PACKAGE_URL:-}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -55,7 +55,7 @@ while [ "$#" -gt 0 ]; do
     --package-url) PACKAGE_URL="${2:-}"; shift 2 ;;
     -h|--help)
       cat <<'USAGE'
-AutoVis Runner installer for macOS and Linux.
+Browsewright Runner installer for macOS and Linux.
 
 usage: install.sh [options]
 
@@ -108,12 +108,12 @@ node_platform() {
 }
 
 # ── CLI symlink ─────────────────────────────────────────────────────────────
-# Link bin/autovis-runner into a directory on PATH so `autovis-runner` works
+# Link bin/browsewright-runner into a directory on PATH so `browsewright-runner` works
 # globally, the way brew-installed tools do.
 CLI_LINK_DIRS="/opt/homebrew/bin /usr/local/bin $HOME/.local/bin"
 
 install_cli_link() {
-  local target="$INSTALL_DIR/bin/autovis-runner"
+  local target="$INSTALL_DIR/bin/browsewright-runner"
   local link_dir=""
   for dir in $CLI_LINK_DIRS; do
     if [ -d "$dir" ] && [ -w "$dir" ]; then
@@ -129,8 +129,8 @@ install_cli_link() {
     fi
     mkdir -p "$link_dir"
   fi
-  ln -sf "$target" "$link_dir/autovis-runner"
-  ok "command linked: $link_dir/autovis-runner"
+  ln -sf "$target" "$link_dir/browsewright-runner"
+  ok "command linked: $link_dir/browsewright-runner"
   case ":$PATH:" in
     *":$link_dir:"*) ;;
     *)
@@ -142,9 +142,9 @@ install_cli_link() {
 
 remove_cli_link() {
   for dir in $CLI_LINK_DIRS; do
-    if [ -L "$dir/autovis-runner" ]; then
-      case "$(readlink "$dir/autovis-runner")" in
-        "$INSTALL_DIR"/*) rm -f "$dir/autovis-runner" ;;
+    if [ -L "$dir/browsewright-runner" ]; then
+      case "$(readlink "$dir/browsewright-runner")" in
+        "$INSTALL_DIR"/*) rm -f "$dir/browsewright-runner" ;;
       esac
     fi
   done
@@ -152,7 +152,7 @@ remove_cli_link() {
 
 # ── Uninstall ───────────────────────────────────────────────────────────────
 uninstall() {
-  log "Uninstalling AutoVis Runner..."
+  log "Uninstalling Browsewright Runner..."
   remove_cli_link
   if [ "$OS" = "Darwin" ]; then
     launchctl bootout "gui/$(id -u)/$LAUNCHD_LABEL" >/dev/null 2>&1 || true
@@ -172,7 +172,7 @@ uninstall() {
   else
     echo "Config ($CONFIG_DIR) and data ($DATA_DIR) were kept. Re-run with --uninstall --purge to remove them."
   fi
-  echo "AutoVis Runner has been uninstalled."
+  echo "Browsewright Runner has been uninstalled."
 }
 
 # ── System dependencies (Linux browser libs, Xvfb, fonts) ───────────────────
@@ -272,7 +272,7 @@ resolve_package() {
     # Copy the exact version just built; stale tarballs may exist in dist-packages
     local version
     version="$(cd "$src_dir" && node -p "require('./package.json').version")"
-    cp "$src_dir/dist-packages/autovis-runner-${version}.tar.gz" "$tmp/autovis-runner.tar.gz"
+    cp "$src_dir/dist-packages/browsewright-runner-${version}.tar.gz" "$tmp/browsewright-runner.tar.gz"
     return
   fi
 
@@ -284,23 +284,23 @@ resolve_package() {
       tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)"
       [ -n "$tag" ] || err "failed to determine latest release tag for ${REPO}"
     fi
-    PACKAGE_URL="https://github.com/${REPO}/releases/download/${tag}/autovis-runner-${tag#v}.tar.gz"
+    PACKAGE_URL="https://github.com/${REPO}/releases/download/${tag}/browsewright-runner-${tag#v}.tar.gz"
   fi
   log "Downloading $PACKAGE_URL"
-  curl -fsSL "$PACKAGE_URL" -o "$tmp/autovis-runner.tar.gz"
+  curl -fsSL "$PACKAGE_URL" -o "$tmp/browsewright-runner.tar.gz"
 }
 
 # ── Service registration ────────────────────────────────────────────────────
 install_service_linux() {
   if ! has_systemd; then
     warn "systemd not detected; skipping service registration"
-    warn "start manually with: $INSTALL_DIR/bin/autovis-runner start"
+    warn "start manually with: $INSTALL_DIR/bin/browsewright-runner start"
     return
   fi
   log "Registering systemd service '${SERVICE_NAME}'..."
   cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]
-Description=AutoVis Runner
+Description=Browsewright Runner
 After=network-online.target
 Wants=network-online.target
 
@@ -308,9 +308,9 @@ Wants=network-online.target
 Type=simple
 EnvironmentFile=$CONFIG_DIR/runner.env
 Environment=NODE_BIN=$NODE_BIN
-Environment=AUTOVIS_CONFIG_FILE=$CONFIG_DIR/runner.env
+Environment=BROWSEWRIGHT_CONFIG_FILE=$CONFIG_DIR/runner.env
 WorkingDirectory=$INSTALL_DIR/app
-ExecStart=$INSTALL_DIR/bin/autovis-runner start
+ExecStart=$INSTALL_DIR/bin/browsewright-runner start
 Restart=always
 RestartSec=3
 
@@ -335,14 +335,14 @@ install_service_macos() {
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>$INSTALL_DIR/bin/autovis-runner</string>
+    <string>$INSTALL_DIR/bin/browsewright-runner</string>
     <string>start</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
     <key>NODE_BIN</key>
     <string>$NODE_BIN</string>
-    <key>AUTOVIS_CONFIG_FILE</key>
+    <key>BROWSEWRIGHT_CONFIG_FILE</key>
     <string>$CONFIG_DIR/runner.env</string>
     <key>PATH</key>
     <string>$(dirname "$NODE_BIN"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
@@ -383,7 +383,7 @@ install() {
 
   echo ""
   echo "================================================="
-  echo "        AutoVis Runner Installer ($OS)"
+  echo "        Browsewright Runner Installer ($OS)"
   echo "================================================="
   echo ""
 
@@ -399,11 +399,11 @@ install() {
 
   log "Installing files to $INSTALL_DIR..."
   stop_existing_service
-  tar -xzf "$tmp/autovis-runner.tar.gz" -C "$tmp"
+  tar -xzf "$tmp/browsewright-runner.tar.gz" -C "$tmp"
   # Replace app/ and bin/ but keep node/, tools/, logs/ across upgrades.
   rm -rf "$INSTALL_DIR/app" "$INSTALL_DIR/bin"
-  mv "$tmp"/autovis-runner-*/app "$INSTALL_DIR/app"
-  mv "$tmp"/autovis-runner-*/bin "$INSTALL_DIR/bin"
+  mv "$tmp"/browsewright-runner-*/app "$INSTALL_DIR/app"
+  mv "$tmp"/browsewright-runner-*/bin "$INSTALL_DIR/bin"
   ok "files installed"
   install_cli_link
 
@@ -415,12 +415,12 @@ DATA_DIR=$DATA_DIR
 APP_ORIGIN=${APP_ORIGIN:-http://localhost:${PORT:-8787}}
 HEADLESS=${HEADLESS:-false}
 BROWSER_BACKEND=${BROWSER_BACKEND:-patchright}
-AUTOVIS_AUTH_ENABLED=${AUTOVIS_AUTH_ENABLED:-false}
-AUTOVIS_LLM_SCOPE=${AUTOVIS_LLM_SCOPE:-shared}
-AUTOVIS_ADMIN_USER=${AUTOVIS_ADMIN_USER:-admin}
-AUTOVIS_ADMIN_PASSWORD=${AUTOVIS_ADMIN_PASSWORD:-}
-AUTOVIS_CLOUD_URL=${AUTOVIS_CLOUD_URL:-}
-AUTOVIS_DEVICE_TOKEN=${AUTOVIS_DEVICE_TOKEN:-}
+BROWSEWRIGHT_AUTH_ENABLED=${BROWSEWRIGHT_AUTH_ENABLED:-false}
+BROWSEWRIGHT_LLM_SCOPE=${BROWSEWRIGHT_LLM_SCOPE:-shared}
+BROWSEWRIGHT_ADMIN_USER=${BROWSEWRIGHT_ADMIN_USER:-admin}
+BROWSEWRIGHT_ADMIN_PASSWORD=${BROWSEWRIGHT_ADMIN_PASSWORD:-}
+BROWSEWRIGHT_CLOUD_URL=${BROWSEWRIGHT_CLOUD_URL:-}
+BROWSEWRIGHT_DEVICE_TOKEN=${BROWSEWRIGHT_DEVICE_TOKEN:-}
 EOF
   else
     ok "existing config preserved: $CONFIG_DIR/runner.env"
@@ -431,9 +431,9 @@ EOF
   (cd "$INSTALL_DIR/app" && "$PNPM_BIN" install --prod --frozen-lockfile)
 
   log "Installing browsers (Playwright + Patchright)..."
-  (cd "$INSTALL_DIR/app" && "$PNPM_BIN" --filter @autovis/server exec playwright install chromium chrome) \
-    || warn "Playwright browser install failed (non-fatal); rerun later with: cd $INSTALL_DIR/app && pnpm --filter @autovis/server exec playwright install chromium chrome"
-  (cd "$INSTALL_DIR/app" && "$PNPM_BIN" --filter @autovis/server exec patchright install chromium) \
+  (cd "$INSTALL_DIR/app" && "$PNPM_BIN" --filter @browsewright/server exec playwright install chromium chrome) \
+    || warn "Playwright browser install failed (non-fatal); rerun later with: cd $INSTALL_DIR/app && pnpm --filter @browsewright/server exec playwright install chromium chrome"
+  (cd "$INSTALL_DIR/app" && "$PNPM_BIN" --filter @browsewright/server exec patchright install chromium) \
     || warn "Patchright browser install failed (non-fatal)"
 
   if [ "$NO_SERVICE" = true ]; then
@@ -446,12 +446,12 @@ EOF
 
   echo ""
   echo "================================================="
-  echo "   AutoVis Runner installed successfully!"
+  echo "   Browsewright Runner installed successfully!"
   echo "================================================="
   echo ""
   echo "  URL:     http://localhost:${PORT:-8787}"
   echo "  Config:  $CONFIG_DIR/runner.env"
-  echo "  CLI:     autovis-runner {status|restart|stop|logs}"
+  echo "  CLI:     browsewright-runner {status|restart|stop|logs}"
   if [ "$OS" = "Darwin" ]; then
     echo "  Service: launchctl print gui/\$(id -u)/$LAUNCHD_LABEL"
     echo "  Logs:    tail -f $INSTALL_DIR/logs/runner.log"

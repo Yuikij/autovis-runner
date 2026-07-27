@@ -1,6 +1,6 @@
 import type { DatabaseSync, SQLOutputValue } from "node:sqlite"
 
-import type { CaseContract, TestCase, UpsertTestCaseRequest } from "@autovis/shared"
+import type { CaseContract, TestCase, UpsertTestCaseRequest } from "@browsewright/shared"
 import { mapTestCase, type TestCaseRow } from "../mappers.js"
 import { now } from "../shared.js"
 

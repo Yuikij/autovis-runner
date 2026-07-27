@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite"
-import type { Identifier, TargetUrl } from "@autovis/shared"
+import type { Identifier, TargetUrl } from "@browsewright/shared"
 import { mapTargetUrl, type TargetUrlRow } from "../mappers.js"
 
 export class TargetUrlRepository {

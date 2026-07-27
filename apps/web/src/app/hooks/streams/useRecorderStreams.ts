@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 
-import type { RecorderSession } from "@autovis/shared"
+import type { RecorderSession } from "@browsewright/shared"
 
 import { apiRoutes, streamUrl } from "../../apiRoutes.js"
 import type { WorkspaceEffectsParams } from "../types.js"

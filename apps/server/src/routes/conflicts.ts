@@ -1,4 +1,4 @@
-import type { ConflictTaskResponse, TaskKind } from "@autovis/shared"
+import type { ConflictTaskResponse, TaskKind } from "@browsewright/shared"
 
 export type TaskConflictError = Error & {
   code?: string

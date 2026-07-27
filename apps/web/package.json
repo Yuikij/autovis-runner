@@ -1,5 +1,5 @@
 {
-  "name": "@autovis/web",
+  "name": "@browsewright/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "tsc -b"
   },
   "dependencies": {
-    "@autovis/shared": "workspace:*",
+    "@browsewright/shared": "workspace:*",
     "marked": "^18.0.5",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"

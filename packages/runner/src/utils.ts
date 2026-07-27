@@ -1,5 +1,5 @@
 import { join } from "node:path"
-import type { ExecutionRun, ExecutionStep, ExecutionStepKind, RuntimeOutput } from "@autovis/shared"
+import type { ExecutionRun, ExecutionStep, ExecutionStepKind, RuntimeOutput } from "@browsewright/shared"
 
 export const now = () => new Date().toISOString()
 

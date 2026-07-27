@@ -9,7 +9,7 @@ import { LogPanel } from "../../components/log-panel"
 import { TaskControlBar } from "../../components/TaskControlBar"
 import { translateStatus, translateArtifactKind, resolveUrl } from "../../utils"
 import { t } from "../../../i18n/index.js"
-import type { AgentStep } from "@autovis/shared"
+import type { AgentStep } from "@browsewright/shared"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
 const stageLabelKeys: Record<string, string> = {

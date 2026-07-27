@@ -7,8 +7,8 @@ import {
   type RecorderInteractionRequest,
   type SaveAuthLoginSandboxResponse,
   type StartAuthLoginSandboxRequest,
-} from "@autovis/shared"
-import { AutoVisDatabase } from "../db.js"
+} from "@browsewright/shared"
+import { BrowsewrightDatabase } from "../db.js"
 import { launchStealthPersistentContext } from "../browser.js"
 import { appOrigin, createId, now, resolvePersistentProfileDir } from "./common.js"
 import { buildStorageStateSummary } from "./authProfile.utils.js"
@@ -120,7 +120,7 @@ export class AuthLoginSandboxService {
    * 并发启动会让两个 Chrome 抢同一个持久 profile 目录，后者撞锁失败。 */
   private readonly launchQueues = new Map<string, Promise<unknown>>()
 
-  constructor(private readonly db: AutoVisDatabase) {
+  constructor(private readonly db: BrowsewrightDatabase) {
     const ttl = idleTimeoutMs()
     if (ttl > 0) {
       const timer = setInterval(() => this.reapIdleSessions(ttl), Math.min(ttl, 60_000))

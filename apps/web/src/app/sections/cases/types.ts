@@ -1,5 +1,5 @@
 import type { ReadyWorkspaceController } from "../../useWorkspaceController.js"
-import type { ExecutionRun } from "@autovis/shared"
+import type { ExecutionRun } from "@browsewright/shared"
 
 export type CasesSectionProps = {
   controller: ReadyWorkspaceController

@@ -1,4 +1,4 @@
-import type { ExecutionRun, PersistedTaskControlCommand, Task, TaskRun, TestCase } from "@autovis/shared"
+import type { ExecutionRun, PersistedTaskControlCommand, Task, TaskRun, TestCase } from "@browsewright/shared"
 
 import { EmptyState } from "../../components/empty-state"
 import { PageHeader } from "../../components/page-header"

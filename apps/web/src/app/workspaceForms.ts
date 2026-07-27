@@ -1,4 +1,4 @@
-import type { UpsertProjectRequest, UpsertProjectWorkspaceRequest, UpsertTaskRequest, UpsertTestCaseRequest } from "@autovis/shared"
+import type { UpsertProjectRequest, UpsertProjectWorkspaceRequest, UpsertTaskRequest, UpsertTestCaseRequest } from "@browsewright/shared"
 
 export const emptyProjectForm = (): UpsertProjectRequest => ({ name: "", description: "", testBaseUrl: "", version: "" })
 

@@ -6,7 +6,7 @@ import type {
   Task,
   TaskRun,
   UpsertTaskRequest,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { store } from "../store.js"
 import { wrapDeleteOperation } from "./errorHandlers.js"
 

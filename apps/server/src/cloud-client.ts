@@ -92,14 +92,14 @@ export const startCloudClient = (options: CloudClientOptions) => {
   const deviceId = createHash("sha256").update(deviceToken).digest("hex").slice(0, 12)
   const localSockets = new Map<string, WebSocket>()
 
-  // 当 AUTOVIS_AUTH_ENABLED=true 时，runner 的 /api/* WS（如 LiveViewport 的 /live）也会被鉴权 preHandler 拦截。
-  // HTTP 请求经中继时会携带浏览器 Cookie，但中继的 ws-open 不转发任何头，导致桥接到本地的 WS 因缺少 autovis_session
+  // 当 BROWSEWRIGHT_AUTH_ENABLED=true 时，runner 的 /api/* WS（如 LiveViewport 的 /live）也会被鉴权 preHandler 拦截。
+  // HTTP 请求经中继时会携带浏览器 Cookie，但中继的 ws-open 不转发任何头，导致桥接到本地的 WS 因缺少 browsewright_session
   // 被 401 关闭（浏览器侧只看到 101，但收不到任何帧 → LiveViewport 全程空白）。
   // 这里用本机管理员凭据换一个本地会话 Cookie，作为可信桥接的服务身份附加到本地 WS；用户在云端早已完成鉴权。
   let localAuthCookie: string | null = null
   const refreshLocalAuthCookie = async () => {
-    const username = process.env.AUTOVIS_ADMIN_USER?.trim() || "admin"
-    const password = process.env.AUTOVIS_ADMIN_PASSWORD?.trim()
+    const username = process.env.BROWSEWRIGHT_ADMIN_USER?.trim() || "admin"
+    const password = process.env.BROWSEWRIGHT_ADMIN_PASSWORD?.trim()
     if (!password) {
       localAuthCookie = null
       return
@@ -132,10 +132,10 @@ export const startCloudClient = (options: CloudClientOptions) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: options.name ?? "AutoVis Runner",
+          name: options.name ?? "Browsewright Runner",
           platform: `${process.platform}/${process.arch}`,
           runnerVersion: options.runnerVersion,
-          publicBaseUrl: process.env.AUTOVIS_PUBLIC_BASE_URL,
+          publicBaseUrl: process.env.BROWSEWRIGHT_PUBLIC_BASE_URL,
         }),
       })
       if (!response.ok) {

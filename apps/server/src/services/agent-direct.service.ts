@@ -1,4 +1,4 @@
-import { failRunnerSession, finalizeRunnerSession } from "@autovis/runner"
+import { failRunnerSession, finalizeRunnerSession } from "@browsewright/runner"
 import {
   type AgentSession,
   type AgentStep,
@@ -6,10 +6,10 @@ import {
   type DirectOperationStep,
   type ExecutionRun,
   type StartDirectAgentRequest,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 import { runAgentLoop } from "../agent.js"
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { knowledgeService } from "../knowledge.js"
 import { artifactsDir, createId, now } from "./common.js"
 import type { AgentWarmupService } from "./agent-warmup.service.js"
@@ -29,7 +29,7 @@ import {
 
 export class AgentDirectService {
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly projectService: ProjectService,
     private readonly llmService: LlmConfigService,
     private readonly runService: RunService,

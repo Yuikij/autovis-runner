@@ -1,9 +1,9 @@
-import type { LlmSessionConfig } from "@autovis/shared"
+import type { LlmSessionConfig } from "@browsewright/shared"
 import type { ChatMessage, CopilotToolCallResult, ToolDefinition } from "../copilot.js"
 import { log } from "../log.js"
 import type { LlmSecretState } from "./types.js"
 
-const OPENAI_USER_AGENT = "AutoVis/0.1"
+const OPENAI_USER_AGENT = "Browsewright/0.1"
 const ANTHROPIC_VERSION = "2023-06-01"
 
 export const requireApiKey = (secrets: LlmSecretState) => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import type { CaseContract, ContractField, TestCase, TargetUrl } from "@autovis/shared"
+import type { CaseContract, ContractField, TestCase, TargetUrl } from "@browsewright/shared"
 import { apiBase } from "../../constants"
 import { apiRoutes } from "../../apiRoutes"
 import { request } from "../../api"

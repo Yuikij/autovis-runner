@@ -1,7 +1,7 @@
-import { type RunnerSession } from "@autovis/runner"
-import { type AgentSession, type AgentStep, type GenerateScriptRequest, type RuntimeOutput } from "@autovis/shared"
+import { type RunnerSession } from "@browsewright/runner"
+import { type AgentSession, type AgentStep, type GenerateScriptRequest, type RuntimeOutput } from "@browsewright/shared"
 
-import type { AutoVisDatabase } from "../db.js"
+import type { BrowsewrightDatabase } from "../db.js"
 import { CopilotSessionError } from "../copilot.js"
 import { type InitialPageState, type PreconditionReport } from "../agent/types.js"
 import { log } from "../log.js"
@@ -42,7 +42,7 @@ export function createAgentConflictError(message: string, conflictId: string, co
   return conflict
 }
 
-export function ensureProjectAndTestCase(db: AutoVisDatabase, projectId: string, testCaseId: string) {
+export function ensureProjectAndTestCase(db: BrowsewrightDatabase, projectId: string, testCaseId: string) {
   const project = db.getProject(projectId)
   const testCase = db.getTestCase(testCaseId)
   if (!project || !testCase) {
@@ -85,13 +85,13 @@ export async function prepareAgentExecutionContext(params: {
   request: AgentExecutionRequest
   ownerKey: string
   current: ActiveLlmCurrent
-  db: AutoVisDatabase
+  db: BrowsewrightDatabase
   projectService: ProjectService
   runService: RunService
   agentWarmupService: AgentWarmupService
   session: AgentSession
-  project: NonNullable<ReturnType<AutoVisDatabase["getProject"]>>
-  testCase: NonNullable<ReturnType<AutoVisDatabase["getTestCase"]>>
+  project: NonNullable<ReturnType<BrowsewrightDatabase["getProject"]>>
+  testCase: NonNullable<ReturnType<BrowsewrightDatabase["getTestCase"]>>
   onStep: (step: AgentStep) => void
   updateSession: (patch: { warmupRunId?: string; preconditionSummary?: string[] }) => void
   logMissingAuthState?: boolean

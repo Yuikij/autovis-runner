@@ -10,7 +10,7 @@ import type {
   Task,
   TaskModeConfig,
   UpsertScheduleTriggerRequest,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 export function useTaskActions(params: WorkspaceActionParams) {
   const confirm = useConfirm()

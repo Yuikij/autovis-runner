@@ -1,15 +1,15 @@
 services:
-  autovis-runner:
-    image: yuimax/autovis-runner:latest
-    container_name: autovis-runner
+  browsewright-runner:
+    image: yuimax/browsewright-runner:latest
+    container_name: browsewright-runner
     restart: unless-stopped
     shm_size: "2gb"
     ports:
       - "8787:8787"
     environment:
       PORT: "8787"
-      DATA_DIR: "/var/lib/autovis"
-      AUTOVIS_CONFIG_DIR: "/var/lib/autovis/config"
+      DATA_DIR: "/var/lib/browsewright"
+      BROWSEWRIGHT_CONFIG_DIR: "/var/lib/browsewright/config"
       APP_ORIGIN: "http://localhost:8787"
       HEADLESS: "false"
       BROWSER_BACKEND: "patchright"
@@ -19,14 +19,14 @@ services:
       BROWSER_PROXY_BYPASS: "${BROWSER_PROXY_BYPASS:-}"
       BROWSER_PROXY_USERNAME: "${BROWSER_PROXY_USERNAME:-}"
       BROWSER_PROXY_PASSWORD: "${BROWSER_PROXY_PASSWORD:-}"
-      AUTOVIS_AUTH_ENABLED: "${AUTOVIS_AUTH_ENABLED:-false}"
-      AUTOVIS_LLM_SCOPE: "${AUTOVIS_LLM_SCOPE:-shared}"
-      AUTOVIS_ADMIN_USER: "${AUTOVIS_ADMIN_USER:-admin}"
-      AUTOVIS_ADMIN_PASSWORD: "${AUTOVIS_ADMIN_PASSWORD:-}"
-      AUTOVIS_CLOUD_URL: "${AUTOVIS_CLOUD_URL:-}"
-      AUTOVIS_DEVICE_TOKEN: "${AUTOVIS_DEVICE_TOKEN:-}"
+      BROWSEWRIGHT_AUTH_ENABLED: "${BROWSEWRIGHT_AUTH_ENABLED:-false}"
+      BROWSEWRIGHT_LLM_SCOPE: "${BROWSEWRIGHT_LLM_SCOPE:-shared}"
+      BROWSEWRIGHT_ADMIN_USER: "${BROWSEWRIGHT_ADMIN_USER:-admin}"
+      BROWSEWRIGHT_ADMIN_PASSWORD: "${BROWSEWRIGHT_ADMIN_PASSWORD:-}"
+      BROWSEWRIGHT_CLOUD_URL: "${BROWSEWRIGHT_CLOUD_URL:-}"
+      BROWSEWRIGHT_DEVICE_TOKEN: "${BROWSEWRIGHT_DEVICE_TOKEN:-}"
     volumes:
-      - autovis-data:/var/lib/autovis
+      - browsewright-data:/var/lib/browsewright
 
 volumes:
-  autovis-data:
+  browsewright-data:

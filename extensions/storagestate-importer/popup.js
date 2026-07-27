@@ -1,6 +1,6 @@
 // 持久化的字段（token 不存，避免把会话令牌留在扩展存储里）。
 const PERSIST_FIELDS = ["runnerUrl", "projectId", "profileId", "targetUrlId", "cookieDomains"]
-const SESSION_COOKIE = "autovis_session"
+const SESSION_COOKIE = "browsewright_session"
 
 const $ = (id) => document.getElementById(id)
 
@@ -112,7 +112,7 @@ function runnerBase() {
   return $("runnerUrl").value.trim().replace(/\/+$/, "")
 }
 
-// 调 AutoVis 接口（带凭据；MV3 host_permissions 下扩展跨域不受 CORS 限制）。
+// 调 Browsewright 接口（带凭据；MV3 host_permissions 下扩展跨域不受 CORS 限制）。
 async function api(path) {
   const resp = await fetch(`${runnerBase()}${path}`, { credentials: "include" })
   const text = await resp.text()
@@ -145,11 +145,11 @@ function fillSelect(sel, items, getVal, getLabel, placeholder) {
   }
 }
 
-// 连接 AutoVis：拉项目列表并填充下拉。
+// 连接 Browsewright：拉项目列表并填充下拉。
 async function connect() {
   const base = runnerBase()
   if (!base) {
-    setStatus("err", "请先填写 AutoVis 运行机地址。")
+    setStatus("err", "请先填写 Browsewright 运行机地址。")
     return
   }
   $("connect").disabled = true
@@ -159,7 +159,7 @@ async function connect() {
     const projects = await api("/api/projects")
     projectsCache = Array.isArray(projects) ? projects : []
     if (projectsCache.length === 0) {
-      setStatus("err", "连接成功，但没有项目。请先在 AutoVis 里创建一个项目。")
+      setStatus("err", "连接成功，但没有项目。请先在 Browsewright 里创建一个项目。")
       return
     }
     const saved = await chrome.storage.local.get(["projectId", "profileId", "targetUrlId"])
@@ -172,7 +172,7 @@ async function connect() {
     setStatus("ok", "已连接。选好项目 / Profile 后即可采集。")
   } catch (err) {
     if (err instanceof Error && err.message === "AUTH") {
-      setStatus("err", "需要鉴权：在本浏览器登录一下 AutoVis（同地址），或在上方填会话 Token，再点连接。")
+      setStatus("err", "需要鉴权：在本浏览器登录一下 Browsewright（同地址），或在上方填会话 Token，再点连接。")
     } else {
       setStatus("err", `连接失败：${err instanceof Error ? err.message : String(err)}。检查地址 / 网络。`)
     }
@@ -200,7 +200,7 @@ async function onProjectChange(restoreProfileId, restoreTargetUrlId) {
     const profiles = await api(`/api/projects/${encodeURIComponent(project.id)}/auth-profiles`)
     const list = Array.isArray(profiles) ? profiles : []
     if (list.length === 0) {
-      fillSelect($("profileId"), [], () => "", () => "", "（该项目还没有 Profile，请先在 AutoVis 创建）")
+      fillSelect($("profileId"), [], () => "", () => "", "（该项目还没有 Profile，请先在 Browsewright 创建）")
     } else {
       fillSelect($("profileId"), list, (p) => p.id, (p) => p.name || p.id, "— 选择 Profile —")
       $("profileId").disabled = false
@@ -283,7 +283,7 @@ async function capture() {
     }
     const cookieCount = summary?.cookieCount ?? cookies.length
     const originCount = summary?.originCount ?? origins.length
-    setStatus("ok", `已导入：${cookieCount} 个 cookie · ${originCount} 个 localStorage origin。\n回 AutoVis 用「检查登录状态」验证即可。`)
+    setStatus("ok", `已导入：${cookieCount} 个 cookie · ${originCount} 个 localStorage origin。\n回 Browsewright 用「检查登录状态」验证即可。`)
   } catch (err) {
     setStatus("err", err instanceof Error ? err.message : String(err))
   } finally {

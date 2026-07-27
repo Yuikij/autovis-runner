@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react"
-import type { AuthProfile, AuthProfileState, StorageStateSummary, TargetUrl } from "@autovis/shared"
+import type { AuthProfile, AuthProfileState, StorageStateSummary, TargetUrl } from "@browsewright/shared"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"

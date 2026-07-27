@@ -1,4 +1,4 @@
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { now } from "./common.js"
 import { type LlmConfigService } from "./llm-config.service.js"
 import { CopilotSessionError } from "../copilot.js"
@@ -10,13 +10,13 @@ import {
   type ValidationStepEmitter,
 } from "../agent/validation.js"
 import { decorateAuthProfile } from "./authProfile.utils.js"
-import { type ValidationTask, type ValidationTaskKind } from "@autovis/shared"
+import { type ValidationTask, type ValidationTaskKind } from "@browsewright/shared"
 
 export class ValidationService {
   private readonly validationSubscribers = new Map<string, Set<(task: ValidationTask) => void>>()
 
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly llmService: LlmConfigService,
   ) {}
 

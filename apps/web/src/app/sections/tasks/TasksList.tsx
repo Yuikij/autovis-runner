@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from "react"
-import type { Task } from "@autovis/shared"
+import type { Task } from "@browsewright/shared"
 
 import { EmptyState } from "../../components/empty-state"
 import { Badge } from "../../components/ui/badge"

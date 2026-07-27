@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import type { ExecutionRun, TargetUrl, TestCase, ValidationTask, AuthProfile } from "@autovis/shared"
+import type { ExecutionRun, TargetUrl, TestCase, ValidationTask, AuthProfile } from "@browsewright/shared"
 import { apiRoutes, streamUrl } from "../../apiRoutes.js"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController.js"
 

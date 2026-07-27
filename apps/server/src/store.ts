@@ -1,4 +1,4 @@
-import { AutoVisDatabase } from "./db.js"
+import { BrowsewrightDatabase } from "./db.js"
 import { buildOutboxItems } from "./outbox.js"
 import { WorkspaceService } from "./workspace.js"
 import { appOrigin, createId, dataDir, now, removeArtifactDirs } from "./services/common.js"
@@ -51,10 +51,10 @@ import {
   type TestCase,
   type TaskControlAction,
   type TaskKind,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 class PersistentStore {
-  private readonly db = new AutoVisDatabase(dataDir, appOrigin)
+  private readonly db = new BrowsewrightDatabase(dataDir, appOrigin)
   private readonly workspace = new WorkspaceService(dataDir)
   private readonly startedAt = now()
   private recoveryStatus: "running" | "succeeded" | "failed" = "running"
@@ -640,8 +640,8 @@ class PersistentStore {
   async saveScriptVersion(testCaseId: string, input: { code: string; baseScriptId?: string; prompt?: string }) { return this.agentService.saveScriptVersion(testCaseId, input) }
   async generateScript(request: GenerateScriptRequest & { llmOwnerKey?: string }) { return this.agentService.generateScript(request) }
   async generateCaseContract(request: { projectId: string; testCaseId: string; llmOwnerKey?: string }) { return this.agentService.generateContractDraft(request) }
-  async rewriteScriptChat(request: { projectId: string; testCaseId: string; baseScriptId?: string; messages: import("@autovis/shared").RewriteChatMessage[]; llmOwnerKey?: string }) { return this.agentService.rewriteChat(request) }
-  async rewriteScriptPlan(request: { projectId: string; testCaseId: string; baseScriptId?: string; messages: import("@autovis/shared").RewriteChatMessage[]; llmOwnerKey?: string }) { return this.agentService.rewritePlan(request) }
+  async rewriteScriptChat(request: { projectId: string; testCaseId: string; baseScriptId?: string; messages: import("@browsewright/shared").RewriteChatMessage[]; llmOwnerKey?: string }) { return this.agentService.rewriteChat(request) }
+  async rewriteScriptPlan(request: { projectId: string; testCaseId: string; baseScriptId?: string; messages: import("@browsewright/shared").RewriteChatMessage[]; llmOwnerKey?: string }) { return this.agentService.rewritePlan(request) }
   async runScriptAgent(request: GenerateScriptRequest & { sessionId: string; llmOwnerKey?: string }) { return this.agentService.runScriptAgent(request) }
   async runDirectAgent(request: StartDirectAgentRequest & { sessionId: string; llmOwnerKey?: string }) { return this.agentService.runDirectAgent(request) }
   getAgentSession(sessionId: string) { return this.agentService.getAgentSession(sessionId) }

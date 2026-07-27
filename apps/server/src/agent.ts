@@ -1,6 +1,6 @@
 import { type Browser, type BrowserContext, type Page } from "@playwright/test"
 import { launchReplayBrowser, shouldStealthReplay } from "./browser.js"
-import { type AgentStep, type CaseContract } from "@autovis/shared"
+import { type AgentStep, type CaseContract } from "@browsewright/shared"
 import { callLlmWithTools, type ChatMessage } from "./llm.js"
 import { buildAgentSystemPrompt, buildAgentUserPrompt, buildDirectAgentSystemPrompt, buildDirectAgentUserPrompt } from "./agent/prompts.js"
 import { buildToolSummary, recoverBlankSpaRoute, waitForPageContent } from "./agent/helpers.js"

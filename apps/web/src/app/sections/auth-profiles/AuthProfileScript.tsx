@@ -1,4 +1,4 @@
-import type { AuthProfile } from "@autovis/shared"
+import type { AuthProfile } from "@browsewright/shared"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/empty-state"

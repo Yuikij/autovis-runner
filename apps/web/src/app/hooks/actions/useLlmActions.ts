@@ -2,7 +2,7 @@ import type { WorkspaceActionParams } from "../types.js"
 import { request } from "../../api.js"
 import { apiRoutes } from "../../apiRoutes.js"
 import { t } from "../../../i18n/index.js"
-import type { CopilotSessionResponse } from "@autovis/shared"
+import type { CopilotSessionResponse } from "@browsewright/shared"
 
 export function useLlmActions(params: WorkspaceActionParams) {
   const {

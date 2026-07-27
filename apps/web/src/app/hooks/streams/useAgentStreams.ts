@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react"
 
-import type { AgentSession } from "@autovis/shared"
+import type { AgentSession } from "@browsewright/shared"
 
 import { request } from "../../api.js"
 import { apiRoutes, streamUrl } from "../../apiRoutes.js"

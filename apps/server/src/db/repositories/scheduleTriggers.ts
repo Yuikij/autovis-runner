@@ -1,6 +1,6 @@
 import type { DatabaseSync, SQLOutputValue } from "node:sqlite"
 
-import type { ScheduleTrigger, UpsertScheduleTriggerRequest } from "@autovis/shared"
+import type { ScheduleTrigger, UpsertScheduleTriggerRequest } from "@browsewright/shared"
 import { mapScheduleTrigger, type ScheduleTriggerRow } from "../mappers.js"
 import { now } from "../shared.js"
 

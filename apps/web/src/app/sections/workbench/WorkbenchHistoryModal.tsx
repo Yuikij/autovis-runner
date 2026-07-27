@@ -6,7 +6,7 @@ import { EmptyState } from "../../components/empty-state"
 import { formatDateTime } from "../../utils"
 import { useConfirm } from "../../components/ui/confirm"
 import { t } from "../../../i18n/index.js"
-import type { ScriptArtifact } from "@autovis/shared"
+import type { ScriptArtifact } from "@browsewright/shared"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
 function scriptLabel(script: ScriptArtifact) {

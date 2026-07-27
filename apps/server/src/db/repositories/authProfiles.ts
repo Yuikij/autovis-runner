@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite"
-import { type Identifier, type AuthProfile, type AuthProfileState } from "@autovis/shared"
+import { type Identifier, type AuthProfile, type AuthProfileState } from "@browsewright/shared"
 import { mapAuthProfile, mapAuthProfileState, type AuthProfileRow, type AuthProfileStateRow } from "../mappers.js"
 import { encryptStoredText } from "../secrets.js"
 

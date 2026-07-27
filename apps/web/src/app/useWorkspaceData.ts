@@ -16,7 +16,7 @@ import type {
   WorkspaceFileContent,
   WorkspaceSearchMatch,
   WorkspaceTreeEntry,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { request } from "./api.js"
 import { apiRoutes } from "./apiRoutes.js"
 import { parseHash } from "./hashRouter.js"

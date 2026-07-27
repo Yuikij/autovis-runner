@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 
-import type { ExecutionStep, ExecutionRun, PersistedTaskControlCommand, TaskKind } from "@autovis/shared"
+import type { ExecutionStep, ExecutionRun, PersistedTaskControlCommand, TaskKind } from "@browsewright/shared"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
 import { request } from "../api"
 import { apiRoutes } from "../apiRoutes"

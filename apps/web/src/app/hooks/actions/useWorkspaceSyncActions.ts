@@ -10,7 +10,7 @@ import type {
   WorkspaceFileContent,
   WorkspaceSearchMatch,
   WorkspaceTreeEntry,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 export function useWorkspaceSyncActions(params: WorkspaceActionParams) {
   const {

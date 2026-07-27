@@ -1,11 +1,11 @@
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { AgentDirectService } from "./agent-direct.service.js"
 import { AgentGenerationService } from "./agent-generation.service.js"
 import { AgentSessionService } from "./agent-session.service.js"
 
 export class AgentRecoveryService {
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly sessionService: AgentSessionService,
     private readonly generationService: AgentGenerationService,
     private readonly directService: AgentDirectService,

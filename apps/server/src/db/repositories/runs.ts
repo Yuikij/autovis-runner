@@ -1,6 +1,6 @@
 import type { DatabaseSync, SQLOutputValue } from "node:sqlite"
 
-import type { ExecutionRun } from "@autovis/shared"
+import type { ExecutionRun } from "@browsewright/shared"
 import { mapRun, type RunRow } from "../mappers.js"
 
 const typedRows = <TRow>(rows: Record<string, SQLOutputValue>[]): TRow[] => rows as unknown as TRow[]

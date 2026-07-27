@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react"
 
-import type { ScheduleTrigger } from "@autovis/shared"
+import type { ScheduleTrigger } from "@browsewright/shared"
 
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify"
 import { z } from "zod"
-import type { ApiEnvelope, DataTable, DataTableRow, DataTableRowPage } from "@autovis/shared"
+import type { ApiEnvelope, DataTable, DataTableRow, DataTableRowPage } from "@browsewright/shared"
 import { store } from "../store.js"
 import { wrapDeleteOperation } from "./errorHandlers.js"
 

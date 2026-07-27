@@ -10,7 +10,7 @@ import type {
   WorkspaceFileContent,
   WorkspaceSearchMatch,
   WorkspaceTreeEntry,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 const IGNORED_DIRS = new Set([".git", "node_modules", "dist", "build", ".next", ".nuxt", "out", "target", "vendor", "tmp", "coverage"])
 const TEXT_EXTENSIONS = new Set([".html", ".htm", ".js", ".jsx", ".ts", ".tsx", ".vue", ".json", ".md", ".css", ".scss", ".sass", ".less", ".yml", ".yaml", ".xml", ".txt", ".mjs", ".cjs"])

@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
   }
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
   res.end(`<!doctype html><html><body>
-    <h1 id="headline">AutoVis 每日早报</h1>
+    <h1 id="headline">Browsewright 每日早报</h1>
     <article id="news">今天 runner 新增了 ai.generate 与 report.html，定时脚本现在能总结内容并产出可查看的 HTML 报告。</article>
   </body></html>`)
 })
@@ -63,7 +63,7 @@ const reportUrl = await report.html(headline, \`
 await http.post('${baseUrl}/webhook', { data: { headline, reportUrl } })
 `
 
-const artifactsDir = await mkdtemp(join(tmpdir(), "autovis-demo-"))
+const artifactsDir = await mkdtemp(join(tmpdir(), "browsewright-demo-"))
 const runId = "demo_" + Math.random().toString(36).slice(2, 10)
 const project = { id: "p1", name: "demo", testBaseUrl: baseUrl }
 const testCase = { id: "tc1", caseCode: "DEMO-001" }
@@ -115,7 +115,7 @@ let fileOk = false
 if (reportArtifact) {
   const fileContent = await readFile(join(artifactsDir, runId, reportArtifact.name), "utf-8").catch(() => "")
   fileOk =
-    fileContent.includes("AutoVis 每日早报") &&
+    fileContent.includes("Browsewright 每日早报") &&
     fileContent.includes('<meta charset="utf-8">') &&
     fileContent.includes("原文 / 译文对照") &&
     fileContent.includes("解读")
@@ -124,7 +124,7 @@ if (reportArtifact) {
 const pass =
   ok &&
   got &&
-  got.headline === "AutoVis 每日早报" &&
+  got.headline === "Browsewright 每日早报" &&
   typeof got.reportUrl === "string" &&
   got.reportUrl === `/artifacts/${runId}/${reportArtifact?.name}` &&
   reportArtifact &&

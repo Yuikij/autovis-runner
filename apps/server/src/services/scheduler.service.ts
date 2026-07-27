@@ -1,6 +1,6 @@
-import type { ScheduleTrigger, Task, UpsertScheduleTriggerRequest } from "@autovis/shared"
+import type { ScheduleTrigger, Task, UpsertScheduleTriggerRequest } from "@browsewright/shared"
 
-import type { AutoVisDatabase } from "../db.js"
+import type { BrowsewrightDatabase } from "../db.js"
 import { createId, now } from "./common.js"
 import { log } from "../log.js"
 import type { RunService } from "./run.service.js"
@@ -117,7 +117,7 @@ export class SchedulerService {
   private started = false
 
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly runService: RunService,
     private readonly taskRunService: TaskRunService,
   ) {}

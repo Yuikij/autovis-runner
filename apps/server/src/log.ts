@@ -7,7 +7,7 @@ const levelOrder: Record<LogLevel, number> = {
   error: 40,
 }
 
-const configuredLevel = ((process.env.AUTOVIS_LOG_LEVEL ?? "info").toLowerCase() as LogLevel)
+const configuredLevel = ((process.env.BROWSEWRIGHT_LOG_LEVEL ?? "info").toLowerCase() as LogLevel)
 const activeLevel = configuredLevel in levelOrder ? configuredLevel : "info"
 
 const shouldLog = (level: LogLevel) => levelOrder[level] >= levelOrder[activeLevel]

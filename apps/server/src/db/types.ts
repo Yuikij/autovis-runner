@@ -1,4 +1,4 @@
-import type { DashboardData, Project } from "@autovis/shared"
+import type { DashboardData, Project } from "@browsewright/shared"
 import type { CopilotSecretState } from "../copilot.js"
 import type { PersistedLlmState } from "./shared.js"
 

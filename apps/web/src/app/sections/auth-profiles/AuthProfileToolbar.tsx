@@ -1,4 +1,4 @@
-import type { AuthProfile, TargetUrl } from "@autovis/shared"
+import type { AuthProfile, TargetUrl } from "@browsewright/shared"
 import { Button } from "../../components/ui/button"
 import { t } from "../../../i18n/index.js"
 import type { DetailTab } from "./useAuthProfilesState"

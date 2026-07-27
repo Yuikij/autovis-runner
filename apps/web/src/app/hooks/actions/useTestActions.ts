@@ -14,7 +14,7 @@ import type {
   RewritePlanResponse,
   StartRunResponse,
   TestCase,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
 type StartupConflictPayload = ConflictTaskResponse & {
   run?: ExecutionRun

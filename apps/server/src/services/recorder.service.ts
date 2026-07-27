@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs"
 import { join } from "node:path"
-import { AutoVisDatabase } from "../db.js"
+import { BrowsewrightDatabase } from "../db.js"
 import { artifactsDir, createId, now } from "./common.js"
 import {
   type RecorderAction,
@@ -10,8 +10,8 @@ import {
   type StartRecorderSessionRequest,
   type StopRecorderSessionRequest,
   type TestCase,
-} from "@autovis/shared"
-import { type ExecutionRun } from "@autovis/shared"
+} from "@browsewright/shared"
+import { type ExecutionRun } from "@browsewright/shared"
 import { log } from "../log.js"
 import { recordBrowserStartFailure } from "../observability.js"
 import { TaskControlRegistry } from "./task-control.js"
@@ -30,7 +30,7 @@ export class RecorderService {
   private readonly lastActivityAt = new Map<string, number>()
 
   constructor(
-    private readonly db: AutoVisDatabase,
+    private readonly db: BrowsewrightDatabase,
     private readonly startVerificationCb: (req: any) => Promise<ExecutionRun>,
     private readonly createScriptArtifactCb: (testCaseId: string, provider: ScriptArtifact["provider"], prompt: string, code: string, source: ScriptArtifact["source"]) => ScriptArtifact,
     private readonly tasks: TaskControlRegistry,

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { TaskKind } from "@autovis/shared"
+import type { TaskKind } from "@browsewright/shared"
 import { request } from "../api"
 import { taskActionUrl } from "../apiRoutes"
 import { Button } from "./ui/button"

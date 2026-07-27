@@ -2,14 +2,14 @@ import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { type Browser, type BrowserContext, type Page } from "@playwright/test"
 import { launchReplayBrowser, shouldStealthReplay } from "../browser.js"
-import { runValidationOnPage } from "@autovis/runner"
+import { runValidationOnPage } from "@browsewright/runner"
 import type {
   AuthProfile,
   Project,
   TargetUrl,
   ValidationProgressStep,
   ValidationProgressStepKind,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { artifactsDir } from "../services/common.js"
 import { buildStorageStateSummary } from "../services/authProfile.utils.js"
 import { getPageSnapshot } from "./helpers.js"

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import type { OutboxItem } from "@autovis/shared"
+import type { OutboxItem } from "@browsewright/shared"
 import { t } from "../../i18n/index.js"
 import type { ReadyWorkspaceController } from "../useWorkspaceController"
 import { apiRoutes } from "../apiRoutes"

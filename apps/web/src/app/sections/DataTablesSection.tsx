@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import type { DataColumnType, DataTable, DataTableColumn, DataTableRow } from "@autovis/shared"
+import type { DataColumnType, DataTable, DataTableColumn, DataTableRow } from "@browsewright/shared"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"

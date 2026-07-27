@@ -1,4 +1,4 @@
-import type { AuthProfile, AuthProfileState, StorageStateSummary } from "@autovis/shared"
+import type { AuthProfile, AuthProfileState, StorageStateSummary } from "@browsewright/shared"
 
 /**
  * Playwright storage state JSON 的最小结构（实际还有更多字段，这里只取我们要展示的）。

@@ -1,6 +1,6 @@
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { marked } from "marked"
-import type { KnowledgeEntry, KnowledgeFileContent, KnowledgeSearchHit, KnowledgeSearchResult, KnowledgeStats } from "@autovis/shared"
+import type { KnowledgeEntry, KnowledgeFileContent, KnowledgeSearchHit, KnowledgeSearchResult, KnowledgeStats } from "@browsewright/shared"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"

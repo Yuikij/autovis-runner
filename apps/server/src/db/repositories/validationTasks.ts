@@ -1,5 +1,5 @@
 import { type DatabaseSync } from "node:sqlite"
-import { type ValidationTask } from "@autovis/shared"
+import { type ValidationTask } from "@browsewright/shared"
 
 export const upsertValidationTask = (db: DatabaseSync, task: ValidationTask) => {
   const statement = db.prepare(`

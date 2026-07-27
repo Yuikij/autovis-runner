@@ -17,7 +17,7 @@ type ObservabilityState = {
 
 type PartialObservabilityState = Partial<ObservabilityState>
 
-const OBSERVABILITY_KEY = "__autovisObservabilityState__"
+const OBSERVABILITY_KEY = "__browsewrightObservabilityState__"
 const SSE_RECONNECT_WINDOW_MS = 30_000
 
 const getState = (): ObservabilityState => {
@@ -148,36 +148,36 @@ export const recordSseStreamClosed = (streamName: string, request: FastifyReques
 export const renderObservabilityMetrics = () => {
   const state = getState()
   const lines = [
-    "# HELP autovis_browser_start_failures_total Browser start failures grouped by launch surface.",
-    "# TYPE autovis_browser_start_failures_total counter",
-    ...renderMapSamples("autovis_browser_start_failures_total", state.browserStartFailures, (surface) => ({ surface })),
-    "# HELP autovis_llm_failures_total LLM request failures grouped by provider and operation.",
-    "# TYPE autovis_llm_failures_total counter",
-    ...renderMapSamples("autovis_llm_failures_total", state.llmFailures, (key) => {
+    "# HELP browsewright_browser_start_failures_total Browser start failures grouped by launch surface.",
+    "# TYPE browsewright_browser_start_failures_total counter",
+    ...renderMapSamples("browsewright_browser_start_failures_total", state.browserStartFailures, (surface) => ({ surface })),
+    "# HELP browsewright_llm_failures_total LLM request failures grouped by provider and operation.",
+    "# TYPE browsewright_llm_failures_total counter",
+    ...renderMapSamples("browsewright_llm_failures_total", state.llmFailures, (key) => {
       const { first, second } = splitMapKey(key)
       return { provider: first, operation: second }
     }),
-    "# HELP autovis_relay_disconnects_total Relay disconnect count.",
-    "# TYPE autovis_relay_disconnects_total counter",
-    `autovis_relay_disconnects_total ${state.relayDisconnects}`,
-    "# HELP autovis_relay_reconnects_total Relay reconnect count after the first successful connection.",
-    "# TYPE autovis_relay_reconnects_total counter",
-    `autovis_relay_reconnects_total ${state.relayReconnects}`,
-    "# HELP autovis_relay_connected Relay connection state.",
-    "# TYPE autovis_relay_connected gauge",
-    `autovis_relay_connected ${state.relayConnected}`,
-    "# HELP autovis_relay_heartbeat_failures_total Relay heartbeat failures.",
-    "# TYPE autovis_relay_heartbeat_failures_total counter",
-    `autovis_relay_heartbeat_failures_total ${state.relayHeartbeatFailures}`,
-    "# HELP autovis_sse_active_streams Active SSE stream count grouped by stream.",
-    "# TYPE autovis_sse_active_streams gauge",
-    ...renderMapSamples("autovis_sse_active_streams", state.sseActiveStreams, (stream) => ({ stream })),
-    "# HELP autovis_sse_reconnects_total Estimated SSE reconnect count grouped by stream.",
-    "# TYPE autovis_sse_reconnects_total counter",
-    ...renderMapSamples("autovis_sse_reconnects_total", state.sseReconnects, (stream) => ({ stream })),
-    "# HELP autovis_sse_errors_total SSE stream error count grouped by stream.",
-    "# TYPE autovis_sse_errors_total counter",
-    ...renderMapSamples("autovis_sse_errors_total", state.sseErrors, (stream) => ({ stream })),
+    "# HELP browsewright_relay_disconnects_total Relay disconnect count.",
+    "# TYPE browsewright_relay_disconnects_total counter",
+    `browsewright_relay_disconnects_total ${state.relayDisconnects}`,
+    "# HELP browsewright_relay_reconnects_total Relay reconnect count after the first successful connection.",
+    "# TYPE browsewright_relay_reconnects_total counter",
+    `browsewright_relay_reconnects_total ${state.relayReconnects}`,
+    "# HELP browsewright_relay_connected Relay connection state.",
+    "# TYPE browsewright_relay_connected gauge",
+    `browsewright_relay_connected ${state.relayConnected}`,
+    "# HELP browsewright_relay_heartbeat_failures_total Relay heartbeat failures.",
+    "# TYPE browsewright_relay_heartbeat_failures_total counter",
+    `browsewright_relay_heartbeat_failures_total ${state.relayHeartbeatFailures}`,
+    "# HELP browsewright_sse_active_streams Active SSE stream count grouped by stream.",
+    "# TYPE browsewright_sse_active_streams gauge",
+    ...renderMapSamples("browsewright_sse_active_streams", state.sseActiveStreams, (stream) => ({ stream })),
+    "# HELP browsewright_sse_reconnects_total Estimated SSE reconnect count grouped by stream.",
+    "# TYPE browsewright_sse_reconnects_total counter",
+    ...renderMapSamples("browsewright_sse_reconnects_total", state.sseReconnects, (stream) => ({ stream })),
+    "# HELP browsewright_sse_errors_total SSE stream error count grouped by stream.",
+    "# TYPE browsewright_sse_errors_total counter",
+    ...renderMapSamples("browsewright_sse_errors_total", state.sseErrors, (stream) => ({ stream })),
   ]
 
   return lines.join("\n")

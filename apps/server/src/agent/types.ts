@@ -13,7 +13,7 @@ import type {
   WorkspaceFileContent,
   WorkspaceSearchMatch,
   WorkspaceTreeEntry,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { type LlmSecretState } from "../llm.js"
 
 export interface InitialPageState {
@@ -92,7 +92,7 @@ export interface AgentContext {
   waitIfPaused?: () => Promise<void>
   lastVerifiedCode?: string
   runtimeContext?: ScriptRuntimeContext
-  authProfile?: import("@autovis/shared").AuthProfile
+  authProfile?: import("@browsewright/shared").AuthProfile
   /** Playwright storageState JSON：由调用方按当前 run.targetUrlId 解析后注入。 */
   authStorageStateJson?: string
   /**

@@ -35,7 +35,7 @@ import { store } from "./store.js"
 const port = Number(process.env.PORT ?? 8787)
 const appOrigin = process.env.APP_ORIGIN ?? `http://localhost:${port}`
 const allowAnyCorsOrigin = process.env.NODE_ENV !== "production"
-const allowInsecureNoAuth = ["1", "true", "yes", "on"].includes((process.env.AUTOVIS_ALLOW_INSECURE_NO_AUTH ?? "").toLowerCase())
+const allowInsecureNoAuth = ["1", "true", "yes", "on"].includes((process.env.BROWSEWRIGHT_ALLOW_INSECURE_NO_AUTH ?? "").toLowerCase())
 
 const isLocalOrigin = (origin: string) => {
   try {
@@ -55,7 +55,7 @@ if (process.env.NODE_ENV === "production" && !authEnabled) {
   if (!isLocalOrigin(appOrigin) && !allowInsecureNoAuth) {
     log.error("auth.production_insecure_start_blocked", {
       appOrigin,
-      hint: "Set AUTOVIS_AUTH_ENABLED=true or AUTOVIS_ALLOW_INSECURE_NO_AUTH=true to continue.",
+      hint: "Set BROWSEWRIGHT_AUTH_ENABLED=true or BROWSEWRIGHT_ALLOW_INSECURE_NO_AUTH=true to continue.",
     })
     process.exit(1)
   }
@@ -63,7 +63,7 @@ if (process.env.NODE_ENV === "production" && !authEnabled) {
 
 const app = Fastify({
   logger: {
-    level: process.env.AUTOVIS_LOG_LEVEL ?? "info",
+    level: process.env.BROWSEWRIGHT_LOG_LEVEL ?? "info",
   },
   disableRequestLogging: true,
   requestIdHeader: "x-request-id",
@@ -225,39 +225,39 @@ await app.register(fastifyStatic, {
 const metricsLines = (values: ReturnType<typeof store.getMetricsSnapshot>) => {
   const memory = process.memoryUsage()
   const baseLines = [
-    "# HELP autovis_ready Runner readiness state.",
-    "# TYPE autovis_ready gauge",
-    `autovis_ready ${values.ready}`,
-    "# HELP autovis_schema_version Current database schema version.",
-    "# TYPE autovis_schema_version gauge",
-    `autovis_schema_version ${values.schemaVersion}`,
-    "# HELP autovis_uptime_seconds Runner uptime in seconds.",
-    "# TYPE autovis_uptime_seconds gauge",
-    `autovis_uptime_seconds ${values.uptimeSeconds}`,
-    "# HELP autovis_projects_total Persisted project count.",
-    "# TYPE autovis_projects_total gauge",
-    `autovis_projects_total ${values.projectsTotal}`,
-    "# HELP autovis_runs_active_total Active execution run count.",
-    "# TYPE autovis_runs_active_total gauge",
-    `autovis_runs_active_total ${values.activeRuns}`,
-    "# HELP autovis_task_runs_active_total Active task-run count.",
-    "# TYPE autovis_task_runs_active_total gauge",
-    `autovis_task_runs_active_total ${values.activeTaskRuns}`,
-    "# HELP autovis_agents_active_total Active agent session count.",
-    "# TYPE autovis_agents_active_total gauge",
-    `autovis_agents_active_total ${values.activeAgents}`,
-    "# HELP autovis_recorders_active_total Active recorder session count.",
-    "# TYPE autovis_recorders_active_total gauge",
-    `autovis_recorders_active_total ${values.activeRecorders}`,
-    "# HELP autovis_task_leases_active_total Active task lease count.",
-    "# TYPE autovis_task_leases_active_total gauge",
-    `autovis_task_leases_active_total ${values.activeLeases}`,
-    "# HELP autovis_task_leases_recovering_total Recovering task lease count.",
-    "# TYPE autovis_task_leases_recovering_total gauge",
-    `autovis_task_leases_recovering_total ${values.recoveringLeases}`,
-    "# HELP autovis_task_leases_expired_total Expired active task lease count.",
-    "# TYPE autovis_task_leases_expired_total gauge",
-    `autovis_task_leases_expired_total ${values.expiredActiveLeases}`,
+    "# HELP browsewright_ready Runner readiness state.",
+    "# TYPE browsewright_ready gauge",
+    `browsewright_ready ${values.ready}`,
+    "# HELP browsewright_schema_version Current database schema version.",
+    "# TYPE browsewright_schema_version gauge",
+    `browsewright_schema_version ${values.schemaVersion}`,
+    "# HELP browsewright_uptime_seconds Runner uptime in seconds.",
+    "# TYPE browsewright_uptime_seconds gauge",
+    `browsewright_uptime_seconds ${values.uptimeSeconds}`,
+    "# HELP browsewright_projects_total Persisted project count.",
+    "# TYPE browsewright_projects_total gauge",
+    `browsewright_projects_total ${values.projectsTotal}`,
+    "# HELP browsewright_runs_active_total Active execution run count.",
+    "# TYPE browsewright_runs_active_total gauge",
+    `browsewright_runs_active_total ${values.activeRuns}`,
+    "# HELP browsewright_task_runs_active_total Active task-run count.",
+    "# TYPE browsewright_task_runs_active_total gauge",
+    `browsewright_task_runs_active_total ${values.activeTaskRuns}`,
+    "# HELP browsewright_agents_active_total Active agent session count.",
+    "# TYPE browsewright_agents_active_total gauge",
+    `browsewright_agents_active_total ${values.activeAgents}`,
+    "# HELP browsewright_recorders_active_total Active recorder session count.",
+    "# TYPE browsewright_recorders_active_total gauge",
+    `browsewright_recorders_active_total ${values.activeRecorders}`,
+    "# HELP browsewright_task_leases_active_total Active task lease count.",
+    "# TYPE browsewright_task_leases_active_total gauge",
+    `browsewright_task_leases_active_total ${values.activeLeases}`,
+    "# HELP browsewright_task_leases_recovering_total Recovering task lease count.",
+    "# TYPE browsewright_task_leases_recovering_total gauge",
+    `browsewright_task_leases_recovering_total ${values.recoveringLeases}`,
+    "# HELP browsewright_task_leases_expired_total Expired active task lease count.",
+    "# TYPE browsewright_task_leases_expired_total gauge",
+    `browsewright_task_leases_expired_total ${values.expiredActiveLeases}`,
     "# HELP process_resident_memory_bytes Resident set size in bytes.",
     "# TYPE process_resident_memory_bytes gauge",
     `process_resident_memory_bytes ${memory.rss}`,
@@ -347,12 +347,12 @@ process.on("unhandledRejection", (reason, promise) => {
 
 app.listen({ port, host: "0.0.0.0" })
   .then((address) => {
-    if (process.env.AUTOVIS_CLOUD_URL && process.env.AUTOVIS_DEVICE_TOKEN) {
+    if (process.env.BROWSEWRIGHT_CLOUD_URL && process.env.BROWSEWRIGHT_DEVICE_TOKEN) {
       startCloudClient({
-        cloudUrl: process.env.AUTOVIS_CLOUD_URL,
-        deviceToken: process.env.AUTOVIS_DEVICE_TOKEN,
+        cloudUrl: process.env.BROWSEWRIGHT_CLOUD_URL,
+        deviceToken: process.env.BROWSEWRIGHT_DEVICE_TOKEN,
         localOrigin: appOrigin,
-        runnerVersion: process.env.AUTOVIS_RUNNER_VERSION,
+        runnerVersion: process.env.BROWSEWRIGHT_RUNNER_VERSION,
       })
     }
     log.info("server.started", { address, appOrigin, port })

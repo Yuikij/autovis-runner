@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { AuthProfile, ValidationProgressStep, ValidationTask } from "@autovis/shared"
+import type { AuthProfile, ValidationProgressStep, ValidationTask } from "@browsewright/shared"
 import { Badge } from "../../components/ui/badge"
 import { EmptyState } from "../../components/empty-state"
 import { resolveUrl } from "../../utils"

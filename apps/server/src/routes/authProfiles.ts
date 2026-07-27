@@ -6,7 +6,7 @@ import type {
   ImportAuthProfileStateRequest,
   UpdateAuthProfilePostLoginUrlRequest,
   UpsertAuthProfileRequest,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { store } from "../store.js"
 import { wrapDeleteOperation } from "./errorHandlers.js"
 import { getRequestLlmOwnerKey } from "../auth.js"

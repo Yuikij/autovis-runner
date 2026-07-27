@@ -140,9 +140,9 @@ import type {
   UpsertTaskRequest,
   UpsertAuthProfileRequest,
   ValidationTask,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 
-export class AutoVisDatabase {
+export class BrowsewrightDatabase {
   private readonly db: DatabaseSync
   private readonly stateFile: string
 
@@ -153,7 +153,7 @@ export class AutoVisDatabase {
   constructor(private readonly dataDir: string, appOrigin: string) {
     mkdirSync(dataDir, { recursive: true })
     this.stateFile = join(dataDir, "state.json")
-    const databaseFile = join(dataDir, "autovis.db")
+    const databaseFile = join(dataDir, "browsewright.db")
     const databaseExisted = existsSync(databaseFile)
     this.db = new DatabaseSync(databaseFile)
     this.db.exec("PRAGMA journal_mode = WAL")
@@ -179,20 +179,20 @@ export class AutoVisDatabase {
     if (!authEnabled) return
     const nowTime = new Date().toISOString()
     const users: Array<{ username: string; password: string; role: AuthUser["role"] }> = []
-    const adminUser = process.env.AUTOVIS_ADMIN_USER?.trim() || "admin"
-    const adminPassword = process.env.AUTOVIS_ADMIN_PASSWORD?.trim()
+    const adminUser = process.env.BROWSEWRIGHT_ADMIN_USER?.trim() || "admin"
+    const adminPassword = process.env.BROWSEWRIGHT_ADMIN_PASSWORD?.trim()
     if (adminPassword) {
       users.push({ username: adminUser, password: adminPassword, role: "admin" })
     }
 
-    for (const entry of (process.env.AUTOVIS_USERS ?? "").split(",")) {
+    for (const entry of (process.env.BROWSEWRIGHT_USERS ?? "").split(",")) {
       const [username, password, role] = entry.split(":").map((part) => part?.trim())
       if (!username || !password) continue
       users.push({ username, password, role: role === "admin" ? "admin" : "user" })
     }
 
     if (users.length === 0 && countUsers(this.db) === 0) {
-      throw new Error("AUTOVIS_AUTH_ENABLED=true requires AUTOVIS_ADMIN_PASSWORD or AUTOVIS_USERS")
+      throw new Error("BROWSEWRIGHT_AUTH_ENABLED=true requires BROWSEWRIGHT_ADMIN_PASSWORD or BROWSEWRIGHT_USERS")
     }
 
     for (const user of users) {

@@ -40,7 +40,7 @@ import type {
   WorkspaceFileContent,
   WorkspaceSearchMatch,
   WorkspaceTreeEntry,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import { store } from "../store.js"
 import { wrapDeleteOperation } from "./errorHandlers.js"
 
@@ -117,7 +117,7 @@ export async function projectsRoutes(app: FastifyInstance) {
     const os = await import("node:os")
     const pathMod = await import("node:path")
     const fs = await import("node:fs/promises")
-    const uploadDir = pathMod.join(os.tmpdir(), `autovis-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+    const uploadDir = pathMod.join(os.tmpdir(), `browsewright-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
     const filePath = pathMod.join(uploadDir, part.filename)
     await fs.mkdir(uploadDir, { recursive: true })
     const chunks: Buffer[] = []

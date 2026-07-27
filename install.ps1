@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-    AutoVis Runner Windows Installer
+    Browsewright Runner Windows Installer
 .DESCRIPTION
-    One-command installer for AutoVis Runner on Windows.
+    One-command installer for Browsewright Runner on Windows.
     Downloads the latest release (or builds from source), installs a bundled
     Node.js runtime when needed, installs dependencies and browsers, and
     registers a native Windows Service via WinSW with autostart, crash
     restart, and log rotation. Re-running the installer upgrades in place
     while preserving config and data.
 .PARAMETER InstallDir
-    Installation directory. Default: C:\autovis-runner
+    Installation directory. Default: C:\browsewright-runner
 .PARAMETER ConfigDir
     Configuration directory. Default: <InstallDir>\config
 .PARAMETER DataDir
@@ -17,7 +17,7 @@
 .PARAMETER Port
     HTTP listen port. Default: 8787
 .PARAMETER ServiceName
-    Windows service name. Default: AutoVisRunner
+    Windows service name. Default: BrowsewrightRunner
 .PARAMETER Version
     Install a specific release (e.g. 0.9.0) instead of the latest.
 .PARAMETER PackageUrl
@@ -51,11 +51,11 @@
 
 [CmdletBinding()]
 param(
-    [string]$InstallDir  = "C:\autovis-runner",
+    [string]$InstallDir  = "C:\browsewright-runner",
     [string]$ConfigDir   = "",
     [string]$DataDir     = "",
     [int]$Port           = 8787,
-    [string]$ServiceName = "AutoVisRunner",
+    [string]$ServiceName = "BrowsewrightRunner",
     [string]$Version     = "",
     [string]$PackageUrl  = "",
     [switch]$FromSource,
@@ -76,11 +76,11 @@ $NodeDir     = Join-Path $InstallDir "node"
 $ToolsDir    = Join-Path $InstallDir "tools"
 $LogDir      = Join-Path $InstallDir "logs"
 $WinswDir    = Join-Path $InstallDir "winsw"
-$WinswExe    = Join-Path $WinswDir "autovis-service.exe"
-$WinswXml    = Join-Path $WinswDir "autovis-service.xml"
+$WinswExe    = Join-Path $WinswDir "browsewright-service.exe"
+$WinswXml    = Join-Path $WinswDir "browsewright-service.xml"
 $EnvFile     = Join-Path $ConfigDir "runner.env"
 $StartScript = Join-Path $InstallDir "start-runner.ps1"
-$Repo        = if ($env:AUTOVIS_RUNNER_REPO) { $env:AUTOVIS_RUNNER_REPO } else { "Yuikij/autovis-runner" }
+$Repo        = if ($env:BROWSEWRIGHT_RUNNER_REPO) { $env:BROWSEWRIGHT_RUNNER_REPO } else { "Yuikij/browsewright-runner" }
 $NodeMajorRequired = 25
 $WinswUrl    = "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe"
 
@@ -164,8 +164,8 @@ function Install-RunnerService {
     $xml = @"
 <service>
   <id>$ServiceName</id>
-  <name>AutoVis Runner</name>
-  <description>AutoVis Runner - Browser automation service</description>
+  <name>Browsewright Runner</name>
+  <description>Browsewright Runner - Browser automation service</description>
   <executable>$pwshExe</executable>
   <arguments>-ExecutionPolicy Bypass -NoProfile -File "$StartScript"</arguments>
   <workingdirectory>$InstallDir</workingdirectory>
@@ -196,7 +196,7 @@ function Install-RunnerService {
 
 # -- Uninstall ---------------------------------------------------------------
 function Invoke-Uninstall {
-    Write-Step "Uninstalling AutoVis Runner..."
+    Write-Step "Uninstalling Browsewright Runner..."
     Remove-RunnerService
 
     if ($Purge) {
@@ -211,7 +211,7 @@ function Invoke-Uninstall {
         Write-Ok "Application files removed."
         Write-Host "  Config ($ConfigDir) and data ($DataDir) were kept. Re-run with -Uninstall -Purge to remove them."
     }
-    Write-Host "`nAutoVis Runner has been uninstalled." -ForegroundColor Green
+    Write-Host "`nBrowsewright Runner has been uninstalled." -ForegroundColor Green
 }
 
 # -- Node.js runtime ---------------------------------------------------------
@@ -251,7 +251,7 @@ function Resolve-Node {
     $zipName = $match.Value
 
     $zipPath = Join-Path $env:TEMP $zipName
-    $tmpDir  = Join-Path $env:TEMP "autovis-node-$(Get-Random)"
+    $tmpDir  = Join-Path $env:TEMP "browsewright-node-$(Get-Random)"
     try {
         Invoke-WebRequest -Uri "$base/$zipName" -OutFile $zipPath -UseBasicParsing
         Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
@@ -344,18 +344,18 @@ function Install-AppFilesFromRelease {
             $tag = $release.tag_name
         }
         $ver = $tag -replace "^v", ""
-        $url = "https://github.com/$Repo/releases/download/$tag/autovis-runner-$ver.tar.gz"
+        $url = "https://github.com/$Repo/releases/download/$tag/browsewright-runner-$ver.tar.gz"
     }
     Write-Host "  URL: $url" -ForegroundColor DarkGray
 
-    $tmpDir  = Join-Path $env:TEMP "autovis-install-$(Get-Random)"
-    $tarball = Join-Path $tmpDir "autovis-runner.tar.gz"
+    $tmpDir  = Join-Path $env:TEMP "browsewright-install-$(Get-Random)"
+    $tarball = Join-Path $tmpDir "browsewright-runner.tar.gz"
     New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
     try {
         Invoke-WebRequest -Uri $url -OutFile $tarball -UseBasicParsing
         Exec { tar -xzf $tarball -C $tmpDir } "tar extract"
-        $extracted = Get-ChildItem -Path $tmpDir -Directory -Filter "autovis-runner-*" | Select-Object -First 1
-        if (-not $extracted) { throw "release archive did not contain an autovis-runner-* directory" }
+        $extracted = Get-ChildItem -Path $tmpDir -Directory -Filter "browsewright-runner-*" | Select-Object -First 1
+        if (-not $extracted) { throw "release archive did not contain an browsewright-runner-* directory" }
 
         if (Test-Path $AppDir) { Remove-Item -Recurse -Force $AppDir }
         Move-Item (Join-Path $extracted.FullName "app") $AppDir
@@ -377,11 +377,11 @@ function Install-Dependencies {
         Write-Ok "Dependencies installed."
 
         Write-Step "Installing browsers (Playwright + Patchright)..."
-        & $script:PnpmExe --filter "@autovis/server" exec playwright install chromium chrome
+        & $script:PnpmExe --filter "@browsewright/server" exec playwright install chromium chrome
         if ($LASTEXITCODE -ne 0) { Write-Warn2 "Playwright browser install failed (non-fatal); rerun later inside $AppDir" }
         else { Write-Ok "Playwright browsers installed." }
 
-        & $script:PnpmExe --filter "@autovis/server" exec patchright install chromium
+        & $script:PnpmExe --filter "@browsewright/server" exec patchright install chromium
         if ($LASTEXITCODE -ne 0) { Write-Warn2 "Patchright browser install failed (non-fatal)." }
         else { Write-Ok "Patchright browser installed." }
         $global:LASTEXITCODE = 0
@@ -403,12 +403,12 @@ function Write-RunnerConfig {
         "APP_ORIGIN=http://localhost:$Port"
         "HEADLESS=false"
         "BROWSER_BACKEND=patchright"
-        "AUTOVIS_AUTH_ENABLED=false"
-        "AUTOVIS_LLM_SCOPE=shared"
-        "AUTOVIS_ADMIN_USER=admin"
-        "AUTOVIS_ADMIN_PASSWORD="
-        "AUTOVIS_CLOUD_URL="
-        "AUTOVIS_DEVICE_TOKEN="
+        "BROWSEWRIGHT_AUTH_ENABLED=false"
+        "BROWSEWRIGHT_LLM_SCOPE=shared"
+        "BROWSEWRIGHT_ADMIN_USER=admin"
+        "BROWSEWRIGHT_ADMIN_PASSWORD="
+        "BROWSEWRIGHT_CLOUD_URL="
+        "BROWSEWRIGHT_DEVICE_TOKEN="
     )
     Set-Content -Path $EnvFile -Value ($lines -join "`n") -Encoding UTF8
     Write-Ok "Config written to $EnvFile"
@@ -419,7 +419,7 @@ function Write-StartScript {
 
     $template = @'
 $ErrorActionPreference = "Stop"
-$ConfigFile = if ($env:AUTOVIS_CONFIG_FILE) { $env:AUTOVIS_CONFIG_FILE } else { "__ENV_FILE__" }
+$ConfigFile = if ($env:BROWSEWRIGHT_CONFIG_FILE) { $env:BROWSEWRIGHT_CONFIG_FILE } else { "__ENV_FILE__" }
 $AppDir = "__APP_DIR__"
 
 if (Test-Path $ConfigFile) {
@@ -467,7 +467,7 @@ exit $LASTEXITCODE
 function Invoke-Install {
     Write-Host ""
     Write-Host "=================================================" -ForegroundColor Magenta
-    Write-Host "     AutoVis Runner Windows Installer            " -ForegroundColor Magenta
+    Write-Host "     Browsewright Runner Windows Installer            " -ForegroundColor Magenta
     Write-Host "=================================================" -ForegroundColor Magenta
 
     New-Item -ItemType Directory -Force -Path $InstallDir, $ConfigDir, $DataDir, $LogDir | Out-Null
@@ -497,14 +497,14 @@ function Invoke-Install {
 
     Write-Host ""
     Write-Host "=================================================" -ForegroundColor Green
-    Write-Host "     AutoVis Runner installed successfully!      " -ForegroundColor Green
+    Write-Host "     Browsewright Runner installed successfully!      " -ForegroundColor Green
     Write-Host "=================================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "  URL:     http://localhost:$Port"
     Write-Host "  Config:  $EnvFile"
     if (-not $SkipService) {
         Write-Host "  Service: $WinswExe status|start|stop|restart"
-        Write-Host "  Logs:    $LogDir\autovis-service.out.log"
+        Write-Host "  Logs:    $LogDir\browsewright-service.out.log"
     }
     Write-Host ""
 }

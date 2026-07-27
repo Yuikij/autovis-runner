@@ -1,7 +1,7 @@
 import { type Browser, type BrowserContext, type Page } from "@playwright/test"
 import { generateTextWithLlm, type LlmSecretState } from "../llm.js"
 import { log } from "../log.js"
-import type { AgentStep, CaseContract, Project, TestCase } from "@autovis/shared"
+import type { AgentStep, CaseContract, Project, TestCase } from "@browsewright/shared"
 
 import { shouldStealthReplay } from "../browser.js"
 import { appendAgentDebugLog, buildToolTitle, recoverBlankSpaRoute, waitForPageContent } from "./helpers.js"

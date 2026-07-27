@@ -149,7 +149,7 @@ type ObservabilityState = {
   browserStartFailures?: Map<string, number>
 }
 
-const OBSERVABILITY_KEY = "__autovisObservabilityState__"
+const OBSERVABILITY_KEY = "__browsewrightObservabilityState__"
 
 const recordBrowserStartFailure = (surface: string) => {
   const globalState = globalThis as typeof globalThis & {

@@ -1,25 +1,25 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="AutoVis Runner logo" width="110" />
+<img src="docs/assets/logo.png" alt="Browsewright Runner logo" width="110" />
 
-# AutoVis Runner
+# Browsewright Runner
 
 **AI-driven browser automation on your own machine — local web UI, one-line install, your data stays local.**
 
-[![Latest release](https://img.shields.io/github/v/release/Yuikij/autovis-runner)](https://github.com/Yuikij/autovis-runner/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/Yuikij/browsewright-runner)](https://github.com/Yuikij/browsewright-runner/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Docker](https://img.shields.io/docker/v/yuimax/autovis-runner?label=docker&logo=docker)](https://hub.docker.com/r/yuimax/autovis-runner)
+[![Docker](https://img.shields.io/docker/v/yuimax/browsewright-runner?label=docker&logo=docker)](https://hub.docker.com/r/yuimax/browsewright-runner)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-6366f1)
 
 English | [简体中文](README.zh-CN.md)
 
-<img src="docs/assets/screenshot-dashboard-en.png" alt="AutoVis Runner dashboard" width="880" />
+<img src="docs/assets/screenshot-dashboard-en.png" alt="Browsewright Runner dashboard" width="880" />
 
 </div>
 
-## What is AutoVis Runner?
+## What is Browsewright Runner?
 
-AutoVis Runner is the local execution node for AutoVis. It runs browser automation
+Browsewright Runner is the local execution node for Browsewright. It runs browser automation
 tasks (powered by [Playwright](https://playwright.dev)) on your own machine or
 server, keeps login state and data local, and exposes a web UI and API to manage
 everything.
@@ -40,7 +40,7 @@ everything.
 - **Runs & artifacts** — screenshots, HTML reports, and live browser streaming
   while a run is in progress.
 - **Standalone or connected** — runs fully standalone; optionally register to an
-  AutoVis Cloud endpoint with a device token.
+  Browsewright Cloud endpoint with a device token.
 - **Self-host friendly** — optional authentication, multiple users, and at-rest
   encryption for stored secrets.
 
@@ -61,31 +61,31 @@ The web UI is served at `http://localhost:8787` once the runner is up.
 ### macOS
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | bash
 ```
 
-Installs to `~/.autovis-runner`, config in `~/.autovis/runner.env`, and
-registers a launchd agent (`com.autovis.runner`) that starts at login and
+Installs to `~/.browsewright-runner`, config in `~/.browsewright/runner.env`, and
+registers a launchd agent (`com.browsewright.runner`) that starts at login and
 restarts on crash.
 
 ### Linux
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash
 ```
 
-Installs to `/opt/autovis-runner`, config in `/etc/autovis/runner.env`, and
-registers a systemd service (`autovis-runner`) that starts on boot.
+Installs to `/opt/browsewright-runner`, config in `/etc/browsewright/runner.env`, and
+registers a systemd service (`browsewright-runner`) that starts on boot.
 
 ### Windows (PowerShell, run as Administrator)
 
 ```powershell
-irm https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.ps1 -OutFile install.ps1
+irm https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.ps1 -OutFile install.ps1
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-Installs to `C:\autovis-runner` and registers a native Windows Service
-(`AutoVisRunner`) via [WinSW](https://github.com/winsw/winsw) that starts on
+Installs to `C:\browsewright-runner` and registers a native Windows Service
+(`BrowsewrightRunner`) via [WinSW](https://github.com/winsw/winsw) that starts on
 boot, restarts on crash, and rotates logs.
 
 ### Docker
@@ -100,26 +100,26 @@ Or with plain `docker run`:
 
 ```shell
 docker run -d \
-  --name autovis-runner \
+  --name browsewright-runner \
   --restart unless-stopped \
   --shm-size=2g \
   -p 8787:8787 \
-  -v autovis-data:/var/lib/autovis \
-  -e AUTOVIS_CONFIG_DIR=/var/lib/autovis/config \
-  -e AUTOVIS_CLOUD_URL=https://your-autovis-cloud.example.com \
-  -e AUTOVIS_DEVICE_TOKEN=<device-token> \
-  yuimax/autovis-runner:latest
+  -v browsewright-data:/var/lib/browsewright \
+  -e BROWSEWRIGHT_CONFIG_DIR=/var/lib/browsewright/config \
+  -e BROWSEWRIGHT_CLOUD_URL=https://your-browsewright-cloud.example.com \
+  -e BROWSEWRIGHT_DEVICE_TOKEN=<device-token> \
+  yuimax/browsewright-runner:latest
 ```
 
-For Docker, passing `AUTOVIS_CLOUD_URL` and `AUTOVIS_DEVICE_TOKEN` as
+For Docker, passing `BROWSEWRIGHT_CLOUD_URL` and `BROWSEWRIGHT_DEVICE_TOKEN` as
 environment variables is the recommended registration flow. If you prefer the
 CLI helper, call it by absolute path inside the container:
 
 ```shell
-docker exec -it autovis-runner /opt/autovis-runner/bin/autovis-runner register \
+docker exec -it browsewright-runner /opt/browsewright-runner/bin/browsewright-runner register \
   --token <device-token> \
-  --cloud-url https://your-autovis-cloud.example.com
-docker restart autovis-runner
+  --cloud-url https://your-browsewright-cloud.example.com
+docker restart browsewright-runner
 ```
 
 ### Install script options
@@ -139,7 +139,7 @@ curl -fsSL .../install.sh | sudo bash -s -- --no-service
 # Windows equivalents:
 powershell -ExecutionPolicy Bypass -File install.ps1 -Version 0.9.1
 powershell -ExecutionPolicy Bypass -File install.ps1 -FromSource
-powershell -ExecutionPolicy Bypass -File install.ps1 -InstallDir D:\my-autovis
+powershell -ExecutionPolicy Bypass -File install.ps1 -InstallDir D:\my-browsewright
 powershell -ExecutionPolicy Bypass -File install.ps1 -SkipService
 ```
 
@@ -148,7 +148,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1 -SkipService
 Execution center with run history, live progress, and artifacts:
 
 <div align="center">
-  <img src="docs/assets/screenshot-runs-en.png" alt="AutoVis Runner execution center" width="880" />
+  <img src="docs/assets/screenshot-runs-en.png" alt="Browsewright Runner execution center" width="880" />
 </div>
 
 ## Architecture
@@ -161,7 +161,7 @@ flowchart LR
     EX --> BR["Chromium"]
   end
   BR --> SITES["Target sites"]
-  API <-. "optional device link" .-> CLOUD["AutoVis Cloud"]
+  API <-. "optional device link" .-> CLOUD["Browsewright Cloud"]
 ```
 
 Everything — scripts, run history, login state, LLM configuration — is stored
@@ -169,37 +169,37 @@ locally in SQLite. The cloud link is optional and off by default.
 
 ## Service management
 
-The installer links the `autovis-runner` command into your PATH
+The installer links the `browsewright-runner` command into your PATH
 (`/opt/homebrew/bin`, `/usr/local/bin`, or `~/.local/bin`). It manages the
 service on macOS and Linux:
 
 ```shell
-autovis-runner status     # service status
-autovis-runner restart    # restart the service
-autovis-runner stop       # stop the service
-autovis-runner logs       # follow logs
-autovis-runner enable     # enable autostart on boot/login
-autovis-runner disable    # disable the service
-autovis-runner start      # run in the foreground (no service)
+browsewright-runner status     # service status
+browsewright-runner restart    # restart the service
+browsewright-runner stop       # stop the service
+browsewright-runner logs       # follow logs
+browsewright-runner enable     # enable autostart on boot/login
+browsewright-runner disable    # disable the service
+browsewright-runner start      # run in the foreground (no service)
 ```
 
 The native tools also work directly:
 
 ```shell
 # Linux (systemd)
-sudo systemctl status autovis-runner
-sudo journalctl -u autovis-runner -f
+sudo systemctl status browsewright-runner
+sudo journalctl -u browsewright-runner -f
 
 # macOS (launchd)
-launchctl print gui/$(id -u)/com.autovis.runner
-tail -f ~/.autovis-runner/logs/runner.log
+launchctl print gui/$(id -u)/com.browsewright.runner
+tail -f ~/.browsewright-runner/logs/runner.log
 ```
 
 ```powershell
 # Windows (WinSW service)
-Get-Service AutoVisRunner
-C:\autovis-runner\winsw\autovis-service.exe status
-Get-Content C:\autovis-runner\logs\autovis-service.out.log -Wait
+Get-Service BrowsewrightRunner
+C:\browsewright-runner\winsw\browsewright-service.exe status
+Get-Content C:\browsewright-runner\logs\browsewright-service.out.log -Wait
 ```
 
 ## Upgrade
@@ -209,10 +209,10 @@ application files are replaced and the service is restarted:
 
 ```shell
 # macOS
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | bash
 
 # Linux
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash
 ```
 
 ```powershell
@@ -224,10 +224,10 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 
 ```shell
 # macOS / Linux: remove service + files, keep config and data
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash -s -- --uninstall
 
 # Also remove config and data
-curl -fsSL https://raw.githubusercontent.com/Yuikij/autovis-runner/main/install.sh | sudo bash -s -- --uninstall --purge
+curl -fsSL https://raw.githubusercontent.com/Yuikij/browsewright-runner/main/install.sh | sudo bash -s -- --uninstall --purge
 ```
 
 On macOS, run without `sudo`.
@@ -245,30 +245,30 @@ powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall -Purge
 Authentication is disabled by default. To protect a self-hosted runner, set:
 
 ```shell
-AUTOVIS_AUTH_ENABLED=true
-AUTOVIS_ADMIN_USER=admin
-AUTOVIS_ADMIN_PASSWORD=<strong-password>
+BROWSEWRIGHT_AUTH_ENABLED=true
+BROWSEWRIGHT_ADMIN_USER=admin
+BROWSEWRIGHT_ADMIN_PASSWORD=<strong-password>
 ```
 
 In production, the runner refuses to start without authentication when
 `APP_ORIGIN` is not localhost unless you explicitly set:
 
 ```shell
-AUTOVIS_ALLOW_INSECURE_NO_AUTH=true
+BROWSEWRIGHT_ALLOW_INSECURE_NO_AUTH=true
 ```
 
 LLM account storage can be shared by every login or separated per user:
 
 ```shell
-AUTOVIS_LLM_SCOPE=shared    # default
-AUTOVIS_LLM_SCOPE=per_user  # each login has its own LLM configs and secrets
+BROWSEWRIGHT_LLM_SCOPE=shared    # default
+BROWSEWRIGHT_LLM_SCOPE=per_user  # each login has its own LLM configs and secrets
 ```
 
 To encrypt stored API keys, Git credentials, and browser login state at rest,
 set a stable server-side key before first write:
 
 ```shell
-AUTOVIS_SECRET_KEY=<strong-random-secret>
+BROWSEWRIGHT_SECRET_KEY=<strong-random-secret>
 ```
 
 Keep the same key across restarts. Existing plaintext rows stay readable, but
@@ -281,7 +281,7 @@ key is restored.
 Multiple users can be seeded with:
 
 ```shell
-AUTOVIS_USERS=alice:password:admin,bob:password:user
+BROWSEWRIGHT_USERS=alice:password:admin,bob:password:user
 ```
 
 ## Development
@@ -297,8 +297,8 @@ pnpm start      # run the built server
 
 ## Release
 
-This repository contains the public AutoVis Runner source. Release artifacts
-are packaged as `autovis-runner-<version>.tar.gz`.
+This repository contains the public Browsewright Runner source. Release artifacts
+are packaged as `browsewright-runner-<version>.tar.gz`.
 
 ## License
 

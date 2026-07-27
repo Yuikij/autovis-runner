@@ -1,10 +1,10 @@
 import { appendFile, mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { type Frame, type FrameLocator, type Page } from "@playwright/test"
-import { detectRiskControl, riskControlBanner, type RiskControlSignal } from "@autovis/runner"
+import { detectRiskControl, riskControlBanner, type RiskControlSignal } from "@browsewright/runner"
 import { type LocatorQuery } from "./types.js"
 
-// 风控检测与提示文案统一收敛到 @autovis/runner（运行时 risk 方法、server 探索工具共用一份正则，避免漂移）。
+// 风控检测与提示文案统一收敛到 @browsewright/runner（运行时 risk 方法、server 探索工具共用一份正则，避免漂移）。
 export { detectRiskControl, riskControlBanner, type RiskControlSignal }
 
 /**

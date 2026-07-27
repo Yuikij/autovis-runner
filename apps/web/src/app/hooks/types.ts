@@ -21,7 +21,7 @@ import type {
   WorkspaceSearchMatch,
   WorkspaceTreeEntry,
   AuthProfile,
-} from "@autovis/shared"
+} from "@browsewright/shared"
 import type { WorkspaceSection } from "../constants.js"
 import type { ParsedHash } from "../hashRouter.js"
 import type { ProjectRefreshLoaders } from "./streams/useProjectSync.js"

@@ -1,4 +1,4 @@
-import { type CaseContract, type ContractField, fieldsToJsonSchema } from "@autovis/shared"
+import { type CaseContract, type ContractField, fieldsToJsonSchema } from "@browsewright/shared"
 import { type ToolDefinition } from "../../llm.js"
 import { type ToolExecutionResult, type ToolRuntimeContext } from "../types.js"
 

@@ -1,5 +1,5 @@
-import { AutoVisDatabase } from "../db.js"
-import { type ScriptArtifact, type TestCase } from "@autovis/shared"
+import { BrowsewrightDatabase } from "../db.js"
+import { type ScriptArtifact, type TestCase } from "@browsewright/shared"
 
 /** 前置用例计划中的一项：一条依赖用例 + 它最新的可执行脚本。 */
 export interface PreconditionPlanNode {
@@ -18,7 +18,7 @@ export interface PreconditionPlan {
  * 不再有"测试集"概念，任务编排是另一层（见 TaskService）。
  */
 export class SuiteService {
-  constructor(private readonly db: AutoVisDatabase) {}
+  constructor(private readonly db: BrowsewrightDatabase) {}
 
   public normalizeDependencyCaseIds(caseIds: string[]): string[] {
     return [...new Set((caseIds ?? []).map((id) => id.trim()).filter(Boolean))]

@@ -4,7 +4,7 @@ import { basename, dirname, extname, join, relative, resolve, sep } from "node:p
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
-import type { KnowledgeEntry, KnowledgeFileContent, KnowledgeScriptApi, KnowledgeSearchHit, KnowledgeSearchResult, KnowledgeStats } from "@autovis/shared"
+import type { KnowledgeEntry, KnowledgeFileContent, KnowledgeScriptApi, KnowledgeSearchHit, KnowledgeSearchResult, KnowledgeStats } from "@browsewright/shared"
 
 import { dataDir } from "./services/common.js"
 

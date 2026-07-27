@@ -39,5 +39,5 @@ jobs:
           context: .
           push: true
           tags: |
-            yuimax/autovis-runner:latest
-            yuimax/autovis-runner:${{ steps.meta.outputs.version }}
+            yuimax/browsewright-runner:latest
+            yuimax/browsewright-runner:${{ steps.meta.outputs.version }}

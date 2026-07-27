@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button"
 import { inputClassName, textareaClassName } from "../../components/ui/field"
 import { translateStatus } from "../../utils"
 import { t } from "../../../i18n/index.js"
-import type { RecorderInteractionRequest } from "@autovis/shared"
+import type { RecorderInteractionRequest } from "@browsewright/shared"
 import type { ReadyWorkspaceController } from "../../useWorkspaceController"
 
 export type WorkbenchSidebarProps = {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Deterministic acceptance smoke test for an already-running AutoVis server.
+// Deterministic acceptance smoke test for an already-running Browsewright server.
 //
 // It is intentionally read-only and side-effect free: it verifies that the
 // operational surface (/health, /ready, /metrics) is healthy and that the core
@@ -12,8 +12,8 @@
 //
 // Env overrides:
 //   BASE_URL                       base server URL (default http://localhost:8787)
-//   AUTOVIS_SESSION_COOKIE         cookie value, e.g. "autovis_session=..." (when auth is enabled)
-//   AUTOVIS_ACCEPTANCE_TIMEOUT_MS  how long to wait for /ready (default 30000)
+//   BROWSEWRIGHT_SESSION_COOKIE         cookie value, e.g. "browsewright_session=..." (when auth is enabled)
+//   BROWSEWRIGHT_ACCEPTANCE_TIMEOUT_MS  how long to wait for /ready (default 30000)
 
 const args = process.argv.slice(2)
 const getArg = (flag) => {
@@ -22,8 +22,8 @@ const getArg = (flag) => {
 }
 
 const baseUrl = (getArg("--base") ?? process.env.BASE_URL ?? "http://localhost:8787").replace(/\/$/, "")
-const readyTimeoutMs = Number(getArg("--timeout") ?? process.env.AUTOVIS_ACCEPTANCE_TIMEOUT_MS ?? 30000)
-const sessionCookie = process.env.AUTOVIS_SESSION_COOKIE ?? ""
+const readyTimeoutMs = Number(getArg("--timeout") ?? process.env.BROWSEWRIGHT_ACCEPTANCE_TIMEOUT_MS ?? 30000)
+const sessionCookie = process.env.BROWSEWRIGHT_SESSION_COOKIE ?? ""
 
 const headers = sessionCookie ? { cookie: sessionCookie } : {}
 
@@ -75,7 +75,7 @@ const record = (name, ok, detail) => {
 }
 
 async function main() {
-  console.log(`AutoVis acceptance smoke → ${baseUrl}`)
+  console.log(`Browsewright acceptance smoke → ${baseUrl}`)
 
   // 1. operational surface
   const health = await fetchJson("/api/health").catch((reason) => ({ status: 0, json: { error: String(reason) } }))
@@ -90,7 +90,7 @@ async function main() {
   )
 
   const metrics = await fetchText("/api/metrics").catch((reason) => ({ status: 0, text: String(reason) }))
-  record("metrics", metrics.status === 200 && metrics.text.includes("autovis_ready"), `status=${metrics.status}`)
+  record("metrics", metrics.status === 200 && metrics.text.includes("browsewright_ready"), `status=${metrics.status}`)
 
   // 2. core read endpoints used by the UI
   const projects = await fetchJson("/api/projects").catch((reason) => ({ status: 0, json: { error: String(reason) } }))

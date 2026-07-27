@@ -1,7 +1,7 @@
 import { mkdir, readdir } from "node:fs/promises"
 import { basename, extname, join } from "node:path"
 import type { Browser, BrowserContext, Page } from "@playwright/test"
-import type { ExecutionRun, RunArtifact } from "@autovis/shared"
+import type { ExecutionRun, RunArtifact } from "@browsewright/shared"
 import { launchPersistentReplayContext, launchReplayBrowser, shouldStealthReplay, waitForProfileDirFree } from "./browser.js"
 import { createCdpLiveStreamer } from "./live-streamer.js"
 import { markRunStep, toPublicArtifactUrl, now } from "./utils.js"

@@ -1,4 +1,4 @@
-import type { ExecutionRun } from "@autovis/shared"
+import type { ExecutionRun } from "@browsewright/shared"
 
 import { EmptyState } from "../../components/empty-state"
 import { Button } from "../../components/ui/button"

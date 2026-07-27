@@ -12,11 +12,11 @@ const warnOnce = (message: string) => {
     return
   }
   warnedMessages.add(message)
-  console.warn(`[AutoVis] ${message}`)
+  console.warn(`[Browsewright] ${message}`)
 }
 
 const resolveKeyMaterial = (): Buffer | null => {
-  const source = process.env.AUTOVIS_SECRET_KEY?.trim()
+  const source = process.env.BROWSEWRIGHT_SECRET_KEY?.trim()
   if (!source) {
     cachedKeyMaterial = null
     return null
@@ -60,7 +60,7 @@ export const decryptStoredText = (value: string | null | undefined): string | nu
 
   const key = resolveKeyMaterial()
   if (!key) {
-    warnOnce("Encrypted persisted secrets were found but AUTOVIS_SECRET_KEY is not configured; sensitive values will stay unavailable until the key is provided.")
+    warnOnce("Encrypted persisted secrets were found but BROWSEWRIGHT_SECRET_KEY is not configured; sensitive values will stay unavailable until the key is provided.")
     return null
   }
 
@@ -81,7 +81,7 @@ export const decryptStoredText = (value: string | null | undefined): string | nu
 
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8")
   } catch {
-    warnOnce("Failed to decrypt persisted secret; check AUTOVIS_SECRET_KEY. Sensitive values backed by that payload are temporarily unavailable.")
+    warnOnce("Failed to decrypt persisted secret; check BROWSEWRIGHT_SECRET_KEY. Sensitive values backed by that payload are temporarily unavailable.")
     return null
   }
 }

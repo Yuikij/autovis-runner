@@ -1,4 +1,4 @@
-import type { TaskRun } from "@autovis/shared"
+import type { TaskRun } from "@browsewright/shared"
 
 import { Badge } from "../../components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"

@@ -1,4 +1,4 @@
-import { type Project, type TestCase } from "@autovis/shared"
+import { type Project, type TestCase } from "@browsewright/shared"
 import { type InitialPageState, type PreconditionReport } from "./types.js"
 
 export function buildAgentSystemPrompt(): string {

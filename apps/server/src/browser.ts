@@ -314,7 +314,7 @@ export const launchStealthPersistentContext = async (
 ): Promise<{ context: BrowserContext; userDataDir: string }> => {
   const headless = options.headless ?? false
   const channel = (process.env.BROWSER_CHANNEL ?? "chrome").trim()
-  const userDataDir = options.userDataDir ?? (await mkdtemp(join(tmpdir(), "autovis-sbx-")))
+  const userDataDir = options.userDataDir ?? (await mkdtemp(join(tmpdir(), "browsewright-sbx-")))
   // 复用固定 profile 目录（持久登录态）时，先确保没有别的 Chrome 占着锁；临时目录不会冲突。
   if (options.userDataDir) {
     await waitForProfileDirFree(options.userDataDir)

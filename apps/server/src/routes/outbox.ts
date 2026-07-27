@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify"
-import type { ApiEnvelope, OutboxItem } from "@autovis/shared"
+import type { ApiEnvelope, OutboxItem } from "@browsewright/shared"
 import { store } from "../store.js"
 
 export async function outboxRoutes(app: FastifyInstance) {
